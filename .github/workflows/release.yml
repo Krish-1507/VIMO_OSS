@@ -1,0 +1,46 @@
+name: Release
+
+# Automated versioning + changelog via Changesets.
+# - On push to main with pending changesets: opens a "Version Packages" PR that
+#   bumps versions, writes CHANGELOG.md, and consumes the changesets.
+# - On merge of that PR: tags the release and publishes a GitHub Release.
+# VIMO is a private, self-hosted monorepo, so nothing is published to npm; we
+# only cut git tags + GitHub Releases.
+
+on:
+  push:
+    branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Version & Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create Release Pull Request or publish to GitHub Releases
+        uses: changesets/action@v1
+        with:
+          version: npm run version
+          publish: npx changeset tag
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

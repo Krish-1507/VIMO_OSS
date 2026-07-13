@@ -1,0 +1,52 @@
+:root {
+  /* Backgrounds */
+  --bg-base: #FFFFFF;
+  --bg-elevated: #F9FAFB;
+  --bg-overlay: #F3F4F6;
+
+  /* Borders */
+  --border-subtle: #F3F4F6;
+  --border-default: #E5E7EB;
+  --border-strong: #D1D5DB;
+
+  /* Text */
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --text-tertiary: #9CA3AF;
+
+  /* Brand */
+  --teal-500: #0F6E56;
+  --teal-400: #1D9E75;
+  --teal-100: #E1F5EE;
+  --teal-900: #064E3B;
+
+  /* Status */
+  --green: #059669;
+  --amber: #D97706;
+  --red: #DC2626;
+  --blue: #2563EB;
+  --purple: #7C3AED;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-modal: 0 20px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
+
+  /* Spacing rhythm */
+  --spacing-1: 4px; --spacing-2: 8px; --spacing-3: 12px;
+  --spacing-4: 16px; --spacing-5: 20px; --spacing-6: 24px;
+  --spacing-8: 32px; --spacing-10: 40px; --spacing-12: 48px;
+  --spacing-16: 64px;
+}
+
+.dark {
+  --bg-base: #0A0A0F;
+  --bg-elevated: #111118;
+  --bg-overlay: #1A1A24;
+  --border-subtle: #1F1F2E;
+  --border-default: #2D2D3F;
+  --border-strong: #374151;
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --text-tertiary: #6B7280;
+  --teal-100: rgba(15,110,86,0.15);
+}

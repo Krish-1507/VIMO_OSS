@@ -1,0 +1,29 @@
+{
+  "name": "vimo",
+  "version": "2.0.0",
+  "description": "VIMO — VIbe Marketing Operations. A professional open-source AI vibe marketing platform.",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently --names FE,BE,SHARED --prefix-colors cyan,green,yellow \"npm run dev --workspace=packages/frontend\" \"npm run dev --workspace=packages/backend\"",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces",
+    "test:backend": "npm run test --workspace=packages/backend",
+    "test:frontend": "npm run test --workspace=packages/frontend",
+    "test:e2e": "playwright test",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10",
+    "@playwright/test": "^1.61.1",
+    "concurrently": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

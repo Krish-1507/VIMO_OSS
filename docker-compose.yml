@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - vimo-data:/app/data
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - BACKEND_URL=http://localhost:3000
+      - FRONTEND_URL=http://localhost:80
+      - DB_PATH=./data/vimo.db
+      - LOG_LEVEL=info
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  vimo-data:
