@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="VIMO_logo.png" alt="VIMO — Vibe Marketing Operations" width="220">
+</p>
+
 # VIMO — Vibe Marketing Operations
 
 **The open-source autonomous marketing OS for people who have a brand to grow, not a DevOps team to manage.**
