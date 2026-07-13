@@ -18,14 +18,14 @@ intelligence pack that surfaces real launch signals into VIMO.
 
 There are three small pieces, and you usually only need two:
 
-| Piece | File | What it does |
-|---|---|---|
-| **Preset** | `packages/backend/src/connectors/presets/index.ts` | Declares the connector to the UI: name, icon, auth type, required credentials, tools. Pure data. |
-| **Discover fetcher** | `packages/backend/src/services/packDiscoveryService.ts` | A *live, read-only* probe that validates credentials and returns real discovery items. |
-| **`PackAdapter`** | `packages/backend/src/services/packIntegrations.ts` | Pulls live data on each sync, records the outcome, and reports connection health. |
+| Piece                | File                                                    | What it does                                                                                     |
+| -------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Preset**           | `packages/backend/src/connectors/presets/index.ts`      | Declares the connector to the UI: name, icon, auth type, required credentials, tools. Pure data. |
+| **Discover fetcher** | `packages/backend/src/services/packDiscoveryService.ts` | A _live, read-only_ probe that validates credentials and returns real discovery items.           |
+| **`PackAdapter`**    | `packages/backend/src/services/packIntegrations.ts`     | Pulls live data on each sync, records the outcome, and reports connection health.                |
 
 The key insight: **`discoverPack` is how VIMO validates and "discovers" — and the `PackAdapter` is
-how it syncs.** Both talk to the *real* provider API. VIMO only ever shows "Connected" when the
+how it syncs.** Both talk to the _real_ provider API. VIMO only ever shows "Connected" when the
 call actually succeeds — it never fabricates metrics.
 
 ---
@@ -66,30 +66,55 @@ Add an entry to `PRESET_CONNECTORS` in `packages/backend/src/connectors/presets/
 In `packages/backend/src/services/packDiscoveryService.ts`, add a fetcher and register it:
 
 ```ts
-async function discoverProductHunt(creds: Record<string, string>): Promise<DiscoveryResult> {
+async function discoverProductHunt(
+  creds: Record<string, string>
+): Promise<DiscoveryResult> {
   const token = creds.apiKey;
-  if (!token) return { success: false, items: [], error: 'Product Hunt requires a developer token' };
+  if (!token)
+    return {
+      success: false,
+      items: [],
+      error: "Product Hunt requires a developer token",
+    };
   try {
-    const res = await axios.get('https://api.producthunt.com/v2/api/graphql', {
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: { query: '{ posts(order: VOTES, first: 5) { edges { node { name tagline votesCount } } } }' },
+    const res = await axios.get("https://api.producthunt.com/v2/api/graphql", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      data: {
+        query:
+          "{ posts(order: VOTES, first: 5) { edges { node { name tagline votesCount } } } }",
+      },
     });
     const posts = res.data?.data?.posts?.edges ?? [];
     return {
       success: true,
       items: [
-        { icon: 'TrendingUp', label: 'Top hunts tracked', value: String(posts.length) },
-        { icon: 'ThumbsUp', label: 'Top votes', value: String(posts[0]?.node?.votesCount ?? 0) },
-        { icon: 'Tag', label: 'Connected', value: 'Yes' },
+        {
+          icon: "TrendingUp",
+          label: "Top hunts tracked",
+          value: String(posts.length),
+        },
+        {
+          icon: "ThumbsUp",
+          label: "Top votes",
+          value: String(posts[0]?.node?.votesCount ?? 0),
+        },
+        { icon: "Tag", label: "Connected", value: "Yes" },
       ],
     };
   } catch (err: any) {
-    return { success: false, items: [], error: `Product Hunt API error: ${err?.response?.status || err.message}` };
+    return {
+      success: false,
+      items: [],
+      error: `Product Hunt API error: ${err?.response?.status || err.message}`,
+    };
   }
 }
 
 // In the discoveryFetchers registry:
-discoveryFetchers['producthunt'] = discoverProductHunt;
+discoveryFetchers["producthunt"] = discoverProductHunt;
 ```
 
 That's it for the marketplace. VIMO will now **validate** the token on connect (a failed call →
@@ -97,38 +122,72 @@ That's it for the marketplace. VIMO will now **validate** the token on connect (
 
 ### 3. (Optional) Add a sync adapter
 
-If you want VIMO to *pull* Product Hunt data into its memory on a schedule, extend `PackAdapter`
+If you want VIMO to _pull_ Product Hunt data into its memory on a schedule, extend `PackAdapter`
 in `packages/backend/src/services/packIntegrations.ts`:
 
 ```ts
 class ProductHuntAdapter extends PackAdapter {
-  getPackType() { return 'intelligence'; }
+  getPackType() {
+    return "intelligence";
+  }
 
   async sync(connectorId: string): Promise<SyncResult> {
     try {
       const connector = await this.getConnector(connectorId);
-      if (!connector) throw new Error('Connector not found');
-      const token = await this.getCredentials(connectorId, 'apiKey');
-      if (!token) throw new Error('Product Hunt token not found');
+      if (!connector) throw new Error("Connector not found");
+      const token = await this.getCredentials(connectorId, "apiKey");
+      if (!token) throw new Error("Product Hunt token not found");
 
-      const connection = createExternalConnection('producthunt-pack',
-        'https://api.producthunt.com/v2/api/graphql',
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
-      const res = await connection.post('', { /* query */ });
+      const connection = createExternalConnection(
+        "producthunt-pack",
+        "https://api.producthunt.com/v2/api/graphql",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const res = await connection.post("", {
+        /* query */
+      });
       const posts = res.data?.data?.posts?.edges ?? [];
 
-      await this.recordSync(connectorId, { success: true, dataPoints: posts.length });
-      return { success: true, itemsSynced: posts.length, errors: [], newDataFound: posts.length > 0 };
+      await this.recordSync(connectorId, {
+        success: true,
+        dataPoints: posts.length,
+      });
+      return {
+        success: true,
+        itemsSynced: posts.length,
+        errors: [],
+        newDataFound: posts.length > 0,
+      };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      await this.recordSync(connectorId, { success: false, dataPoints: 0, error: message });
-      return { success: false, itemsSynced: 0, errors: [message], newDataFound: false };
+      const message = error instanceof Error ? error.message : "Unknown error";
+      await this.recordSync(connectorId, {
+        success: false,
+        dataPoints: 0,
+        error: message,
+      });
+      return {
+        success: false,
+        itemsSynced: 0,
+        errors: [message],
+        newDataFound: false,
+      };
     }
   }
 
   async getStatus(connectorId: string): Promise<PackConnection> {
     const connector = await this.getConnector(connectorId);
-    return this.buildStatus(connector, 'producthunt', 'Product Hunt', 'intelligence', null);
+    return this.buildStatus(
+      connector,
+      "producthunt",
+      "Product Hunt",
+      "intelligence",
+      null
+    );
   }
 }
 ```
@@ -136,7 +195,7 @@ class ProductHuntAdapter extends PackAdapter {
 Then register it in the `PackAdapterRegistry` constructor:
 
 ```ts
-this.adapters.set('producthunt', new ProductHuntAdapter());
+this.adapters.set("producthunt", new ProductHuntAdapter());
 ```
 
 ---
@@ -146,7 +205,11 @@ this.adapters.set('producthunt', new ProductHuntAdapter());
 **`discoverPack(provider, credentials) → DiscoveryResult`**
 
 ```ts
-interface DiscoveryResult { success: boolean; items: { icon: string; label: string; value: string }[]; error?: string }
+interface DiscoveryResult {
+  success: boolean;
+  items: { icon: string; label: string; value: string }[];
+  error?: string;
+}
 ```
 
 Return `success: true` only when the live API call worked. Return `success: false` with a real
@@ -155,7 +218,12 @@ error message otherwise. **Never return fake items.**
 **`PackAdapter.sync(connectorId) → SyncResult`**
 
 ```ts
-interface SyncResult { success: boolean; itemsSynced: number; errors: string[]; newDataFound: boolean }
+interface SyncResult {
+  success: boolean;
+  itemsSynced: number;
+  errors: string[];
+  newDataFound: boolean;
+}
 ```
 
 Use the inherited helpers — they're the whole point:
@@ -174,9 +242,24 @@ Our connection-layer tests mock the **external API only** — never VIMO's logic
 you add a connector. See `packages/backend/src/tests/connectionPackMarketplace.test.ts`:
 
 ```ts
-it('Product Hunt: validates a token by fetching top hunts', async () => {
-  mockDirectGetRoutes([['api.producthunt.com', { data: { data: { posts: { edges: [/* ... */] } } } }]]);
-  const res = await discoverPack('producthunt', { apiKey: 'ph_test' });
+it("Product Hunt: validates a token by fetching top hunts", async () => {
+  mockDirectGetRoutes([
+    [
+      "api.producthunt.com",
+      {
+        data: {
+          data: {
+            posts: {
+              edges: [
+                /* ... */
+              ],
+            },
+          },
+        },
+      },
+    ],
+  ]);
+  const res = await discoverPack("producthunt", { apiKey: "ph_test" });
   expect(res.success).toBe(true);
 });
 ```

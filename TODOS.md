@@ -1,6 +1,7 @@
 # TODO — Higgsfield + Managed/Guided OAuth + Connector Hub Redesign
 
 ## Phase A — OAuth architecture (managed/guided/simplified)
+
 - [ ] Discover/update backend OAuth start/callback routes behavior
   - File: `packages/backend/src/routes/oauth.ts`
 - [ ] Implement provider strategy in `packages/backend/src/lib/oauthManager.ts`
@@ -19,6 +20,7 @@
   - [ ] GUIDED: notify 30 days before expiry with “Reconnect”
 
 ## Phase B — Connector Hub UI redesign (adoption)
+
 - [ ] Update `packages/frontend/src/pages/ConnectorsPage.tsx`
   - [ ] Remove developer-app setup text for managed/guided/simplified flows
   - [ ] Implement new provider-type-driven setup modal UI
@@ -36,17 +38,20 @@
 - [ ] Add ConnectorStatus UI on connected connector cards
 
 ## Phase C — Higgsfield (existing partial work to verify)
+
 - [ ] Confirm TS builds pass: `npx tsc --noEmit`
 - [ ] Confirm Higgsfield routes/jobs/styles/video work end-to-end
 - [ ] Confirm socket events emitted: `higgsfield:job_started`, `higgsfield:progress`, `higgsfield:complete`
 - [ ] Confirm AI Video tab wiring and style selector fetches from `/api/higgsfield/styles`
 
 ## Gates / Acceptance Criteria
+
 - [ ] `npx tsc --noEmit` => zero errors
 - [ ] Connector Hub shows managed/guided/simplified flows as specified
 - [ ] Zero instances of banned words in ConnectorHub-related UI strings
 
 ## Phase D — Connector Hub: search/filters, multi-account, visual builder, plugin API (COMPLETED)
+
 - [x] Backend `/api/connectors/presets` accepts `search` / `category` / `status` query filters
 - [x] Backend `/api/connectors/grouped` returns connectors grouped by provider (multi-account)
 - [x] Backend `POST /api/connectors/builder` creates a connector from a visual spec + persists a custom preset

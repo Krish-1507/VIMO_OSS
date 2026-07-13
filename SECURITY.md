@@ -28,14 +28,14 @@ issues for vulnerabilities** until a fix is released.
 
 Honesty about the data model:
 
-| Data | Where | Encrypted? | Why |
-|---|---|---|---|
-| Connector metadata (id, name, provider, status, config) | `connectors` table | No (metadata only) | Needed to route requests and show your connections. Contains no secrets. |
-| API keys / OAuth tokens / app passwords | `app_settings` as `cred:<connectorId>:<key>` | **Yes** (AES-256-GCM) | Required to act on your behalf. Never stored in plaintext. |
-| Session token (`<token>\|<expiry>`) | `app_settings` key `session_token` | **Yes** (AES-256-GCM, same key/scheme as credentials) | VIMO is a local single-user app. The token is a random 256-bit value, returned only to the verifying client, encrypted at rest, and cleared on logout/reset. For multi-user or exposed deployments, front it with a reverse proxy + TLS and treat the host as trusted. |
-| PIN hash | `app_settings` key `pin_hash` | Yes (SHA-256) | Local login gate; only the hash is stored. |
-| Brand data, posts, campaigns, memory | `SQLite` tables | No | Your actual marketing content. Local only. |
-| AI usage (tokens, model, cost) | local tables | No | Cost transparency dashboard. Local only. |
+| Data                                                    | Where                                        | Encrypted?                                            | Why                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Connector metadata (id, name, provider, status, config) | `connectors` table                           | No (metadata only)                                    | Needed to route requests and show your connections. Contains no secrets.                                                                                                                                                                                               |
+| API keys / OAuth tokens / app passwords                 | `app_settings` as `cred:<connectorId>:<key>` | **Yes** (AES-256-GCM)                                 | Required to act on your behalf. Never stored in plaintext.                                                                                                                                                                                                             |
+| Session token (`<token>\|<expiry>`)                     | `app_settings` key `session_token`           | **Yes** (AES-256-GCM, same key/scheme as credentials) | VIMO is a local single-user app. The token is a random 256-bit value, returned only to the verifying client, encrypted at rest, and cleared on logout/reset. For multi-user or exposed deployments, front it with a reverse proxy + TLS and treat the host as trusted. |
+| PIN hash                                                | `app_settings` key `pin_hash`                | Yes (SHA-256)                                         | Local login gate; only the hash is stored.                                                                                                                                                                                                                             |
+| Brand data, posts, campaigns, memory                    | `SQLite` tables                              | No                                                    | Your actual marketing content. Local only.                                                                                                                                                                                                                             |
+| AI usage (tokens, model, cost)                          | local tables                                 | No                                                    | Cost transparency dashboard. Local only.                                                                                                                                                                                                                               |
 
 We call out the session token deliberately: as of the latest release it **is** encrypted at rest with
 the same AES-256-GCM scheme used for connector credentials (the `<token>|<expiry>` blob is encrypted
@@ -60,6 +60,7 @@ instance, run VIMO behind authenticated TLS and never expose port 3000 directly.
    `app_settings`.
 
 ## Secure Deployment Notes
+
 - **Localhost model.** VIMO is designed for a single user on `localhost`. Running it on a
   publicly accessible server requires a reverse proxy with TLS and, ideally, an authenticating
   layer in front.

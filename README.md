@@ -3,7 +3,7 @@
 **The open-source autonomous marketing OS for people who have a brand to grow, not a DevOps team to manage.**
 
 You describe what you want. VIMO researches trends, writes the content, posts it, replies to
-comments, learns from every result, and tells you *why* — in plain English. No agency. No
+comments, learns from every result, and tells you _why_ — in plain English. No agency. No
 $4,000/month SaaS stack. No copy-pasting API keys into developer portals.
 
 > Type one sentence. VIMO handles the rest.
@@ -36,7 +36,7 @@ VIMO is built for the other 95%:
 - **It explains itself.** Every recommendation comes with the data points that justify it and a
   confidence score. No black boxes.
 - **It learns your brand.** Not generic AI slop — VIMO builds a "Content DNA" from what actually
-  works for *your* audience, and gets smarter with every post.
+  works for _your_ audience, and gets smarter with every post.
 
 If you can write a tweet, you can run a complete autonomous marketing operation.
 
@@ -58,7 +58,7 @@ If you can write a tweet, you can run a complete autonomous marketing operation.
   times, content variety system.
 - **Growth Loops** — detect a winner, then auto-generate follow-ups, repurposed cross-posts, and
   A/B tests.
-- **Explainability** — every suggestion shows the *why*, *data points*, *confidence*, and *method*.
+- **Explainability** — every suggestion shows the _why_, _data points_, _confidence_, and _method_.
 - **Model Router & Cost Transparency** — route tasks to the right model, see real token/cost
   dashboards. ~$5–15/month for a moderately active account.
 - **Native Connectors + Pack Marketplace** — a growing catalog of connectors across social,
@@ -85,7 +85,7 @@ You don't need a single API key to see VIMO work.
    `http://localhost:5173` and the system check runs automatically.
 2. **Set a 4–8 digit PIN** to log in (it's a local, single-user app).
 3. **Connect one AI provider** (OpenAI, Anthropic, or any OpenAI-compatible endpoint like Groq or
-   Ollama). This is the *only* key required to generate content.
+   Ollama). This is the _only_ key required to generate content.
 4. **Connect a social account** — click **Connect** on Instagram, LinkedIn, X, etc. One-click
    providers (GitHub, Notion, Canva) need zero keys.
 5. **Run the Marketing Director.** You get a morning briefing with a top recommendation. Click
@@ -164,11 +164,11 @@ flowchart TB
   SVC --> LLM
 ```
 
-| Layer | Responsibility | Examples |
-|---|---|---|
-| **Service Layer** | Reusable business logic | content generation, analytics, engagement, memory, scheduling, approvals |
-| **Worker Layer** | Focused functions the Director calls | research, analytics, content, engagement |
-| **Orchestration Layer** | Coordinates workers into a briefing | the Marketing Director |
+| Layer                   | Responsibility                       | Examples                                                                 |
+| ----------------------- | ------------------------------------ | ------------------------------------------------------------------------ |
+| **Service Layer**       | Reusable business logic              | content generation, analytics, engagement, memory, scheduling, approvals |
+| **Worker Layer**        | Focused functions the Director calls | research, analytics, content, engagement                                 |
+| **Orchestration Layer** | Coordinates workers into a briefing  | the Marketing Director                                                   |
 
 ---
 
@@ -209,7 +209,7 @@ is mocked.
 
 A "Pack" turns an external tool (Shopify, GitHub, Stripe, SEO, …) into live context for VIMO.
 
-- **Discover** — `discoverPack(provider, credentials)` makes a *real, minimal* read-only call to
+- **Discover** — `discoverPack(provider, credentials)` makes a _real, minimal_ read-only call to
   the provider (list repos, count products, read balance) and returns honest discovery items. If
   the call fails, it returns `success: false` with the real error — **VIMO never fabricates
   metrics.**
@@ -222,25 +222,25 @@ A "Pack" turns an external tool (Shopify, GitHub, Stripe, SEO, …) into live co
 
 The AI Designer connects to Canva through the Integration Engine, which wraps the real Canva REST
 API using the access token of the Canva connector you already connected. Designs are created in
-*your* Canva account.
+_your_ Canva account.
 
 > 🔒 **Leakage guarantee:** errors are sanitized before they reach the UI (no tokens, no OAuth
 > details), the session token is only ever returned to the verified client, and external API
-> boundaries are the *only* thing our connection-layer tests mock. See [SECURITY.md](SECURITY.md).
+> boundaries are the _only_ thing our connection-layer tests mock. See [SECURITY.md](SECURITY.md).
 
 ---
 
 ## 📊 Coverage & honest status
 
-We'd rather under-promise than lose your trust after a star. VIMO ships a large *catalog* of
+We'd rather under-promise than lose your trust after a star. VIMO ships a large _catalog_ of
 connectors, but not every one can publish end-to-end yet. Each connector carries a readiness badge
 you can see in the Connector Hub:
 
-| Badge | Meaning |
-|---|---|
-| **Ready** | You can connect **and** act end-to-end today — publishing, generation, or querying actually works and is covered by our tests. |
-| **Connect only** | You can connect and pull context/analytics, but automated publishing for that platform isn't wired up yet. We say so plainly. |
-| **Coming soon** | Advertised in the catalog, but the connector/adapter hasn't been built. |
+| Badge            | Meaning                                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Ready**        | You can connect **and** act end-to-end today — publishing, generation, or querying actually works and is covered by our tests. |
+| **Connect only** | You can connect and pull context/analytics, but automated publishing for that platform isn't wired up yet. We say so plainly.  |
+| **Coming soon**  | Advertised in the catalog, but the connector/adapter hasn't been built.                                                        |
 
 Current reality (no embellishment):
 
@@ -251,7 +251,7 @@ Current reality (no embellishment):
   the MCP intelligence sources (GitHub, Notion, Slack, Drive, Linear, Figma, Trello, Asana,
   Dropbox) which feed VIMO context but don't publish on your behalf.
 
-If you want a platform moved from *Connect only* → *Ready*, the publish handler is the place to
+If you want a platform moved from _Connect only_ → _Ready_, the publish handler is the place to
 contribute — see `packages/backend/src/services/vimoSocialPublishService.ts`.
 
 ---
@@ -264,14 +264,14 @@ contribute — see `packages/backend/src/services/vimoSocialPublishService.ts`.
   see [SECURITY.md → What we store and why](SECURITY.md) for the full, honest inventory.
 - **No telemetry.** VIMO does not phone home.
 - **Prompt sanitization** defends against prompt injection from scraped content.
-- **Reproducible test boundaries.** Our tests mock the *external API*, never VIMO's logic — so a
+- **Reproducible test boundaries.** Our tests mock the _external API_, never VIMO's logic — so a
   green suite means the real code paths work.
 
 ---
 
 ## 🧩 Extensibility — write your own connector in ~50 lines
 
-VIMO is designed to be extended by *you*. The `PackAdapter` pattern is intentionally tiny:
+VIMO is designed to be extended by _you_. The `PackAdapter` pattern is intentionally tiny:
 
 - Add a **preset** in `packages/backend/src/connectors/presets/index.ts`.
 - Implement a **handler** (for social publishing) or a **PackAdapter** (for the marketplace).
@@ -284,15 +284,15 @@ including a 50-line example connector and the discover/validate contract.
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18 + TypeScript + Vite |
-| Backend | Fastify + Node.js + TypeScript |
-| Database | SQLite + Drizzle ORM |
-| Agents | LangGraph.js + LangChain.js |
-| Real-Time | Socket.io |
-| Local Vector Store | LanceDB |
-| Styling / State | Tailwind CSS · Zustand |
+| Layer              | Technology                     |
+| ------------------ | ------------------------------ |
+| Frontend           | React 18 + TypeScript + Vite   |
+| Backend            | Fastify + Node.js + TypeScript |
+| Database           | SQLite + Drizzle ORM           |
+| Agents             | LangGraph.js + LangChain.js    |
+| Real-Time          | Socket.io                      |
+| Local Vector Store | LanceDB                        |
+| Styling / State    | Tailwind CSS · Zustand         |
 
 **Zero Docker required.** SQLite, an in-memory job-queue fallback, and optional local AI via
 Ollama mean VIMO can run entirely offline.
@@ -301,7 +301,7 @@ Ollama mean VIMO can run entirely offline.
 
 ## 🤝 Contributing
 
-We want this to be *the* place indie hackers and agencies extend. Start with
+We want this to be _the_ place indie hackers and agencies extend. Start with
 **[CONTRIBUTING.md](CONTRIBUTING.md)** — it covers the dev setup, the testing expectations (every
 connection change ships with an integration test), and how to add a connector, a Pack, or a worker.
 Versions and the changelog are automated via **[Changesets](.changeset/README.md)** — open a PR with
@@ -325,5 +325,6 @@ VIMO is released under the [MIT License](LICENSE). Built for creators, by creato
 <p align="center">
   <b>No agencies. No $4,000 SaaS bills. Just type your goal, click GO, and watch it happen.</b>
 </p>
-#   r e p o r e a d e r - O p e n J u l e s  
+#   r e p o r e a d e r - O p e n J u l e s 
+ 
  

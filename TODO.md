@@ -1,6 +1,7 @@
 # VIMO Hardening: Instagram Graph API + Growth Intelligence
 
 ## Section 1: Real Instagram Graph API Publisher
+
 - [ ] Create `packages/backend/src/connectors/handlers/instagramHandler.ts` implementing:
   - [ ] `verifyAccountType`
   - [ ] `createMediaContainer`
@@ -13,6 +14,7 @@
   - [ ] Rate-limit reschedule (+1 hour) and token-expired handling (connector status + socket event)
 
 ## Section 2: Instagram OAuth Flow (Real Implementation)
+
 - [ ] Update `packages/backend/src/connectors/presets/index.ts` for Instagram:
   - [ ] `authType: 'oauth2_manual'`
   - [ ] requiredCredentials: appId, appSecret, accessToken
@@ -25,6 +27,7 @@
   - [ ] Show green success box or red prominent warning box
 
 ## Section 3: Optimal Posting Time Engine
+
 - [ ] Create `packages/backend/src/services/postingTimeService.ts`
   - [ ] `getInstagramAudienceInsights` (insights API + parse best day/hour)
   - [ ] `getDefaultOptimalTimes`
@@ -35,6 +38,7 @@
   - [ ] “Use this time” populates date/time picker
 
 ## Section 4: Post Performance Tracker
+
 - [ ] Create `packages/backend/src/services/performanceTrackerService.ts`
   - [ ] `fetchInstagramPostInsights`
   - [ ] `refreshPostPerformance` (cron: every 6 hours)

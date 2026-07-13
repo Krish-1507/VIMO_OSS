@@ -1,6 +1,7 @@
 # FUTURE IMPROVEMENTS — VIMO Post-Mortem & Roadmap
 
 > This document is a brutally honest review of VIMO from two perspectives:
+>
 > 1. A senior engineer evaluating production readiness, architecture, and code quality
 > 2. A non-technical marketing director evaluating whether this tool actually helps them
 >
@@ -42,41 +43,49 @@ VIMO is an ambitious project that tries to be **10 things at once** — social m
 ### Security — The Scary Parts
 
 #### Critical: PIN Reset Requires No Authentication
+
 `packages/backend/src/routes/auth.ts:113` — The `POST /api/auth/reset-pin` endpoint accepts requests with **no session token**. Anyone who can reach the server can change the PIN. The comment literally says `"(no old PIN needed for local single-user app)"`. This is a documented, accepted security bypass. In production, this is an instant compromise.
 
 **Fix:** Require an existing valid session token, or at minimum a one-time code tied to the machine.
 
 #### Critical: Encryption Key Can Be Empty String
+
 `packages/backend/src/lib/credentialStore.ts:6-9` — If `ENCRYPTION_KEY` is not set in `.env`, the encryption key is `sha256("")` — a known, computable value. All stored OAuth credentials become trivially decryptable.
 
 **Fix:** Validate `ENCRYPTION_KEY` at startup. If it's empty or the default placeholder, refuse to start.
 
 #### High: Session Expiry Parsing Can Be Bypassed
+
 `packages/backend/src/middleware/auth.ts:22` — The session token is stored as `token|expiry`. If the expiry value is malformed, `Number(expiry)` is `NaN`, and `Date.now() > NaN` is always `false` — the token never expires.
 
 **Fix:** Add `isNaN()` check. Better: use JWT with proper verification instead of homemade pipe-delimited tokens.
 
 #### High: No Rate Limiting on Auth Endpoints
+
 `packages/backend/src/index.ts:133` — The global rate limiter explicitly **excludes** all auth routes. Only `verify` has its own 5/min limit. `setup`, `reset-pin`, and `renew` have no limits at all. Brute force is trivial.
 
 **Fix:** Add rate limits to every auth endpoint. At minimum 10/min for non-sensitive, 3/min for sensitive operations.
 
 #### High: No Input Validation Anywhere
+
 Every route handler casts `request.body as { ... }` with zero runtime validation. Malformed JSON, missing fields, wrong types — none are caught. A single bad request can crash the handler with `TypeError: Cannot read properties of undefined`.
 
 **Fix:** Adopt Zod or Joi for request validation. Every route gets a schema. This catches bugs at the boundary before they reach business logic.
 
 #### Medium: SHA-256 for PIN Hashing
+
 `packages/backend/src/routes/auth.ts:8-10` — PINs are hashed with a single SHA-256 round. No salt, no work factor. GPU-based brute force can try billions of combinations per second.
 
 **Fix:** Use bcrypt (cost factor 10+) or argon2id. For a 4-8 digit numeric PIN, this matters less than for passwords — but it's still wrong.
 
 #### Medium: OAuth State Stored In-Memory Only
+
 `packages/backend/src/lib/oauthManager.ts:464-483` — The `pendingStates` Map lives in process memory. Server restart wipes all pending OAuth flows. In production with real users, someone will inevitably hit this during a deploy.
 
 **Fix:** Store OAuth state in the database (or Redis if available). Clean up expired entries with a background job.
 
 #### Low: No CSRF Protection
+
 The app uses `@fastify/helmet` but doesn't configure CSRF protection. For a header-token auth scheme this is partially mitigated, but it's still a gap.
 
 ---
@@ -84,26 +93,31 @@ The app uses `@fastify/helmet` but doesn't configure CSRF protection. For a head
 ### Architecture — What Needs Rethinking
 
 #### 1. SQLite is Not Production-Ready
+
 SQLite is fine for a single-user local dev tool. It is not appropriate for a "marketing operations platform." No concurrent writes, no replication, no access control, no backup strategy beyond file copy. The `app_settings` key-value table stores PIN hashes, session tokens, encrypted credentials, and app config in one denormalized table.
 
 **What to do:** Migrate to PostgreSQL. Use Drizzle Kit for migrations (not the current mix of DDL + raw SQL + imperative migration files). Add foreign key constraints — currently every `brand_profile_id` column references `brand_profiles.id` by convention only.
 
 #### 2. Double Schema Definition Is Asking for Trouble
+
 `packages/backend/src/db/index.ts` defines tables via raw SQL `CREATE TABLE IF NOT EXISTS` (500+ lines). `packages/backend/src/db/schema.ts` defines the same tables via Drizzle ORM. These **will** drift. Column additions use raw `ALTER TABLE` with try/catch. Migrations exist but are partially manual.
 
 **What to do:** Delete `db/index.ts` DDL. Use Drizzle Kit migrations exclusively. One source of truth.
 
 #### 3. The Cron Job Pattern Is Fragile
+
 `packages/backend/src/index.ts:267-440` — Twelve cron jobs defined inline with anonymous functions. Several use `setTimeout` with 90-second delays (fire-and-forget). If the cron handler finishes before the timeout fires, the work is lost. There's no queue, no retry, no observability.
 
 **What to do:** Use BullMQ (already a dependency) for all async work. Cron jobs enqueue jobs; workers execute them. This gives retries, observability, and graceful shutdown.
 
 #### 4. The Route Registration Is Monolithic
+
 34 route files registered in one sequential block. Any route can throw at register time and crash the entire server. No versioning prefix. No health-checked route groups.
 
 **What to do:** Group routes by domain, add graceful registration with error isolation, and prefix API versions (`/api/v1/...`).
 
 #### 5. Global Mutable Singletons Everywhere
+
 - `let io: Server` — single Socket.IO instance, module-level mutable
 - `_getApp: () => FastifyInstance` — module-level closure for shutdown
 - All zustand stores — module-level singletons
@@ -114,6 +128,7 @@ This makes testing impossible without careful cleanup and prevents horizontal sc
 **What to do:** Use dependency injection or a container pattern. For Socket.IO, consider a Redis adapter for horizontal scaling.
 
 #### 6. The Shutdown Handler Imports Itself
+
 `packages/backend/src/index.ts:514` — `const { io: socketIo } = await import('./index')` — the file dynamically imports itself at runtime. This is the kind of hack that works until it doesn't.
 
 **What to do:** Extract shutdown logic to a separate module. Pass dependencies explicitly.
@@ -123,7 +138,9 @@ This makes testing impossible without careful cleanup and prevents horizontal sc
 ### Code Quality — Inconsistencies & Debt
 
 #### Silent Catch Blocks (18+ instances)
+
 Throughout the codebase, errors are swallowed silently:
+
 ```typescript
 catch { /* ignore */ }
 catch { // best-effort }
@@ -133,21 +150,25 @@ catch { // ignore — still mark as connected even if registration fails }
 This is the single biggest obstacle to debugging. When something breaks, there is zero signal — no log, no toast, no error state.
 
 **Fix:** Every `catch` block should either:
+
 1. Log with structured context (at minimum `console.error('[ComponentName] Failed to X:', err)`)
 2. Show a user-visible error (toast, inline message)
 3. Re-throw if the caller handles it
 
 #### `app_settings` as a God Table
+
 This single key-value table is used for: PIN hashes, session tokens, app config, encrypted credentials, onboarding state, approval rules, cron timestamps, and more. It's queried on every auth check, every settings page, every config read. As the app grows, this becomes a contention point.
 
 **Fix:** Split into proper tables: `sessions`, `user_settings`, `app_config`, `cron_tracker`, `onboarding_progress`.
 
 #### No Monorepo Tooling
+
 The project uses npm workspaces but has no turborepo, nx, or changesets. There's no shared type package — `packages/frontend` and `packages/backend` often define the same types independently. The Vite config has a `@shared` alias pointing to a non-existent `packages/shared` directory.
 
 **Fix:** Adopt turborepo for caching and task orchestration. Create a `packages/shared` for types, validation schemas, and constants.
 
 #### Hardcoded Values
+
 - `FRONTEND_URL_ALT = 'http://localhost:5174'` — hardcoded string at `index.ts:103`
 - `24 * 60 * 60 * 1000` — session expiry, not a named constant
 - `600` rate limit — why 600? Why 15 minutes?
@@ -157,7 +178,9 @@ The project uses npm workspaces but has no turborepo, nx, or changesets. There's
 **Fix:** Extract all magic values into a `constants.ts` file. Use environment variables for anything deployment-specific.
 
 #### Mixed Theming Systems
+
 Three theming systems coexist:
+
 1. Tailwind utility classes (`bg-slate-50`, `dark:bg-slate-900`)
 2. CSS custom properties (`var(--bg-base)`, `var(--text-primary)`)
 3. Manual dark mode class toggling
@@ -176,6 +199,7 @@ The Tailwind config overrides default font sizes and shadows, which means `shado
 **E2E:** 0
 
 For a project with 30+ route files, 28 services, 11 agents, 12 stores, and 19 pack definitions, this is critically insufficient. The system has:
+
 - Complex OAuth flows with popup windows and polling
 - Cron-jobs with inter-dependent steps (90-second timeouts)
 - LLM prompt chains with fallback logic
@@ -185,6 +209,7 @@ For a project with 30+ route files, 28 services, 11 agents, 12 stores, and 19 pa
 None of this is tested. A refactor of any of these systems is a blind trust exercise.
 
 **Minimum viable test suite:**
+
 1. Auth middleware tests (using `light-my-request` for in-process Fastify testing)
 2. Route handler integration tests for auth, connectors, and packs
 3. Store unit tests (zustand stores are trivial to test)
@@ -197,6 +222,7 @@ None of this is tested. A refactor of any of these systems is a blind trust exer
 ### Performance & Scalability
 
 #### Current Issues
+
 - **No code splitting** — the frontend is a single bundle. With 1600+ line components, this is a slow initial load.
 - **`useMemo`/`useCallback` missing** — sidebar socket handlers, route trees, and discovery data are recomputed on every render.
 - **34 static route imports** — all loaded at startup, increasing cold start time.
@@ -205,6 +231,7 @@ None of this is tested. A refactor of any of these systems is a blind trust exer
 - **SQLite contention** — concurrent cron jobs + user requests compete for the same single-write database.
 
 #### What Breaks First Under Load
+
 1. **The `app_settings` table** — queried on every request (auth check + config read). With 10+ concurrent users, this becomes a bottleneck.
 2. **The in-memory OAuth state** — 10-minute expiry with no persistence. Concurrent OAuth flows will collide.
 3. **The `better-sqlite3` synchronous DDL** — if migrations run while the app is serving requests, the database is locked.
@@ -229,6 +256,7 @@ A dark terminal window with scrolling log output. A URL printed at the end. You 
 VIMO's current onboarding assumes the user is a developer or has one on staff. The system check requires understanding Node.js versions, encryption keys, and `.env` files. The LLM setup requires an OpenAI/Anthropic account and API key. The social connect requires creating developer apps on Facebook/Google/LinkedIn.
 
 For a non-technical marketing director, three things are true:
+
 1. You have no idea what an API key is
 2. You are not going to create a Facebook Developer App
 3. You have already closed the browser tab
@@ -266,6 +294,7 @@ Non-technical user thinks: "I need to sign up for OpenAI? With my credit card? J
 **The hard truth:** Requiring an LLM API key is the #1 user acquisition killer. Most of VIMO's features (Marketing Director, content generation, engagement replies, trend analysis) depend on this key. "Skip for now" creates an empty, non-functional product.
 
 **Fix options (in priority order):**
+
 1. **Free tier LLM** — Bundle a shared API key with limited quota (e.g., 100 requests/day). The user can upgrade later.
 2. **Local LLM support** — Auto-detect Ollama and use it silently. If installed, skip the LLM setup entirely.
 3. **Demo mode** — Pre-populate everything with mock data so the user sees value before paying/subscribing.
@@ -286,6 +315,7 @@ Non-technical user clicks "Connect Instagram." A popup opens to Facebook's devel
 **The hard truth:** OAuth for personal social media accounts requires creating developer apps. This is a deliberate limitation by Meta/Google/LinkedIn. For a non-technical user, this is effectively impossible.
 
 **Fix:**
+
 1. **Publishing tokens** — VIMO should have a built-in proxy that handles the OAuth dance on the user's behalf (like Buffer or Hootsuite does).
 2. **Content-only mode** — For users who can't connect accounts, offer a "create and download" workflow: schedule posts → get notified → manually post.
 3. **Browser extension** — A companion extension that can post on behalf of the user without OAuth developer setup.
@@ -297,6 +327,7 @@ Non-technical user clicks "Connect Instagram." A popup opens to Facebook's devel
 #### The Dashboard
 
 After onboarding, the user sees:
+
 - An AI assistant greeting ("Hello—ready to review what needs your attention today?")
 - A collapsed "Performance Snapshot" showing 0 followers, 0% engagement, 0 posts
 - An "Inbox Zero" screen
@@ -306,6 +337,7 @@ After onboarding, the user sees:
 **What doesn't:** Everything shows zero because nothing is connected. The "Marketing Director" hasn't found any opportunities because there's no data to analyze. The AI assistant can't suggest anything meaningful because there's no brand context, no connected accounts, no campaign history.
 
 **Fix:** Seed the system with sample data. Every new installation should have:
+
 - 3-4 sample opportunities (pre-generated, realistic)
 - Sample brand insights
 - A pre-written morning briefing
@@ -316,6 +348,7 @@ After onboarding, the user sees:
 This is actually well-designed. The pack/marketplace concept is intuitive. Categories make sense. The "Installed" section is helpful.
 
 **What needs work:**
+
 - 19 packs is overwhelming for a first visit. Show the top 5-6 popular ones, with a "See all" link.
 - The "Intelligence" packs (SEO, competitor tracking, etc.) sound great but deliver mostly guesswork (the scrapers return mock data when real APIs aren't connected).
 - The "install → setup assistant → credentials → discover" flow is too many steps. A one-click "quick install" with default settings would help.
@@ -331,6 +364,7 @@ For a user who just went through 5 onboarding steps and connected their accounts
 #### The Marketing Director
 
 The crown jewel of VIMO — an AI agent that analyzes your marketing and suggests actions. But:
+
 1. It requires an LLM API key (80% of users will skip this)
 2. It requires connected data sources (most users won't get past OAuth)
 3. It runs on a cron schedule (first results appear 8 hours after setup)
@@ -349,6 +383,7 @@ VIMO currently answers: **"Spend 45 minutes setting up developer accounts, API k
 That's not a winning value proposition.
 
 **What would build trust:**
+
 1. **Show value first** — Demo mode with sample data. Let the user click around and think "wow, this could work for me."
 2. **One-click setup** — "Connect with Google" instead of "Create a Google Developer App."
 3. **Progressive complexity** — Start with basic scheduling. Introduce AI features as "pro" upgrades.
@@ -361,62 +396,62 @@ That's not a winning value proposition.
 
 ### P0 — Ship Blockers (Do before any user touches this)
 
-| # | Area | Change | Effort |
-|---|------|--------|--------|
-| 1 | Security | Guard `reset-pin` with session check; remove documented auth bypass | 1 hour |
-| 2 | Security | Validate `ENCRYPTION_KEY` at startup; refuse to start with empty/default key | 1 hour |
-| 3 | Security | Add rate limiting to ALL auth endpoints | 2 hours |
-| 4 | Security | Fix session expiry `NaN` bypass with isNaN() guard | 30 min |
-| 5 | Arch | Add input validation (Zod) to all request handlers — start with auth + connectors | 1 week |
-| 6 | Code | Eliminate all silent catch blocks. Every catch logs or shows error. | 2 days |
-| 7 | UX | Add demo/sandbox mode so users can explore before setup | 1 week |
-| 8 | UX | Pre-seed dashboard with sample data (opportunities, briefing, stats) | 2 days |
+| #   | Area     | Change                                                                            | Effort  |
+| --- | -------- | --------------------------------------------------------------------------------- | ------- |
+| 1   | Security | Guard `reset-pin` with session check; remove documented auth bypass               | 1 hour  |
+| 2   | Security | Validate `ENCRYPTION_KEY` at startup; refuse to start with empty/default key      | 1 hour  |
+| 3   | Security | Add rate limiting to ALL auth endpoints                                           | 2 hours |
+| 4   | Security | Fix session expiry `NaN` bypass with isNaN() guard                                | 30 min  |
+| 5   | Arch     | Add input validation (Zod) to all request handlers — start with auth + connectors | 1 week  |
+| 6   | Code     | Eliminate all silent catch blocks. Every catch logs or shows error.               | 2 days  |
+| 7   | UX       | Add demo/sandbox mode so users can explore before setup                           | 1 week  |
+| 8   | UX       | Pre-seed dashboard with sample data (opportunities, briefing, stats)              | 2 days  |
 
 ### P1 — Critical Quality
 
-| # | Area | Change | Effort |
-|---|------|--------|--------|
-| 9 | Security | Replace SHA-256 PIN hashing with bcrypt | 1 day |
-| 10 | Security | Store OAuth state in DB instead of in-memory Map | 1 day |
-| 11 | Arch | Consolidate schema: delete raw DDL in `db/index.ts`, use Drizzle migrations only | 2 days |
-| 12 | Arch | Extract `app_settings` into proper tables: `sessions`, `user_settings`, `onboarding` | 2 days |
-| 13 | Testing | Route handler tests for auth endpoints | 2 days |
-| 14 | Testing | Store unit tests (authStore, onboardingStore, socialAccounts store) | 1 day |
-| 15 | UX | Replace "Skip for now" on LLM step with local Ollama detection + auto-config | 2 days |
-| 16 | UX | Simplified OAuth flow: one-click connect for common providers | 2 weeks |
+| #   | Area     | Change                                                                               | Effort  |
+| --- | -------- | ------------------------------------------------------------------------------------ | ------- |
+| 9   | Security | Replace SHA-256 PIN hashing with bcrypt                                              | 1 day   |
+| 10  | Security | Store OAuth state in DB instead of in-memory Map                                     | 1 day   |
+| 11  | Arch     | Consolidate schema: delete raw DDL in `db/index.ts`, use Drizzle migrations only     | 2 days  |
+| 12  | Arch     | Extract `app_settings` into proper tables: `sessions`, `user_settings`, `onboarding` | 2 days  |
+| 13  | Testing  | Route handler tests for auth endpoints                                               | 2 days  |
+| 14  | Testing  | Store unit tests (authStore, onboardingStore, socialAccounts store)                  | 1 day   |
+| 15  | UX       | Replace "Skip for now" on LLM step with local Ollama detection + auto-config         | 2 days  |
+| 16  | UX       | Simplified OAuth flow: one-click connect for common providers                        | 2 weeks |
 
 ### P2 — Important Polish
 
-| # | Area | Change | Effort |
-|---|------|--------|--------|
-| 17 | Arch | Extract cron jobs to BullMQ workers | 1 week |
-| 18 | Code | Extract magic values to constants.ts | 1 day |
-| 19 | Code | Fix `@shared` alias or remove it | 1 hour |
-| 20 | Code | Remove duplicate `canva.ts` routes | 1 hour |
-| 21 | Code | Fix circular `import('./index')` in shutdown handler | 1 day |
-| 22 | UX | Mobile-responsive layout | 1 week |
-| 23 | UX | Add "Run Marketing Director Now" button on dashboard | 1 day |
-| 24 | UX | Onboarding checklist after setup (guided success path) | 2 days |
-| 25 | UX | Sidebar badge for >99 (not truncating at 9+) | 1 hour |
-| 26 | UX | Fix decorative "Fix" button in Social Accounts | 1 hour |
-| 27 | UX | Add loading skeletons to Intelligence page tabs | 1 day |
+| #   | Area | Change                                                 | Effort |
+| --- | ---- | ------------------------------------------------------ | ------ |
+| 17  | Arch | Extract cron jobs to BullMQ workers                    | 1 week |
+| 18  | Code | Extract magic values to constants.ts                   | 1 day  |
+| 19  | Code | Fix `@shared` alias or remove it                       | 1 hour |
+| 20  | Code | Remove duplicate `canva.ts` routes                     | 1 hour |
+| 21  | Code | Fix circular `import('./index')` in shutdown handler   | 1 day  |
+| 22  | UX   | Mobile-responsive layout                               | 1 week |
+| 23  | UX   | Add "Run Marketing Director Now" button on dashboard   | 1 day  |
+| 24  | UX   | Onboarding checklist after setup (guided success path) | 2 days |
+| 25  | UX   | Sidebar badge for >99 (not truncating at 9+)           | 1 hour |
+| 26  | UX   | Fix decorative "Fix" button in Social Accounts         | 1 hour |
+| 27  | UX   | Add loading skeletons to Intelligence page tabs        | 1 day  |
 
 ### P3 — Nice to Have
 
-| # | Area | Change | Effort |
-|---|------|--------|--------|
-| 28 | Arch | Docker + docker-compose setup | 2 days |
-| 29 | Arch | PostgreSQL migration guide | 1 week |
-| 30 | Arch | Turborepo / monorepo tooling | 2 days |
-| 31 | Testing | E2E test with Playwright | 1 week |
-| 32 | Testing | Integration test for OAuth flow | 2 days |
-| 33 | UX | Interactive onboarding tour (fix: make dismissible, add close button) | 1 day |
-| 34 | UX | Notification history (not just auto-dismissing toasts) | 2 days |
-| 35 | UX | "Run Marketing Director Now" button | 1 day |
-| 36 | UX | ChatGPT-style in-app assistant for questions | 3 days |
-| 37 | Perf | Code splitting + lazy loading for route components | 2 days |
-| 38 | Perf | Image optimization pipeline | 1 day |
-| 39 | Perf | Add `useMemo`/`useCallback` to critical render paths | 2 days |
+| #   | Area    | Change                                                                | Effort |
+| --- | ------- | --------------------------------------------------------------------- | ------ |
+| 28  | Arch    | Docker + docker-compose setup                                         | 2 days |
+| 29  | Arch    | PostgreSQL migration guide                                            | 1 week |
+| 30  | Arch    | Turborepo / monorepo tooling                                          | 2 days |
+| 31  | Testing | E2E test with Playwright                                              | 1 week |
+| 32  | Testing | Integration test for OAuth flow                                       | 2 days |
+| 33  | UX      | Interactive onboarding tour (fix: make dismissible, add close button) | 1 day  |
+| 34  | UX      | Notification history (not just auto-dismissing toasts)                | 2 days |
+| 35  | UX      | "Run Marketing Director Now" button                                   | 1 day  |
+| 36  | UX      | ChatGPT-style in-app assistant for questions                          | 3 days |
+| 37  | Perf    | Code splitting + lazy loading for route components                    | 2 days |
+| 38  | Perf    | Image optimization pipeline                                           | 1 day  |
+| 39  | Perf    | Add `useMemo`/`useCallback` to critical render paths                  | 2 days |
 
 ---
 
@@ -425,6 +460,7 @@ That's not a winning value proposition.
 ### Where VIMO Should Be in 12 Months
 
 #### Architecture
+
 - **PostgreSQL** instead of SQLite — proper migrations, concurrent access, replication
 - **BullMQ** for all async work — no more `setTimeout(fn, 90000)` inside cron jobs
 - **Docker** deployment — one command: `docker compose up`
@@ -433,6 +469,7 @@ That's not a winning value proposition.
 - **Proper auth** — JWT with refresh tokens, optional SSO (Google, GitHub)
 
 #### User Experience
+
 - **Desktop app** — Electron wrapper so users don't need a terminal
 - **Mobile companion** — Notifications, approvals, quick posts
 - **Demo mode** — "Try it now" without any setup, pre-loaded with sample data
@@ -441,6 +478,7 @@ That's not a winning value proposition.
 - **Guided success path** — Post-onboarding checklist: "✓ Connect Instagram → ✓ First campaign → ✓ AI suggestions"
 
 #### Product
+
 - **Narrower focus** — Instead of "everything for marketing," pick one wedge: either "content scheduler with AI" or "social listening" or "analytics dashboard." Do that one thing perfectly, then expand.
 - **Templates** — Campaign templates for common scenarios (product launch, seasonal sale, brand awareness)
 - **Collaboration** — Invite team members, approval workflows, role-based access

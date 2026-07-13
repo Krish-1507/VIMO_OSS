@@ -12,8 +12,8 @@ everywhere else (`Ready` · `In progress` · `Planned` · `Idea`).
 
 - **Automated releases.** Changesets now drive versioning + changelog, and CI
   builds the app (not just type-checks). See [CONTRIBUTING.md](CONTRIBUTING.md).
-- **More `Ready` connectors.** Move publish handlers from *Connect only* →
-  *Ready* (YouTube, TikTok, Pinterest).
+- **More `Ready` connectors.** Move publish handlers from _Connect only_ →
+  _Ready_ (YouTube, TikTok, Pinterest).
 - **Connector test coverage.** Every connection path ships with an integration
   test.
 
