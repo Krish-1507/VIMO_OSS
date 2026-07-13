@@ -1312,7 +1312,7 @@ export default function ConnectorsPage() {
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
               >
                 <option value="api_key">API key</option>
-                <option value="oauth2">OAuth 2.0</option>
+                <option value="oauth2">Secure provider login</option>
                 <option value="none">No auth</option>
               </select>
             </div>
