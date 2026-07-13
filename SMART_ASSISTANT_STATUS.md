@@ -1,4 +1,4 @@
-# SMART_ASSISTANT_STATUS.md
+# Smart Assistant — Status
 
 ## Current Goal
 

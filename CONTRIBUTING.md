@@ -106,7 +106,7 @@ We keep labels small and meaningful so newcomers can self-select work:
 
 1. Fork the repo and create a branch from `main`.
 2. **Add a changeset** for any user- or contributor-facing change:
-   `npm run changeset` (see the legend in [.changeset/README.md](../.changeset/README.md)).
+    `npm run changeset` (see the legend in [.changeset/README.md](.changeset/README.md)).
    This drives versioning and the changelog — never bump a version by hand.
 3. Run `npm run lint` (both packages) and `npm run test` — CI also builds the app
    (`tsc` + `vite build`), so a green pipeline means it actually compiles and bundles.

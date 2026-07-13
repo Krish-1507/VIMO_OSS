@@ -50,7 +50,7 @@
 - [ ] Connector Hub shows managed/guided/simplified flows as specified
 - [ ] Zero instances of banned words in ConnectorHub-related UI strings
 
-## Phase D — Connector Hub: search/filters, multi-account, visual builder, plugin API (COMPLETED)
+## Phase D — Connector Hub: search/filters, multi-account, visual builder, plugin API (Completed)
 
 - [x] Backend `/api/connectors/presets` accepts `search` / `category` / `status` query filters
 - [x] Backend `/api/connectors/grouped` returns connectors grouped by provider (multi-account)

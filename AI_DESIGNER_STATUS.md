@@ -1,4 +1,4 @@
-# AI_DESIGNER_STATUS.md
+# AI Designer — Status
 
 ## Current Goal
 

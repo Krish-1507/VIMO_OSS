@@ -325,6 +325,3 @@ VIMO is released under the [MIT License](LICENSE). Built for creators, by creato
 <p align="center">
   <b>No agencies. No $4,000 SaaS bills. Just type your goal, click GO, and watch it happen.</b>
 </p>
-#   r e p o r e a d e r - O p e n J u l e s 
- 
- 
