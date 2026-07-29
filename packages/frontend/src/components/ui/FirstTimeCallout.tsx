@@ -16,19 +16,30 @@ export default function FirstTimeCallout({ targetSelector, message, storageKey }
     const isDismissed = localStorage.getItem(storageKey) === 'dismissed';
     if (isDismissed) return;
 
-    const timer = setTimeout(() => {
+    const updatePosition = () => {
       const target = document.querySelector(targetSelector);
       if (target) {
         const rect = target.getBoundingClientRect();
         setCoords({
-          top: rect.bottom + window.scrollY + 10,
-          left: rect.left + window.scrollX + rect.width / 2,
+          top: rect.bottom + 10,
+          left: rect.left + rect.width / 2,
         });
         setIsVisible(true);
+      } else {
+        setIsVisible(false);
       }
-    }, 1000); // Small delay to ensure target is rendered
+    };
 
-    return () => clearTimeout(timer);
+    const timer = setTimeout(updatePosition, 1000);
+
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, { capture: true });
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, { capture: true });
+    };
   }, [targetSelector, storageKey]);
 
   const handleDismiss = () => {
@@ -41,7 +52,7 @@ export default function FirstTimeCallout({ targetSelector, message, storageKey }
   return (
     <div
       ref={calloutRef}
-      className="absolute z-50 flex -translate-x-1/2 flex-col items-center animate-in fade-in zoom-in-95 duration-300"
+      className="fixed z-[9999] flex -translate-x-1/2 flex-col items-center animate-in fade-in zoom-in-95 duration-300"
       style={{ top: coords.top, left: coords.left }}
     >
       {/* Arrow */}

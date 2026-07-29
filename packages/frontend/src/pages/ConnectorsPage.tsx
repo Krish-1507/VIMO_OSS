@@ -89,8 +89,8 @@ interface SetupGuide {
 }
 
 // Provider category helpers
-const MANAGED_PROVIDERS = ['github', 'notion', 'canva', 'linkedin', 'x'];
-const GUIDED_PROVIDERS = ['instagram', 'instagram_facebook', 'google', 'google-analytics', 'google-drive', 'youtube', 'google-ads'];
+const MANAGED_PROVIDERS = ['github', 'notion', 'canva', 'x'];
+const GUIDED_PROVIDERS = ['instagram', 'instagram_facebook', 'google', 'google-analytics', 'google-drive', 'youtube', 'google-ads', 'linkedin'];
 // Providers that require simple API key input
 const SIMPLE_CREDENTIAL_PROVIDERS = ['slack', 'slack-mcp', 'hubspot', 'hubspot-native', 'hubspot-mcp', 'bluesky', 'openai', 'anthropic', 'groq'];
 
@@ -2024,14 +2024,14 @@ function OAuthCredentialsSection() {
       >
         {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         <LogIn className="h-4 w-4" />
-        App Credentials
-        <span className="text-xs text-slate-400 dark:text-slate-500">(for guided provider setup)</span>
+        Application Connection Keys
+        <span className="text-xs text-slate-400 dark:text-slate-500">(for guided setup)</span>
       </button>
 
       {expanded && (
         <div className="mt-4 space-y-4">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Set up your own app connections for each provider. You only need to do this once per provider.
+            Configure connection settings for each provider. You only need to do this once.
             After saving, you can connect each provider with one click from the Connectors page.
           </p>
 
@@ -2049,15 +2049,15 @@ function OAuthCredentialsSection() {
                     </div>
                     <a href={info.docsUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
                       className="text-xs text-teal-600 hover:text-teal-500 dark:text-teal-400 inline-flex items-center gap-1">
-                      Create App <ExternalLink className="h-3 w-3" />
+                      Setup Connection <ExternalLink className="h-3 w-3" />
                     </a>
                   </summary>
                   <div className="p-3 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 space-y-2">
-                    <input type="text" placeholder="App ID"
+                    <input type="text" placeholder="Application ID"
                       value={credentials[provider]?.clientId || ''}
                       onChange={(e) => updateField(provider, 'clientId', e.target.value)}
                       className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
-                    <input type="password" placeholder="App Secret"
+                    <input type="password" placeholder="Security Password"
                       value={credentials[provider]?.clientSecret || ''}
                       onChange={(e) => updateField(provider, 'clientSecret', e.target.value)}
                       className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
@@ -2070,7 +2070,7 @@ function OAuthCredentialsSection() {
           <div className="flex items-center gap-3">
             <button onClick={save} disabled={saving}
               className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 inline-flex items-center gap-2">
-              {saving ? 'Saving...' : 'Save All Credentials'}
+              {saving ? 'Saving...' : 'Save All Connection Keys'}
             </button>
             {success && <span className="text-sm text-green-600 dark:text-green-400">{success}</span>}
           </div>
