@@ -133,6 +133,45 @@ sqlite.exec(`
   );
 `);
 
+// Ensure user_profiles table exists
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS user_profiles (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    email TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+`);
+
+// Ensure media table exists
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS media (
+    id TEXT PRIMARY KEY,
+    original_filename TEXT NOT NULL,
+    stored_filename TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    public_url TEXT,
+    created_at TEXT NOT NULL
+  );
+`);
+
+// Ensure account_snapshots table exists
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS account_snapshots (
+    id TEXT PRIMARY KEY,
+    connector_id TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    followers_count INTEGER NOT NULL DEFAULT 0,
+    following_count INTEGER NOT NULL DEFAULT 0,
+    posts_count INTEGER NOT NULL DEFAULT 0,
+    snapshot_date TEXT NOT NULL,
+    is_demo INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
+`);
+
  // Run engagement fields migration on existing databases
 addEngagementFields(sqlite);
 
@@ -220,45 +259,6 @@ try {
 } catch {
   addEngagementFields(sqlite);
 }
-
-// Ensure user_profiles table exists
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS user_profiles (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    email TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-`);
-
-// Ensure media table exists
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS media (
-    id TEXT PRIMARY KEY,
-    original_filename TEXT NOT NULL,
-    stored_filename TEXT NOT NULL,
-    mime_type TEXT NOT NULL,
-    size_bytes INTEGER NOT NULL,
-    public_url TEXT,
-    created_at TEXT NOT NULL
-  );
-`);
-
-// Ensure account_snapshots table exists
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS account_snapshots (
-    id TEXT PRIMARY KEY,
-    connector_id TEXT NOT NULL,
-    platform TEXT NOT NULL,
-    followers_count INTEGER NOT NULL DEFAULT 0,
-    following_count INTEGER NOT NULL DEFAULT 0,
-    posts_count INTEGER NOT NULL DEFAULT 0,
-    snapshot_date TEXT NOT NULL,
-    is_demo INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL
-  );
-`);
 
 // Ensure trend_signals table exists
 sqlite.exec(`

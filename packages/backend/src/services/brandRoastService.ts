@@ -124,12 +124,13 @@ export async function roastBrand(params: {
     try {
       const response = await fetch(websiteUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VIMOBrandRoast/1.0)' },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(5000),
       });
       const html = await response.text();
       websiteContent = stripHtml(html).slice(0, 3000);
-    } catch {
-      websiteContent = 'Could not fetch website content.';
+    } catch (err: any) {
+      console.warn('[BrandRoast] Website crawling bypassed or timed out:', err?.message || err);
+      websiteContent = 'Could not fetch website content due to crawl timeout or security block.';
     }
   }
 

@@ -19,7 +19,7 @@ export default function InteractiveTour({ onComplete }: Props) {
     let ro: ResizeObserver | null = null;
 
     const compute = () => {
-      const el = document.getElementById('new-campaign-btn');
+      const el = document.getElementById('btn-new-campaign');
       if (!alive || !el) return null;
       const rect = el.getBoundingClientRect();
       setTargetPos({
