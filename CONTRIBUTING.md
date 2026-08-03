@@ -66,6 +66,11 @@ Examples to copy from:
   and publish, with the Meta Graph API mocked.
 - `packages/backend/src/tests/connectionPackMarketplace.test.ts` — `discoverPack` (discover +
   validate) and `PackAdapter` sync/health, with the provider APIs mocked.
+- `packages/backend/src/tests/connectorsMarketplaceRoutes.test.ts` — the **HTTP boundary** for the
+  Pack Marketplace and Social Accounts routes. Mounts the real route handlers on a real Fastify
+  app, drives them with a real session token + CSRF token, and asserts honest behavior on every
+  state-changing endpoint (idempotency, atomicity, 400/404 vs 500, CSRF enforcement, abandoned
+  OAuth cleanup). Use this template for any new route in `packages/backend/src/routes/`.
 
 Run them with:
 

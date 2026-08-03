@@ -107,6 +107,28 @@ throttled. **Be aware of these proxy gotchas before exposing VIMO:**
 - Secrets (OAuth tokens, API keys, raw errors) are never written to client-facing responses; see
   Error sanitization above.
 
+## Security-Relevant Test Coverage
+
+VIMO's connection-layer tests are the contract for these guarantees — they mock only the
+external HTTP boundary, never VIMO's own code:
+
+- `connectorsMarketplaceRoutes.test.ts` — every state-changing route is exercised with a real
+  session token + CSRF token on a real Fastify app. Proves:
+  - `POST /api/packs/install` rejects bad payloads (non-object `config`, non-array
+    `discoveryItems`, missing fields) instead of writing broken JSON.
+  - `DELETE /api/packs/uninstall` returns `404` for non-existent packs (not `200`-and-lie) and
+    atomically removes the pack **and** its underlying connectors (no orphaned credentials or
+    dead MCP server sockets).
+  - `POST /api/social-accounts/disconnect/:platform` returns `404` for a non-existent
+    `connectorId` and `200` with `disconnected: 0` for empty platforms — no `500` lies.
+  - `GET /api/social-accounts/oauth-status/:id` returns `410 Gone` for cleaned-up connectors so
+    the OAuth popup can give up cleanly without leaking secrets.
+  - CSRF (`x-csrf-token` matching `x-session-token`) is enforced on every state-changing route.
+- `connectionSocialAccounts.test.ts` — Instagram account verification + publish path; raw Meta
+  Graph errors are mapped to friendly, token-free messages before they reach the client.
+- `authRenew.test.ts` — long-lived token exchange + generic OAuth refresh; missing or invalid
+  credentials fail gracefully (return `false`, never throw).
+
 ## Supported Versions
 
 Only the latest release of VIMO receives security fixes. Please stay on the newest version.

@@ -22,3 +22,14 @@ You stay in control the whole time. VIMO only does what you approve.
 3. You're done. VIMO writes, schedules, and analyzes your content while you stay in control.
 
 No credit card needed to start. Connect more accounts whenever you like from the Connector Hub.
+
+## Want to verify before trusting it?
+
+- **Automated tests** — `npm test` runs the full suite (100+ backend tests, 9 frontend
+  tests). The Pack Marketplace + Social Accounts flows are covered by
+  `connectorsMarketplaceRoutes.test.ts` on a real Fastify app with a real session
+  token + CSRF token. See
+  [docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_VERIFICATION.md).
+- **Manual smoke-tests** — the same doc has copy-pasteable `fetch` snippets you can
+  run from the browser console to verify install, uninstall, disconnect, and
+  app-password behavior end-to-end against a running dev server.

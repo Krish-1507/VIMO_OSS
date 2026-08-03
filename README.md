@@ -15,6 +15,7 @@ $4,000/month SaaS stack. No copy-pasting API keys into developer portals.
 ## 📚 Resources
 
 - **[Get Started — Zero Keys Needed](GET_STARTED.md)** — the non-technical, plain-language quick start (try the Demo, connect with one click).
+- **[Connector & Marketplace Verification](docs/CONNECTORS_VERIFICATION.md)** — manual smoke-tests + automated suite that prove install/uninstall/connect/disconnect are bulletproof.
 - **[Extending VIMO](docs/EXTENDING_VIMO.md)** — write your own connector or Pack in ~50 lines.
 - **[Contributing](CONTRIBUTING.md)** · **[Security](SECURITY.md)** · **[Roadmap](ROADMAP.md)** · **[Code of Conduct](CODE_OF_CONDUCT.md)**
 - **[GitHub Discussions](https://github.com/yourusername/vimo/discussions)** — questions, ideas, and roadmap input.
@@ -43,6 +44,38 @@ VIMO is built for the other 95%:
   works for _your_ audience, and gets smarter with every post.
 
 If you can write a tweet, you can run a complete autonomous marketing operation.
+
+---
+
+## 🛡️ Hardened for production — what this release guarantees
+
+This release explicitly bulletproofs the two surfaces that get touched the most: **Pack
+Marketplace** (install / uninstall) and **Social Accounts** (OAuth, app passwords,
+disconnect). If you only have two minutes, here is what changed and what is now enforced
+by an automated test:
+
+- **Pack install is idempotent.** Re-installing the same pack no longer creates a
+  duplicate row — it returns `200` with `alreadyInstalled: true`.
+- **Pack uninstall is atomic.** Uninstalling a pack always tears down its underlying
+  connectors (credentials + MCP server sockets) too, so we never leak orphaned rows.
+- **Bad payloads are rejected with honest 400s** — non-object `config`, non-array
+  `discoveryItems`, missing `packId` — instead of corrupting the database.
+- **Disconnecting a non-existent social account returns `404`**, not `200`-and-lie.
+  Disconnecting a platform with zero connections returns `200` with `disconnected: 0`,
+  not `500`.
+- **OAuth popups no longer leak timers.** The `openOAuthPopup` flow uses a single
+  `finalize` channel so every interval is cleared exactly once, no matter which path
+  (poll success, popup-closed, grace-timeout) wins the race.
+- **Bluesky (app-password) validates inputs up front** — a short app password or
+  missing handle is a clean `400`, not a half-written connector.
+- **Abandoned OAuth handshakes are reaped** after 15 minutes so the Connector Hub
+  doesn't accumulate "inactive" rows from users who closed the popup.
+- **CSRF + session enforcement is covered by tests** on every state-changing route
+  (`x-session-token` + double-submit `x-csrf-token`).
+
+All of the above is covered by `packages/backend/src/tests/connectorsMarketplaceRoutes.test.ts`
+(26 tests, real Fastify app, real DB, mocked HTTP only). Full breakdown + copy-paste
+manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_VERIFICATION.md)**.
 
 ---
 
@@ -219,6 +252,14 @@ A "Pack" turns an external tool (Shopify, GitHub, Stripe, SEO, …) into live co
   metrics.**
 - **Validate** — before a credential-based pack is marked "Connected," VIMO re-runs that same live
   call. A pack is only "Connected" when access genuinely works.
+- **Install** — `POST /api/packs/install` is **idempotent** and validates the payload up front
+  (rejects non-object `config`, non-array `discoveryItems`, missing `packId` with a `400` instead
+  of writing broken JSON to the DB). The pack persists its `provider` so the uninstall path can
+  find its connectors.
+- **Uninstall** — `DELETE /api/packs/uninstall` is **atomic**: it removes the pack row **and**
+  tears down the underlying connectors (credentials + MCP server sockets) in one shot, so we
+  never leak orphaned rows. Uninstalling a pack that isn't installed returns `404` instead of a
+  silent `200`. See the automated test for the full contract.
 - **Sync** — installed packs run through a **`PackAdapter`** that pulls live data, records the sync
   outcome on the connector, and reports connection health.
 
@@ -317,6 +358,40 @@ Good first contributions (see the [`good first issue`](https://github.com/yourus
 - Add a `PackAdapter` for a new intelligence source.
 - Improve error messages (no silent catches).
 - **Add tests** for a connection path — confidence is how this project earns its stars.
+
+---
+
+## ✅ Testing & verification
+
+A green test suite is the **single source of truth** for "this works." VIMO mocks the
+*external* API (Facebook Graph, Shopify, GitHub, Bluesky, …) and exercises VIMO's own
+code end-to-end on every CI run.
+
+```bash
+# Run the full test suite (backend + frontend)
+npm test
+
+# Backend only — 100+ tests across 13 files
+npm run test:backend
+
+# Just the connection-layer suite (Pack Marketplace + Social Accounts)
+npm run test:backend -- --reporter=verbose src/tests/connectorsMarketplaceRoutes.test.ts
+```
+
+What the suite covers:
+
+- `connectorsMarketplaceRoutes.test.ts` — **26 tests** on a real Fastify app, real
+  session token + CSRF, real in-memory SQLite, mocked `axios` only. Proves install
+  idempotency, uninstall cleanup, disconnect 404s, OAuth-status `410` semantics,
+  Bluesky validation, and more.
+- `connectionPackMarketplace.test.ts` — live `discoverPack` + `PackAdapter` round-trip
+  for Shopify, GitHub, Stripe, SEO, … with real DB and credential store.
+- `connectionSocialAccounts.test.ts` — Instagram account verification + publish path
+  with axios mocked at the Meta Graph boundary.
+- `authRenew.test.ts` — long-lived token exchange + generic OAuth refresh.
+
+Manual smoke-tests (with copy-pasteable `fetch` snippets) live in
+**[docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_VERIFICATION.md)**.
 
 ---
 
