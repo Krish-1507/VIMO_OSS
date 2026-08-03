@@ -154,7 +154,20 @@ export default function MarketingTimeMachine() {
             <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200 italic">"{timeline.question}"</p>
           </div>
 
-          {/* Vertical Timeline */}
+          {/* Insufficient data warning */}
+          {timeline.timelineEvents.length < 4 && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+              <span className="text-xl">🌱</span>
+              <div>
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                  VIMO is still getting to know your brand!
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                  We analyzed the last {timeline.timelineEvents.length} week{timeline.timelineEvents.length !== 1 ? 's' : ''} of data, but trends will get much more accurate over the next few weeks as more activity is recorded.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="relative">
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
             <div className="space-y-6">

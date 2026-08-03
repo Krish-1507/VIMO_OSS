@@ -89,8 +89,15 @@ export default function SystemCheckPage() {
           localStorage.setItem('hasPassedSystemCheck', 'true');
 
           if (isReset) {
-            navigate('/setup?mode=reset', { replace: true });
+            window.location.href = '/setup?mode=reset';
             return;
+          }
+
+          // If the user is already set up and authenticated, just take them to the dashboard
+          const authState = useAuthStore.getState();
+          if (authState.isSetupComplete) {
+             window.location.href = '/dashboard';
+             return;
           }
 
           // Auto-setup session so user lands on dashboard with onboarding overlay
@@ -99,10 +106,10 @@ export default function SystemCheckPage() {
             await api.post('/api/auth/setup', { pin: autoPin });
             const verifyRes = await api.post('/api/auth/verify', { pin: autoPin });
             localStorage.setItem('session_token', verifyRes.data.token);
-            useAuthStore.getState().setAuth(verifyRes.data.token);
-            navigate('/dashboard', { replace: true });
+            authState.setAuth(verifyRes.data.token);
+            window.location.href = '/dashboard';
           } catch {
-            navigate('/setup', { replace: true });
+            window.location.href = '/setup';
           }
         } else {
           setChecks(prev => ({ ...prev, encryption: { ...prev.encryption, status: 'fail', error: 'Your encryption key is not set. Open the .env file and change ENCRYPTION_KEY to any random 32-character string, then restart the app.' } }));

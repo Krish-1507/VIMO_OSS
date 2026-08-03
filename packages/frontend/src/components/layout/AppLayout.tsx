@@ -26,13 +26,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.add('dark');
   }, []);
 
+  // Bug B fix: lock body scroll when mobile overlay is open to prevent
+  // accidental background scrolling or tapping behind the sidebar/modal.
+  useEffect(() => {
+    if (isMobileSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileSidebarOpen]);
+
   return (
     <div className="min-h-screen dark">
       <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] transition-colors">
-        {/* Mobile sidebar backdrop */}
+        {/* Mobile sidebar backdrop — z-40 so it sits above main content (z-30) but below sidebar (z-50) */}
         {isMobileSidebarOpen && (
           <div
-            className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden pointer-events-auto"
             onClick={() => setMobileSidebarOpen(false)}
           />
         )}

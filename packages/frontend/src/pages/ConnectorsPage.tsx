@@ -89,9 +89,9 @@ interface SetupGuide {
 }
 
 // Provider category helpers
-const MANAGED_PROVIDERS = ['github', 'notion', 'canva', 'linkedin', 'x'];
-const GUIDED_PROVIDERS = ['instagram', 'instagram_facebook', 'google', 'google-analytics', 'google-drive', 'youtube', 'google-ads'];
-// Providers that require simple API key input
+const MANAGED_PROVIDERS = ['github', 'notion', 'canva', 'x'];
+const GUIDED_PROVIDERS = ['instagram', 'instagram_facebook', 'linkedin', 'google', 'google-analytics', 'google-drive', 'youtube', 'google-ads'];
+// Providers that require simple Connection Key input
 const SIMPLE_CREDENTIAL_PROVIDERS = ['slack', 'slack-mcp', 'hubspot', 'hubspot-native', 'hubspot-mcp', 'bluesky', 'openai', 'anthropic', 'groq'];
 
 function getProviderCategory(preset: PresetConnector): 'managed' | 'guided' | 'simple' | 'llm' {
@@ -1311,7 +1311,7 @@ export default function ConnectorsPage() {
                 onChange={(e) => setPluginForm((f) => ({ ...f, authType: e.target.value }))}
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
               >
-                <option value="api_key">API key</option>
+                <option value="api_key">Connection Key</option>
                 <option value="oauth2">Secure provider login</option>
                 <option value="none">No auth</option>
               </select>

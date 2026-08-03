@@ -21,8 +21,8 @@ export default function FirstTimeCallout({ targetSelector, message, storageKey }
       if (target) {
         const rect = target.getBoundingClientRect();
         setCoords({
-          top: rect.bottom + window.scrollY + 10,
-          left: rect.left + window.scrollX + rect.width / 2,
+          top: rect.bottom + 10,
+          left: rect.left + rect.width / 2,
         });
         setIsVisible(true);
       }
@@ -41,7 +41,7 @@ export default function FirstTimeCallout({ targetSelector, message, storageKey }
   return (
     <div
       ref={calloutRef}
-      className="absolute z-50 flex -translate-x-1/2 flex-col items-center animate-in fade-in zoom-in-95 duration-300"
+      className="fixed z-50 flex -translate-x-1/2 flex-col items-center animate-in fade-in zoom-in-95 duration-300"
       style={{ top: coords.top, left: coords.left }}
     >
       {/* Arrow */}

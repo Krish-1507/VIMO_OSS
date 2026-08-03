@@ -44,11 +44,12 @@ interface BrandProfile {
 }
 
 const loadingMessages = [
-  'Analyzing your posts...',
-  'Reading your competitors...',
-  'Finding the brutal truth...',
-  'Almost done...',
-  'Preparing your roast...',
+  { text: 'Scraping website content...', time: 0 },
+  { text: 'Reviewing your social profiles...', time: 8000 },
+  { text: 'Analyzing your posts and campaigns...', time: 18000 },
+  { text: 'Reading your competitors...', time: 28000 },
+  { text: 'AI is writing the roast...', time: 38000 },
+  { text: 'Almost done — wrapping up findings...', time: 50000 },
 ];
 
 const severityConfig = {
@@ -81,9 +82,11 @@ export default function BrandRoastPage() {
   const [roast, setRoast] = useState<BrandRoast | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
+  const [roastError, setRoastError] = useState('');
   const [hasRoast, setHasRoast] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState(false);
+  const loadingStartRef = { current: 0 };
 
   const fetchBrandProfiles = useCallback(async () => {
     try {
@@ -126,12 +129,19 @@ export default function BrandRoastPage() {
     checkRoast();
   }, [selectedBrandId]);
 
-  // Loading message rotation
+  // Loading message progression based on elapsed time
   useEffect(() => {
-    if (!isLoading) return;
+    if (!isLoading) { setLoadingMsgIndex(0); return; }
+    const startTime = Date.now();
     const interval = setInterval(() => {
-      setLoadingMsgIndex((prev) => (prev + 1) % loadingMessages.length);
-    }, 2000);
+      const elapsed = Date.now() - startTime;
+      // Find the last message whose time threshold has been passed
+      let idx = 0;
+      for (let i = 0; i < loadingMessages.length; i++) {
+        if (elapsed >= loadingMessages[i].time) idx = i;
+      }
+      setLoadingMsgIndex(idx);
+    }, 1000);
     return () => clearInterval(interval);
   }, [isLoading]);
 
@@ -141,6 +151,7 @@ export default function BrandRoastPage() {
     setLoadingMsgIndex(0);
     setRoast(null);
     setHasRoast(false);
+    setRoastError('');
     try {
       const token = localStorage.getItem('session_token') || '';
       const res = await axios.post(
@@ -150,7 +161,7 @@ export default function BrandRoastPage() {
           websiteUrl: websiteUrl || undefined,
           instagramHandle: instagramHandle || undefined,
         },
-        { headers: { 'x-session-token': token }, timeout: 60000 }
+        { headers: { 'x-session-token': token }, timeout: 90000 }
       );
       setRoast(res.data);
       setHasRoast(true);
@@ -162,8 +173,13 @@ export default function BrandRoastPage() {
         competitorGaps: true,
         funnelProblems: true,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Roast failed:', err);
+      if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+        setRoastError('The roast took too long — your website may have been slow to respond. Try again without the website URL, or try again in a moment.');
+      } else {
+        setRoastError('Something went wrong generating the roast. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -288,19 +304,38 @@ export default function BrandRoastPage() {
               <Flame className="h-16 w-16 text-red-500 animate-pulse" />
               <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 animate-ping" />
             </div>
-            <div className="h-8 flex items-center mb-4">
+            <div className="h-8 flex items-center mb-2">
               <p key={loadingMsgIndex} className="text-lg font-bold text-slate-700 dark:text-slate-300 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                {loadingMessages[loadingMsgIndex]}
+                {loadingMessages[loadingMsgIndex].text}
               </p>
             </div>
-            <div className="flex gap-1.5">
-              {[0, 1, 2].map((i) => (
+            {/* Step progress dots */}
+            <div className="flex gap-2 mt-3 mb-5">
+              {loadingMessages.map((_, i) => (
                 <div
                   key={i}
-                  className="h-2 w-2 rounded-full bg-red-400 animate-bounce"
-                  style={{ animationDelay: `${i * 0.15}s` }}
+                  className={`h-1.5 rounded-full transition-all duration-500 ${
+                    i <= loadingMsgIndex ? 'bg-red-500 w-6' : 'bg-slate-300 dark:bg-slate-600 w-2'
+                  }`}
                 />
               ))}
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500">This usually takes 30-60 seconds</p>
+          </div>
+        ) : roastError ? (
+          /* Error State */
+          <div className="max-w-lg mx-auto py-12">
+            <div className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20 p-8 text-center">
+              <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-red-700 dark:text-red-300 mb-2">Roast ran into a snag</h3>
+              <p className="text-sm text-red-600 dark:text-red-400 mb-6">{roastError}</p>
+              <button
+                onClick={() => { setRoastError(''); handleRoast(); }}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-600 transition-all active:scale-95"
+              >
+                <Flame className="h-4 w-4" />
+                Try Again
+              </button>
             </div>
           </div>
         ) : !hasRoast || !roast ? (

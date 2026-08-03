@@ -364,7 +364,7 @@ function AccountCard({
               Refresh
             </button>
             <button
-              onClick={() => navigate('/content')}
+              onClick={() => navigate('/scheduler')}
               className="inline-flex items-center gap-1 rounded-md bg-[var(--bg-overlay)] px-2.5 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--border-subtle)] transition-colors"
             >
               <Calendar className="h-3 w-3" />

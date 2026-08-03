@@ -133,93 +133,6 @@ sqlite.exec(`
   );
 `);
 
- // Run engagement fields migration on existing databases
-addEngagementFields(sqlite);
-
-// Growth loop: ensure scheduled_posts has is_high_performer_checked column
-try {
-  const cols = sqlite
-    .prepare("PRAGMA table_info('scheduled_posts')")
-    .all() as Array<{ name: string }>;
-  const existing = new Set(cols.map((c) => c.name));
-  if (!existing.has('is_high_performer_checked')) {
-    console.log('🔄 Adding scheduled_posts.is_high_performer_checked column...');
-    sqlite.exec(`ALTER TABLE scheduled_posts ADD COLUMN is_high_performer_checked INTEGER`);
-  }
-} catch (err) {
-  console.warn('⚠ Failed to ensure is_high_performer_checked column:', err);
-}
-
-// Ensure brand_profiles has website column
-try {
-  const bpCols2 = sqlite
-    .prepare("PRAGMA table_info('brand_profiles')")
-    .all() as Array<{ name: string }>;
-  const bpExisting2 = new Set(bpCols2.map((c) => c.name));
-  if (!bpExisting2.has('website')) {
-    console.log('🔄 Adding brand_profiles.website column...');
-    sqlite.exec(`ALTER TABLE brand_profiles ADD COLUMN website TEXT`);
-  }
-} catch (err) {
-  console.warn('⚠ Failed to ensure website column:', err);
-}
-
-// Ensure brand_profiles has logo_url column
-try {
-  const bpLogoCols = sqlite
-    .prepare("PRAGMA table_info('brand_profiles')")
-    .all() as Array<{ name: string }>;
-  const bpLogoExisting = new Set(bpLogoCols.map((c) => c.name));
-  if (!bpLogoExisting.has('logo_url')) {
-    console.log('🔄 Adding brand_profiles.logo_url column...');
-    sqlite.exec(`ALTER TABLE brand_profiles ADD COLUMN logo_url TEXT`);
-  }
-} catch (err) {
-  console.warn('⚠ Failed to ensure logo_url column:', err);
-}
-
-// Brand Memory: ensure brand_profiles has all memory columns
-try {
-  const bpCols = sqlite
-    .prepare("PRAGMA table_info('brand_profiles')")
-    .all() as Array<{ name: string }>;
-  const bpExisting = new Set(bpCols.map((c) => c.name));
-  const memoryColumns = ['memory_version', 'total_posts_generated', 'total_campaigns_run', 'performance_lessons', 'audience_insights', 'campaign_memory', 'content_dna', 'adaptive_plan'];
-  for (const col of memoryColumns) {
-    if (!bpExisting.has(col)) {
-      console.log(`🔄 Adding brand_profiles.${col} column...`);
-      const type = col === 'total_posts_generated' || col === 'total_campaigns_run' || col === 'memory_version' ? 'INTEGER' : 'TEXT';
-      sqlite.exec(`ALTER TABLE brand_profiles ADD COLUMN ${col} ${type} DEFAULT ${col.includes('total_') || col === 'memory_version' ? '0' : 'NULL'}`);
-    }
-  }
-} catch (err) {
-  console.warn('⚠ Failed to ensure brand_profiles memory columns:', err);
-}
-
-// Demo Mode: ensure is_demo flag columns exist on the entities a demo
-// workspace seeds (brand, connectors, analytics snapshots).
-for (const table of ['brand_profiles', 'connectors', 'account_snapshots'] as const) {
-  try {
-    const cols = sqlite.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>;
-    if (!cols.map((c) => c.name).includes('is_demo')) {
-      console.log(`🔄 Adding ${table}.is_demo column...`);
-      sqlite.exec(`ALTER TABLE ${table} ADD COLUMN is_demo INTEGER DEFAULT 0`);
-    }
-  } catch (err) {
-    console.warn(`⚠ Failed to ensure ${table}.is_demo column:`, err);
-  }
-}
-
-export const db = drizzle(sqlite, { schema });
-
-// Ensure engagement_queue table exists with new columns (idempotent)
-try {
-  sqlite.exec(`
-    SELECT reply_status FROM engagement_queue LIMIT 1;
-  `);
-} catch {
-  addEngagementFields(sqlite);
-}
 
 // Ensure user_profiles table exists
 sqlite.exec(`
@@ -559,6 +472,120 @@ sqlite.exec(`
   );
 `);
 
+
+// Ensure content_library table exists
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS content_library (
+    id TEXT PRIMARY KEY,
+    brand_profile_id TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'social_post',
+    platform TEXT,
+    title TEXT,
+    content TEXT NOT NULL,
+    media_url TEXT,
+    media_urls_json TEXT,
+    metadata_json TEXT,
+    status TEXT DEFAULT 'draft' NOT NULL,
+    source TEXT DEFAULT 'ai_generated' NOT NULL,
+    website_context_json TEXT,
+    generated_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_content_library_brand_profile_id ON content_library (brand_profile_id);
+  CREATE INDEX IF NOT EXISTS idx_content_library_type ON content_library (type);
+  CREATE INDEX IF NOT EXISTS idx_content_library_status ON content_library (status);
+  CREATE INDEX IF NOT EXISTS idx_content_library_platform ON content_library (platform);
+`);
+
+ // Run engagement fields migration on existing databases
+addEngagementFields(sqlite);
+
+// Growth loop: ensure scheduled_posts has is_high_performer_checked column
+try {
+  const cols = sqlite
+    .prepare("PRAGMA table_info('scheduled_posts')")
+    .all() as Array<{ name: string }>;
+  const existing = new Set(cols.map((c) => c.name));
+  if (!existing.has('is_high_performer_checked')) {
+    console.log('🔄 Adding scheduled_posts.is_high_performer_checked column...');
+    sqlite.exec(`ALTER TABLE scheduled_posts ADD COLUMN is_high_performer_checked INTEGER`);
+  }
+} catch (err) {
+  console.warn('⚠ Failed to ensure is_high_performer_checked column:', err);
+}
+
+// Ensure brand_profiles has website column
+try {
+  const bpCols2 = sqlite
+    .prepare("PRAGMA table_info('brand_profiles')")
+    .all() as Array<{ name: string }>;
+  const bpExisting2 = new Set(bpCols2.map((c) => c.name));
+  if (!bpExisting2.has('website')) {
+    console.log('🔄 Adding brand_profiles.website column...');
+    sqlite.exec(`ALTER TABLE brand_profiles ADD COLUMN website TEXT`);
+  }
+} catch (err) {
+  console.warn('⚠ Failed to ensure website column:', err);
+}
+
+// Ensure brand_profiles has logo_url column
+try {
+  const bpLogoCols = sqlite
+    .prepare("PRAGMA table_info('brand_profiles')")
+    .all() as Array<{ name: string }>;
+  const bpLogoExisting = new Set(bpLogoCols.map((c) => c.name));
+  if (!bpLogoExisting.has('logo_url')) {
+    console.log('🔄 Adding brand_profiles.logo_url column...');
+    sqlite.exec(`ALTER TABLE brand_profiles ADD COLUMN logo_url TEXT`);
+  }
+} catch (err) {
+  console.warn('⚠ Failed to ensure logo_url column:', err);
+}
+
+// Brand Memory: ensure brand_profiles has all memory columns
+try {
+  const bpCols = sqlite
+    .prepare("PRAGMA table_info('brand_profiles')")
+    .all() as Array<{ name: string }>;
+  const bpExisting = new Set(bpCols.map((c) => c.name));
+  const memoryColumns = ['memory_version', 'total_posts_generated', 'total_campaigns_run', 'performance_lessons', 'audience_insights', 'campaign_memory', 'content_dna', 'adaptive_plan'];
+  for (const col of memoryColumns) {
+    if (!bpExisting.has(col)) {
+      console.log(`🔄 Adding brand_profiles.${col} column...`);
+      const type = col === 'total_posts_generated' || col === 'total_campaigns_run' || col === 'memory_version' ? 'INTEGER' : 'TEXT';
+      sqlite.exec(`ALTER TABLE brand_profiles ADD COLUMN ${col} ${type} DEFAULT ${col.includes('total_') || col === 'memory_version' ? '0' : 'NULL'}`);
+    }
+  }
+} catch (err) {
+  console.warn('⚠ Failed to ensure brand_profiles memory columns:', err);
+}
+
+// Demo Mode: ensure is_demo flag columns exist on the entities a demo
+// workspace seeds (brand, connectors, analytics snapshots).
+for (const table of ['brand_profiles', 'connectors', 'account_snapshots'] as const) {
+  try {
+    const cols = sqlite.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>;
+    if (!cols.map((c) => c.name).includes('is_demo')) {
+      console.log(`🔄 Adding ${table}.is_demo column...`);
+      sqlite.exec(`ALTER TABLE ${table} ADD COLUMN is_demo INTEGER DEFAULT 0`);
+    }
+  } catch (err) {
+    console.warn(`⚠ Failed to ensure ${table}.is_demo column:`, err);
+  }
+}
+
+export const db = drizzle(sqlite, { schema });
+
+// Ensure engagement_queue table exists with new columns (idempotent)
+try {
+  sqlite.exec(`
+    SELECT reply_status FROM engagement_queue LIMIT 1;
+  `);
+} catch {
+  addEngagementFields(sqlite);
+}
+
 // Ensure director_sessions has morning_briefing_json column
 try {
   const dsCols = sqlite
@@ -623,31 +650,6 @@ try {
 } catch (err) {
   console.warn('⚠ Failed to auto-create built-in connector:', err);
 }
-
-// Ensure content_library table exists
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS content_library (
-    id TEXT PRIMARY KEY,
-    brand_profile_id TEXT NOT NULL,
-    type TEXT NOT NULL DEFAULT 'social_post',
-    platform TEXT,
-    title TEXT,
-    content TEXT NOT NULL,
-    media_url TEXT,
-    media_urls_json TEXT,
-    metadata_json TEXT,
-    status TEXT DEFAULT 'draft' NOT NULL,
-    source TEXT DEFAULT 'ai_generated' NOT NULL,
-    website_context_json TEXT,
-    generated_at TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_content_library_brand_profile_id ON content_library (brand_profile_id);
-  CREATE INDEX IF NOT EXISTS idx_content_library_type ON content_library (type);
-  CREATE INDEX IF NOT EXISTS idx_content_library_status ON content_library (status);
-  CREATE INDEX IF NOT EXISTS idx_content_library_platform ON content_library (platform);
-`);
 
 // Credential validation: check if stored credentials can be decrypted
 // If not, the encryption key was likely changed — clear them and deactivate the connector

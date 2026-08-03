@@ -21,7 +21,7 @@ import * as credentialStore from './credentialStore';
 /*  Provider Categories                                                */
 /* ------------------------------------------------------------------ */
 
-export const MANAGED_PROVIDERS = ['github', 'notion', 'canva', 'linkedin', 'x'] as const;
+export const MANAGED_PROVIDERS = ['github', 'notion', 'canva', 'x'] as const;
 export const GUIDED_PROVIDERS = [
   'instagram_facebook',
   'google',
@@ -51,7 +51,7 @@ export interface OAuthConfig {
   additionalParams?: Record<string, string>;
   /** For PKCE flow — requires code_challenge instead of client_secret */
   usePkce?: boolean;
-  /** Query param name for the client id (defaults to `client_id`; TikTok uses `client_key`) */
+  /** Query param name for the application ID (defaults to `client_id`; TikTok uses `client_key`) */
   clientIdParam?: string;
   /** Scope separator (defaults to a space; TikTok uses a comma) */
   scopeSeparator?: string;
@@ -283,8 +283,8 @@ function getLinkedInCredentials(): { clientId: string; clientSecret: string } {
 }
 
 /**
- * X (Twitter) — public OAuth 2.0 client (PKCE, no secret). VIMO ships the app
- * client id so users connect with one click; no key pasting required.
+ * X (Twitter) — public OAuth client (PKCE, no secret). VIMO ships the app
+ * application ID so users connect with one click; no key pasting required.
  */
 function getXCredentials(): { clientId: string; clientSecret?: string } {
   return {
@@ -350,26 +350,26 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'In Instagram Basic Display settings, paste the redirect address below into "Valid OAuth Redirect URIs".',
+        title: 'Add return address',
+        description: 'In Instagram Basic Display settings, paste the return address below into "Valid OAuth Return Addresses".',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback/instagram_facebook`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy your App ID',
-        description: 'From the top of your App Dashboard, copy the App ID number.',
-        inputField: { key: 'clientId', label: 'App ID', placeholder: '1234567890', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'From the top of your App Dashboard, copy the Application ID number.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: '1234567890', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Copy your App Secret',
-        description: 'Go to Settings > Basic, reveal and copy the App Secret.',
-        inputField: { key: 'clientSecret', label: 'App Secret', placeholder: 'Your app secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Go to Settings > Basic, reveal and copy the Security Password.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your security password', isSecret: true },
       },
     ],
   },
@@ -390,26 +390,26 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'In the Auth tab, add the redirect address below.',
+        title: 'Add return address',
+        description: 'In the Auth tab, add the return address below.',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback/linkedin`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy Client ID and Secret',
-        description: 'From the Auth tab, copy the Client ID and Client Secret.',
-        inputField: { key: 'clientId', label: 'Client ID', placeholder: 'Your LinkedIn Client ID', isSecret: false },
+        title: 'Copy Application ID and Secret',
+        description: 'From the Auth tab, copy the Application ID and Security Password.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: 'Your LinkedIn Application ID', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Paste Client Secret',
-        description: 'Paste the Client Secret from LinkedIn.',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your LinkedIn Client Secret', isSecret: true },
+        title: 'Paste Security Password',
+        description: 'Paste the Security Password from LinkedIn.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your LinkedIn Security Password', isSecret: true },
       },
       {
         stepNumber: 6,
@@ -440,26 +440,26 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       },
       {
         stepNumber: 4,
-        title: 'Add redirect address',
-        description: 'Add the redirect address below to the Authorized Redirect URIs.',
+        title: 'Add return address',
+        description: 'Add the return address below to the Authorized Return Addresses.',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback/google`,
           isSecret: false,
         },
       },
       {
         stepNumber: 5,
-        title: 'Copy Client ID',
-        description: 'Copy the Client ID from the credentials page.',
-        inputField: { key: 'clientId', label: 'Client ID', placeholder: 'Your Google Client ID', isSecret: false },
+        title: 'Copy Application ID',
+        description: 'Copy the Application ID from the credentials page.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: 'Your Google Application ID', isSecret: false },
       },
       {
         stepNumber: 6,
-        title: 'Copy Client Secret',
-        description: 'Copy the Client Secret from the credentials page.',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your Google Client Secret', isSecret: true },
+        title: 'Copy Security Password',
+        description: 'Copy the Security Password from the credentials page.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your Google Security Password', isSecret: true },
       },
     ],
   },
@@ -476,30 +476,30 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       {
         stepNumber: 2,
         title: 'Create a new app',
-        description: 'Enter your app name (e.g., "VIMO"), add a description, and set the redirect URL below.',
+        description: 'Enter your app name (e.g., "VIMO"), add a description, and set the return address below.',
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'In your app settings, add the redirect address below to the "Allowed Redirect URLs" field.',
+        title: 'Add return address',
+        description: 'In your app settings, add the return address below to the "Allowed Return Addresses" field.',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy your App ID',
-        description: 'From the app dashboard, copy the App ID (Client ID).',
-        inputField: { key: 'clientId', label: 'App ID / Client ID', placeholder: 'Your Canva Client ID', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'From the app dashboard, copy the Application ID (Application ID).',
+        inputField: { key: 'clientId', label: 'Application ID / Application ID', placeholder: 'Your Canva Application ID', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Copy your App Secret',
-        description: 'Click "Show" next to Client Secret and copy it.',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your Canva Client Secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Click "Show" next to Security Password and copy it.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your Canva Security Password', isSecret: true },
       },
     ],
   },
@@ -520,26 +520,26 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'In Facebook Login > Settings, add the redirect address below to "Valid OAuth Redirect URIs".',
+        title: 'Add return address',
+        description: 'In Facebook Login > Settings, add the return address below to "Valid OAuth Return Addresses".',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy your App ID',
-        description: 'From the top of your App Dashboard, copy the App ID number.',
-        inputField: { key: 'clientId', label: 'App ID', placeholder: '1234567890', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'From the top of your App Dashboard, copy the Application ID number.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: '1234567890', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Copy your App Secret',
-        description: 'Go to Settings > Basic, reveal and copy the App Secret.',
-        inputField: { key: 'clientSecret', label: 'App Secret', placeholder: 'Your app secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Go to Settings > Basic, reveal and copy the Security Password.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your security password', isSecret: true },
       },
     ],
   },
@@ -555,31 +555,31 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       },
       {
         stepNumber: 2,
-        title: 'Enable OAuth 2.0',
-        description: 'In "User authentication settings", set App permissions to "Read and write", type to "Web App", and enable OAuth 2.0.',
+        title: 'Enable OAuth',
+        description: 'In "User authentication settings", set App permissions to "Read and write", type to "Web App", and enable OAuth.',
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'Add the redirect address below to "Callback URI / Redirect URL".',
+        title: 'Add return address',
+        description: 'Add the return address below to "Callback URI / Return Address".',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy your Client ID',
-        description: 'From the "Keys and tokens" page, copy the OAuth 2.0 Client ID.',
-        inputField: { key: 'clientId', label: 'Client ID', placeholder: 'Your X Client ID', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'From the "Keys and tokens" page, copy the OAuth Application ID.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: 'Your X Application ID', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Copy your Client Secret',
-        description: 'Copy the OAuth 2.0 Client Secret.',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your X Client Secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Copy the OAuth Security Password.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your X Security Password', isSecret: true },
       },
     ],
   },
@@ -596,15 +596,15 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       {
         stepNumber: 2,
         title: 'Configure OAuth',
-        description: 'Set the app type to "Web App", add the redirect URL below, and request the "Display Basic Videos" and "Upload Videos" scopes.',
+        description: 'Set the app type to "Web App", add the return address below, and request the "Display Basic Videos" and "Upload Videos" scopes.',
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'Add the redirect address below to "Redirect domain / URL".',
+        title: 'Add return address',
+        description: 'Add the return address below to "Redirect domain / URL".',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
@@ -617,9 +617,9 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       },
       {
         stepNumber: 5,
-        title: 'Copy your Client Secret',
-        description: 'Copy the Client Secret.',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your TikTok Client Secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Copy the Security Password.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your TikTok Security Password', isSecret: true },
       },
     ],
   },
@@ -640,26 +640,26 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'Add the redirect address below to the OAuth client\'s "Authorized redirect URIs".',
+        title: 'Add return address',
+        description: 'Add the return address below to the OAuth client\'s "Authorized return addresses".',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy your Client ID',
-        description: 'Copy the Client ID from the OAuth credentials.',
-        inputField: { key: 'clientId', label: 'Client ID', placeholder: 'Your Google Client ID', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'Copy the Application ID from the OAuth credentials.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: 'Your Google Application ID', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Copy your Client Secret',
-        description: 'Copy the Client Secret.',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your Google Client Secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Copy the Security Password.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your Google Security Password', isSecret: true },
       },
     ],
   },
@@ -676,30 +676,30 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       {
         stepNumber: 2,
         title: 'Configure app',
-        description: 'Set the app to "Web app", add the redirect URL below, and request the boards, pins, and user account scopes.',
+        description: 'Set the app to "Web app", add the return address below, and request the boards, pins, and user account scopes.',
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'Add the redirect address below to "Redirect URIs".',
+        title: 'Add return address',
+        description: 'Add the return address below to "Return Addresses".',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy your App ID',
-        description: 'From the app details, copy the App ID.',
-        inputField: { key: 'clientId', label: 'App ID', placeholder: 'Your Pinterest App ID', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'From the app details, copy the Application ID.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: 'Your Pinterest Application ID', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Copy your App Secret',
-        description: 'Copy the App Secret.',
-        inputField: { key: 'clientSecret', label: 'App Secret', placeholder: 'Your Pinterest App Secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Copy the Security Password.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your Pinterest Security Password', isSecret: true },
       },
     ],
   },
@@ -716,30 +716,30 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       {
         stepNumber: 2,
         title: 'Configure Threads',
-        description: 'Add the redirect URL below and request the threads_basic, threads_content_publish, and threads_manage_replies scopes.',
+        description: 'Add the return address below and request the threads_basic, threads_content_publish, and threads_manage_replies scopes.',
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'Add the redirect address below to "Valid OAuth Redirect URIs".',
+        title: 'Add return address',
+        description: 'Add the return address below to "Valid OAuth Return Addresses".',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy your App ID',
-        description: 'Copy the App ID from your app dashboard.',
-        inputField: { key: 'clientId', label: 'App ID', placeholder: '1234567890', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'Copy the Application ID from your app dashboard.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: '1234567890', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Copy your App Secret',
-        description: 'Copy the App Secret.',
-        inputField: { key: 'clientSecret', label: 'App Secret', placeholder: 'Your app secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Copy the Security Password.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your security password', isSecret: true },
       },
     ],
   },
@@ -756,30 +756,30 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       {
         stepNumber: 2,
         title: 'Configure app',
-        description: 'Choose "web app", set the redirect URL below, and note your client id (under the app name) and secret.',
+        description: 'Choose "web app", set the return address below, and note your application ID (under the app name) and secret.',
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
-        description: 'Set the redirect address below as the app\'s redirect uri.',
+        title: 'Add return address',
+        description: 'Set the return address below as the app\'s redirect uri.',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy your Client ID',
-        description: 'The client id is the string shown under your app\'s name.',
-        inputField: { key: 'clientId', label: 'Client ID', placeholder: 'Your Reddit Client ID', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'The application ID is the string shown under your app\'s name.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: 'Your Reddit Application ID', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Copy your Client Secret',
+        title: 'Copy your Security Password',
         description: 'Copy the secret shown next to "secret".',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your Reddit Client Secret', isSecret: true },
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your Reddit Security Password', isSecret: true },
       },
     ],
   },
@@ -796,25 +796,25 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       {
         stepNumber: 2,
         title: 'Register an application',
-        description: 'Create an OAuth app at medium.com/me/applications with the redirect URL below.',
+        description: 'Create an OAuth app at medium.com/me/applications with the return address below.',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect address',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
       },
       {
         stepNumber: 3,
-        title: 'Copy your Client ID',
-        description: 'Copy the Client ID from your Medium application.',
-        inputField: { key: 'clientId', label: 'Client ID', placeholder: 'Your Medium Client ID', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'Copy the Application ID from your Medium application.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: 'Your Medium Application ID', isSecret: false },
       },
       {
         stepNumber: 4,
-        title: 'Copy your Client Secret',
-        description: 'Copy the Client Secret.',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your Medium Client Secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Copy the Security Password.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your Medium Security Password', isSecret: true },
       },
     ],
   },
@@ -831,11 +831,11 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       {
         stepNumber: 2,
         title: 'Register a new OAuth app',
-        description: 'Enter "VIMO" as the Application Name, your homepage URL, and the redirect URL below.',
+        description: 'Enter "VIMO" as the Application Name, your homepage URL, and the return address below.',
       },
       {
         stepNumber: 3,
-        title: 'Add redirect address',
+        title: 'Add return address',
         description: 'Set the Authorization callback URL to the address below.',
         inputField: {
           key: 'redirectUri',
@@ -846,15 +846,15 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       },
       {
         stepNumber: 4,
-        title: 'Copy your Client ID',
-        description: 'After creating the app, copy the Client ID.',
-        inputField: { key: 'clientId', label: 'Client ID', placeholder: 'Your GitHub Client ID', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'After creating the app, copy the Application ID.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: 'Your GitHub Application ID', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Generate and copy a Client Secret',
-        description: 'Click "Generate a new client secret" and copy the value shown.',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your GitHub Client Secret', isSecret: true },
+        title: 'Generate and copy a Security Password',
+        description: 'Click "Generate a new security password" and copy the value shown.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your GitHub Security Password', isSecret: true },
       },
     ],
   },
@@ -875,26 +875,26 @@ export const GUIDED_SETUP_CONTENT: Record<string, SetupGuide> = {
       },
       {
         stepNumber: 3,
-        title: 'Set redirect address',
-        description: 'Under "Capabilities", add the redirect address below.',
+        title: 'Set return address',
+        description: 'Under "Capabilities", add the return address below.',
         inputField: {
           key: 'redirectUri',
-          label: 'Copy this redirect URL',
+          label: 'Copy this return address',
           placeholder: `http://localhost:${process.env.PORT || 3000}/api/auth/oauth/callback`,
           isSecret: false,
         },
       },
       {
         stepNumber: 4,
-        title: 'Copy your Client ID',
-        description: 'From the Integration Settings page, copy the Client ID.',
-        inputField: { key: 'clientId', label: 'Client ID', placeholder: 'Your Notion Client ID', isSecret: false },
+        title: 'Copy your Application ID',
+        description: 'From the Integration Settings page, copy the Application ID.',
+        inputField: { key: 'clientId', label: 'Application ID', placeholder: 'Your Notion Application ID', isSecret: false },
       },
       {
         stepNumber: 5,
-        title: 'Copy your Client Secret',
-        description: 'Click "Show" next to Client Secret and copy it.',
-        inputField: { key: 'clientSecret', label: 'Client Secret', placeholder: 'Your Notion Client Secret', isSecret: true },
+        title: 'Copy your Security Password',
+        description: 'Click "Show" next to Security Password and copy it.',
+        inputField: { key: 'clientSecret', label: 'Security Password', placeholder: 'Your Notion Security Password', isSecret: true },
       },
     ],
   },
@@ -1223,7 +1223,7 @@ export async function exchangeCodeForTokens(
       body.append('client_id', clientId);
       body.append('code_verifier', codeVerifier);
     } else {
-      // Notion / Canva — need client secret
+      // Notion / Canva — need security password
       if (!clientId) throw new Error(`No credentials for ${oauthKey}`);
       body.append('client_id', clientId);
       if (clientSecret) body.append('client_secret', clientSecret);
@@ -1241,7 +1241,7 @@ export async function exchangeCodeForTokens(
     const tokenAuth = config.tokenAuth || 'body';
 
     if (tokenAuth === 'public') {
-      // Public client (PKCE) — only the client id, no secret
+      // Public client (PKCE) — only the application ID, no secret
       body.append('client_id', clientId);
     } else {
       body.append('client_id', clientId);
@@ -1251,7 +1251,7 @@ export async function exchangeCodeForTokens(
       }
     }
 
-    // Rename the client id param for providers that use a different name (e.g. TikTok -> client_key)
+    // Rename the application ID param for providers that use a different name (e.g. TikTok -> client_key)
     if (config.clientIdParam && config.clientIdParam !== 'client_id') {
       const value = body.get('client_id');
       body.delete('client_id');

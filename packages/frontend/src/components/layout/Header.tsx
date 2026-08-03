@@ -237,7 +237,7 @@ export default function Header({ title }: { title: string }) {
         <div className="flex items-center gap-3 sm:gap-6">
           <button
             onClick={() => setMobileSidebarOpen(!isMobileSidebarOpen)}
-            className="lg:hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-all"
+            className="lg:hidden flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-all"
             aria-label="Toggle sidebar"
           >
             <Menu className="h-5 w-5" />
@@ -318,7 +318,7 @@ export default function Header({ title }: { title: string }) {
                 setShowNotifPanel(!showNotifPanel);
                 if (!showNotifPanel) fetchNotifications();
               }}
-              className="relative group rounded-lg p-1.5 sm:p-2 text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+              className="relative flex min-h-[44px] min-w-[44px] items-center justify-center group rounded-lg p-1.5 sm:p-2 text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
               aria-label="Notifications"
             >
               <Bell className="h-4 w-4" />

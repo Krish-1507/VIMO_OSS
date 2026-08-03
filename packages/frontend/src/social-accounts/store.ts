@@ -155,17 +155,27 @@ export const useSocialAccountsStore = create<SocialAccountsStore>((set, get) => 
       try {
         await api.post(`/api/social-accounts/disconnect/${account.platform}`, {});
       } catch {
-        // best-effort
+        // best-effort — we still refresh below so the UI reflects truth
       }
-      set((state) => ({
-        accounts: state.accounts.map((a) =>
-          a.id === id ? { ...a, isConnected: false, permissions: [] } : a
-        ),
-      }));
+
+      // Re-pull state from the backend so the UI doesn't drift out of sync
+      // with what's actually in the database. Without this the user can
+      // disconnect one account and still see a stale "Connected" pill on
+      // another account from the same platform.
+      try {
+        await vimoSocialService.refreshAccounts();
+      } catch {
+        // best-effort — at minimum, mark this account disconnected locally
+        set((state) => ({
+          accounts: state.accounts.map((a) =>
+            a.id === id ? { ...a, isConnected: false, permissions: [] } : a
+          ),
+        }));
+      }
     },
 
     connectPlatform: async (platform: SocialPlatform) => {
-      set({ oauthInProgress: true, connectingPlatform: platform });
+      set({ oauthInProgress: true, connectingPlatform: platform, error: null });
       try {
         const result = await vimoSocialService.initiateOAuth(platform);
         if (result.needsSetup) {
@@ -185,6 +195,9 @@ export const useSocialAccountsStore = create<SocialAccountsStore>((set, get) => 
         if (err?.needsSetup) throw err;
         set({ error: `Failed to connect ${platform}` });
       }
+      // Always clear the in-progress flags, even if the popup was cancelled
+      // (success === false) — otherwise the user sees a stuck "Connecting…"
+      // spinner and can't try again without a page refresh.
       set({ oauthInProgress: false, connectingPlatform: null });
     },
   };

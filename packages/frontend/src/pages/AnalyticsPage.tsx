@@ -525,45 +525,58 @@ export default function AnalyticsPage() {
                     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
                       <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Engagement by Platform</h3>
                       <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart
-                            data={Object.entries(performance.byPlatform).map(([platform, data]) => ({
-                              platform,
-                              engagements: data.engagements,
-                              reach: data.reach,
-                            }))}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
-                            <XAxis dataKey="platform" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} tickFormatter={(val) => formatNumber(val)} />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc' }}
-                              itemStyle={{ color: '#14b8a6' }}
-                            />
-                            <Bar dataKey="engagements" fill="#14b8a6" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
+                        {Object.keys(performance.byPlatform).length === 0 ? (
+                          <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No engagement data yet</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Publish content to see metrics.</p>
+                          </div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                              data={Object.entries(performance.byPlatform).map(([platform, data]) => ({
+                                platform,
+                                engagements: data.engagements,
+                                reach: data.reach,
+                              }))}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
+                              <XAxis dataKey="platform" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} tickFormatter={(val) => formatNumber(val)} />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc' }}
+                                itemStyle={{ color: '#14b8a6' }}
+                              />
+                              <Bar dataKey="engagements" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        )}
                       </div>
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
                       <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Posts per Day</h3>
                       <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <RechartsLineChart
-                            data={Object.entries(performance.byDate)
-                              .sort(([a], [b]) => a.localeCompare(b))
-                              .map(([date, count]) => ({ date: format(parseISO(date), 'MMM d'), posts: count }))}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
-                            <XAxis dataKey="date" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc' }}
-                              itemStyle={{ color: '#14b8a6' }}
-                            />
-                            <Line type="monotone" dataKey="posts" stroke="#14b8a6" strokeWidth={3} dot={{ fill: '#14b8a6', r: 4 }} activeDot={{ r: 6 }} />
-                          </RechartsLineChart>
-                        </ResponsiveContainer>
+                        {Object.keys(performance.byDate).length === 0 ? (
+                          <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No posts in this period</p>
+                          </div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsLineChart
+                              data={Object.entries(performance.byDate)
+                                .sort(([a], [b]) => a.localeCompare(b))
+                                .map(([date, count]) => ({ date: format(parseISO(date), 'MMM d'), posts: count }))}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
+                              <XAxis dataKey="date" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc' }}
+                                itemStyle={{ color: '#14b8a6' }}
+                              />
+                              <Line type="monotone" dataKey="posts" stroke="#14b8a6" strokeWidth={3} dot={{ fill: '#14b8a6', r: 4 }} activeDot={{ r: 6 }} />
+                            </RechartsLineChart>
+                          </ResponsiveContainer>
+                        )}
                       </div>
                     </div>
                   </div>

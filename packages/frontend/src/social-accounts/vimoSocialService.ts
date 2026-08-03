@@ -95,7 +95,7 @@ class VimoSocialService {
   }
 
   async refreshAccounts(): Promise<void> {
-    if (!this.connectionState.isConnected && !this.connectionState.accounts.length) {
+    if (!this.connectionState.isConnected) {
       await this.loadState();
       return;
     }
@@ -103,7 +103,7 @@ class VimoSocialService {
     this.notify();
 
     try {
-      const res = await api.get('/api/social-accounts/refresh');
+      const res = await api.post('/api/social-accounts/refresh', {});
       this.connectionState = {
         ...this.connectionState,
         accounts: this.mapAccounts(res.data.accounts || []),
@@ -151,28 +151,56 @@ class VimoSocialService {
 
       this.oauthPopups.set(connectorId, popup);
 
-      const pollTimer = setInterval(async () => {
+      // Single resolution channel. We register a finalize() closure that any
+      // path (status-poll success, popup-closed, timeout) calls exactly once
+      // to clean up every timer and then resolve. This is the fix for the
+      // previous "popup check timer outlives a successful OAuth" leak.
+      let resolved = false;
+      let pollTimer: ReturnType<typeof setInterval> | undefined;
+      let popupCheckTimer: ReturnType<typeof setInterval> | undefined;
+      let graceTimer: ReturnType<typeof setTimeout> | undefined;
+
+      const finalize = async (success: boolean) => {
+        if (resolved) return;
+        resolved = true;
+        if (pollTimer) clearInterval(pollTimer);
+        if (popupCheckTimer) clearInterval(popupCheckTimer);
+        if (graceTimer) clearTimeout(graceTimer);
+        this.pollTimers.delete(connectorId);
+        this.oauthPopups.delete(connectorId);
+        if (success) {
+          await this.loadState();
+        }
+        resolve(success);
+      };
+
+      pollTimer = setInterval(async () => {
         try {
           const statusRes = await api.get(`/api/social-accounts/oauth-status/${connectorId}`);
-          if (statusRes.data.status === 'active') {
-            clearInterval(pollTimer);
-            this.pollTimers.delete(connectorId);
-            this.loadState();
-            resolve(true);
+          if (statusRes.data?.status === 'active') {
+            finalize(true);
           }
         } catch {
-          // still pending
+          // still pending — keep polling
         }
       }, 1500);
       this.pollTimers.set(connectorId, pollTimer);
 
-      const popupCheckTimer = setInterval(() => {
+      popupCheckTimer = setInterval(() => {
         if (popup?.closed) {
-          clearInterval(pollTimer);
-          clearInterval(popupCheckTimer);
-          this.pollTimers.delete(connectorId);
-          this.oauthPopups.delete(connectorId);
-          resolve(false);
+          // Give the status poll one more chance before assuming the user cancelled
+          graceTimer = setTimeout(async () => {
+            try {
+              const finalCheck = await api.get(`/api/social-accounts/oauth-status/${connectorId}`);
+              if (finalCheck.data?.status === 'active') {
+                finalize(true);
+              } else {
+                finalize(false);
+              }
+            } catch {
+              finalize(false);
+            }
+          }, 2000);
         }
       }, 1000);
     });
@@ -181,6 +209,16 @@ class VimoSocialService {
   cleanup() {
     for (const [, timer] of this.pollTimers) clearInterval(timer);
     this.pollTimers.clear();
+    // Close any OAuth popups that the user may have left open. We do NOT
+    // resolve any pending promises — the caller (store.closeSetup) treats
+    // that as the user cancelling the flow.
+    for (const [, popup] of this.oauthPopups) {
+      try {
+        popup?.close();
+      } catch {
+        // already gone
+      }
+    }
     this.oauthPopups.clear();
   }
 
