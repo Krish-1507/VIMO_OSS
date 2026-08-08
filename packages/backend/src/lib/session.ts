@@ -33,5 +33,16 @@ export async function decryptSession(
 
   const [token, expiryStr] = raw.split('|');
   if (!token) return null;
-  return { token, expiry: Number(expiryStr) };
+
+  // A session whose expiry cannot be parsed is not a session.
+  //
+  // This guard is load-bearing. `Number('')` is 0 and `Number('garbage')` is
+  // NaN, and *every* comparison against NaN is false — so a malformed expiry
+  // used to make `Date.now() > session.expiry` permanently false, producing a
+  // token that never expired. Rejecting here means no caller can reintroduce
+  // that bypass by forgetting to check.
+  const expiry = Number(expiryStr);
+  if (!expiryStr || !Number.isFinite(expiry)) return null;
+
+  return { token, expiry };
 }

@@ -20,7 +20,12 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
     return reply.status(401).send({ error: 'Unauthorized' });
   }
 
-  if (session.expiry && Date.now() > session.expiry) {
+  // Defence in depth: `decryptSession` already rejects an unparseable expiry,
+  // but this must fail closed rather than open if that ever changes. Note the
+  // deliberate `Number.isFinite` check instead of a truthiness test — NaN is
+  // falsy, so `session.expiry && ...` would skip the comparison entirely and
+  // grant an immortal session.
+  if (!Number.isFinite(session.expiry) || Date.now() > session.expiry) {
     return reply.status(401).send({ error: 'Session expired' });
   }
 }
