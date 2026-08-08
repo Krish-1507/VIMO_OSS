@@ -202,6 +202,7 @@ async function main() {
     if (
       pathname.startsWith('/api/auth') ||
       pathname.startsWith('/api/connectors/presets') ||
+      pathname.startsWith('/api/connectors/ollama/status') ||
       pathname === '/api/health' ||
       pathname === '/api/system/status'
     ) {

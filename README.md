@@ -112,6 +112,18 @@ manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_V
 
 You don't need a single API key to see VIMO work.
 
+### Easiest: one command
+
+```bash
+npm i -g vimo
+vimo
+```
+
+VIMO installs itself, starts, and opens in your browser. Onboarding auto-detects
+a local Ollama install and offers **"Use free local AI"** with one click — no
+account, no key, nothing leaves your machine. Press `Ctrl+C` to stop. First run
+takes a couple of minutes; later starts are fast.
+
 ### Option A — Try the Demo (zero setup)
 
 1. Launch VIMO (see **Run it** below).

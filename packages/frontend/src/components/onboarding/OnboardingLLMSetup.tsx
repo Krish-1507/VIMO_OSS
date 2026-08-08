@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Check, ExternalLink, HelpCircle, Sparkles, ChevronDown, Search, RefreshCw } from 'lucide-react';
 import HowToGetKeyModal from './HowToGetKeyModal';
+import LocalAISetupCard from './LocalAISetupCard';
 
 interface Preset {
   id: string;
@@ -122,9 +123,11 @@ export default function OnboardingLLMSetup({ onComplete }: Props) {
         </div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Pick your AI brain.</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-          VIMO needs an AI provider to generate content. Requests go through <strong>your own key</strong>, which is encrypted and stored only on your machine. Prefer full privacy? Choose a <strong>Local</strong> provider and nothing ever leaves your computer.
+          VIMO uses AI to write your content. Pick where it should run — an online service you already have an account with, or your own computer. Your key is encrypted and stored only on your machine. Prefer full privacy? Choose a <strong>Local</strong> option and nothing ever leaves your computer.
         </p>
       </div>
+
+      <LocalAISetupCard onComplete={onComplete} />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 max-w-lg mx-auto">
         {presets.map((preset) => {
@@ -178,7 +181,7 @@ export default function OnboardingLLMSetup({ onComplete }: Props) {
             <h4 className="text-sm font-semibold text-white">
               Connect {selected.name}
             </h4>
-            <p className="text-[11px] text-white/80">Enter your API key below. It is encrypted and stored locally.</p>
+            <p className="text-[11px] text-white/80">Paste your key below. It is encrypted and stored only on this computer.</p>
           </div>
           <div className="p-5 space-y-4">
             {selected.requiredCredentials.map((cred) => (
@@ -275,7 +278,7 @@ export default function OnboardingLLMSetup({ onComplete }: Props) {
             )}
 
             {isDynamicProvider && !modelsLoading && models.length === 0 && credentials.apiKey && credentials.apiKey.length > 5 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">Enter a valid API key to see available models.</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">Paste a valid key to see available models.</p>
             )}
 
             {testResult === 'success' && (

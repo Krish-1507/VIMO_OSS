@@ -25,6 +25,7 @@ import BrandRoastPage from './pages/BrandRoastPage';
 import ApprovalQueuePage from './pages/ApprovalQueuePage';
 import SystemCheckPage from './pages/SystemCheckPage';
 import ContentPage from './pages/ContentPage';
+import BrandPage from './pages/BrandPage';
 import ActivityPage from './pages/ActivityPage';
 import AutopilotPage from './pages/AutopilotPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -245,6 +246,14 @@ function AppRoutes() {
                 element={
                   <ErrorBoundary>
                     <BrandMemoryPage />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/brand"
+                element={
+                  <ErrorBoundary>
+                    <BrandPage />
                   </ErrorBoundary>
                 }
               />

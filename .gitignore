@@ -11,3 +11,4 @@ coverage/
 .idea/
 .kilo/
 playwright-report/
+test-results/

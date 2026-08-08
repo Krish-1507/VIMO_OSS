@@ -6,7 +6,11 @@
   "workspaces": [
     "packages/*"
   ],
+  "bin": {
+    "vimo": "packages/cli/bin/vimo.mjs"
+  },
   "scripts": {
+    "vimo": "node packages/cli/bin/vimo.mjs",
     "dev": "concurrently --names FE,BE,SHARED --prefix-colors cyan,green,yellow \"npm run dev --workspace=packages/frontend\" \"npm run dev --workspace=packages/backend\"",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",

@@ -343,6 +343,41 @@ export default async function connectorRoutes(app: FastifyInstance) {
     }
   });
 
+  // GET /api/connectors/ollama/status — auto-detects a local Ollama install.
+  // Pings the Ollama API on this machine and lists the models that are
+  // available for one-click local AI setup. Short timeout so a missing
+  // install answers fast instead of hanging.
+  app.get('/api/connectors/ollama/status', async (request, reply) => {
+    const baseUrl = String((request.query as any)?.baseUrl || 'http://localhost:11434').replace(/\/+$/, '');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    try {
+      const res = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal });
+      if (!res.ok) {
+        return { available: false, baseUrl };
+      }
+      const body: any = await res.json();
+      const models = Array.isArray(body?.models)
+        ? body.models
+            .map((m: any) => ({
+              name: String(m?.name || m?.model || '').replace(/:latest$/, ''),
+              size: typeof m?.size === 'number' ? m.size : undefined,
+            }))
+            .filter((m: any) => m.name)
+        : [];
+      return {
+        available: true,
+        baseUrl,
+        models,
+        defaultModel: models.some((m: any) => m.name === 'llama3') ? 'llama3' : models[0]?.name || 'llama3',
+      };
+    } catch {
+      return { available: false, baseUrl };
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+
   // POST /api/connectors — creates a new connector
   app.post('/api/connectors', async (request, reply) => {
     try {
@@ -423,6 +458,40 @@ export default async function connectorRoutes(app: FastifyInstance) {
       const start = Date.now();
       try {
         if (connector.type === 'llm') {
+          // Ollama runs locally with no API key — the honest test is pinging
+          // the Ollama server and confirming it answers.
+          if (connector.provider === 'ollama') {
+            const config = (connector as any).config || {};
+            const baseUrl = String(config.baseUrl || 'http://localhost:11434').replace(/\/+$/, '');
+            try {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), 3000);
+              try {
+                const res = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal });
+                if (res.ok) {
+                  return {
+                    success: true,
+                    message: 'Local AI is running and reachable',
+                    latencyMs: Date.now() - start,
+                  };
+                }
+                return {
+                  success: false,
+                  message: `Local AI is not reachable (HTTP ${res.status}). Is Ollama running?`,
+                  latencyMs: Date.now() - start,
+                };
+              } finally {
+                clearTimeout(timer);
+              }
+            } catch {
+              return {
+                success: false,
+                message: 'Local AI is not reachable. Start Ollama, then try again.',
+                latencyMs: Date.now() - start,
+              };
+            }
+          }
+
           // Minimal test for LLM: just verify we can get credentials
           const apiKey = await credentialStore.getCredential(id, 'apiKey');
           if (!apiKey) {

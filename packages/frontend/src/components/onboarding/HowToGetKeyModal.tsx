@@ -57,7 +57,7 @@ export default function HowToGetKeyModal({ provider, providerName, onClose }: Pr
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            Getting your {providerName} API key
+            Get your {providerName} key
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-500 transition-colors">
             <X className="h-5 w-5" />

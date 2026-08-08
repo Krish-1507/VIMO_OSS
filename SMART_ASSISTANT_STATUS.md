@@ -28,7 +28,7 @@ Build VIMO **"Smart Assistant"** (user-facing name) that provides helpful writin
 - [x] AI provider abstraction — `llmProvider.ts` (`getActiveLLMProvider`, `callWithProviderChain`, `resolveModelName`)
 - [x] Local Ollama support: default base URL `http://localhost:11434`, model `llama3` — `llmProvider.ts`
 - [x] Provider fallback chain — `callWithProviderChain` (try next configured provider on failure)
-- [ ] Ollama auto-detection on first launch + one-click setup prompt — auto-detection not verified; onboarding offers manual "Local" choice
+- [x] Ollama auto-detection on first launch + one-click setup prompt — `GET /api/connectors/ollama/status` (pings local Ollama, lists models) + `LocalAISetupCard.tsx` in onboarding: "Found a free AI on this computer" → one click connects, tests, and proceeds
 - [ ] "🔒 Fully private — runs on your computer" badge — not verified (onboarding copy explains Local = "nothing ever leaves your computer")
 - [ ] Model download flow with progress (`ollama pull` via backend) — not implemented
 
@@ -53,7 +53,7 @@ Build VIMO **"Smart Assistant"** (user-facing name) that provides helpful writin
 ## Onboarding Integration
 
 - [x] First-run wizard: "Pick your AI brain" step with Local/Cloud presets + skip — `OnboardingLLMSetup.tsx`
-- [ ] Ollama auto-detect → one-click setup or skip — not implemented (manual selection only)
+- [x] Ollama auto-detect → one-click setup or skip — `LocalAISetupCard.tsx` in `OnboardingLLMSetup.tsx`; detects a running Ollama, offers "Use free local AI" in one click, or a "Get Ollama" path with re-check when offline
 
 ## Naming Constraints (must never break)
 

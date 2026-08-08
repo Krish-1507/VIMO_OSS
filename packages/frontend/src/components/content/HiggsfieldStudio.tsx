@@ -281,7 +281,7 @@ export default function HiggsfieldStudio() {
         { headers: { 'x-session-token': token } },
       );
       if (res.data?.jobId) {
-        addNotification('info', 'Video Queued', `Job ${res.data.jobId.slice(0, 8)}... queued.`);
+        addNotification('info', 'Video queued', 'Your video is in the queue — you\'ll get a notification when it\'s ready.');
         fetchJobsForBrand(brandIdRef.current);
       }
     } catch (err: any) {

@@ -17,7 +17,23 @@ You stay in control the whole time. VIMO only does what you approve.
 
 ## Quick start
 
-1. **Run the app** and open it in your browser.
+### One-command start (no technical knowledge needed)
+
+```bash
+npm i -g vimo
+vimo
+```
+
+That's it. VIMO downloads, starts, and opens in your browser. If your computer
+has **Ollama** installed, onboarding detects it and offers **"Use free local
+AI"** with one click — no account, no key, nothing leaves your machine. Don't
+have Ollama? The onboarding card links you to the free installer and checks
+again automatically after you've installed it. First run takes a couple of
+minutes; later starts are fast. Press `Ctrl+C` to stop.
+
+### Running from the source code (developers)
+
+1. **Run the app** and open it in your browser (`npm install`, then `npm run dev`).
 2. Click **"Try Demo"** to explore instantly, **or** connect an account with one click.
 3. You're done. VIMO writes, schedules, and analyzes your content while you stay in control.
 
