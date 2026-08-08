@@ -70,9 +70,9 @@ export const adobeExpressPack: ConnectorPack = {
       title: 'Discovering Your Brand Assets',
       description: 'VIMO is scanning your Adobe Express account...',
       discoveryItems: [
-        { icon: 'Palette', label: 'Brand kits found', value: '2' },
-        { icon: 'Image', label: 'Templates available', value: '15' },
-        { icon: 'PenTool', label: 'Recent designs', value: '6' },
+        { icon: 'Palette', label: 'Brand kits found', value: '—' },
+        { icon: 'Image', label: 'Templates available', value: '—' },
+        { icon: 'PenTool', label: 'Recent designs', value: '—' },
       ],
     },
   ],
@@ -87,9 +87,9 @@ export const adobeExpressPack: ConnectorPack = {
   discoveredInfo: {
     title: 'Adobe Express connected. We found:',
     items: [
-      { icon: 'Palette', label: 'Brand kits', value: '2' },
-      { icon: 'Image', label: 'Templates', value: '15' },
-      { icon: 'PenTool', label: 'Recent designs', value: '6' },
+      { icon: 'Palette', label: 'Brand kits', value: '—' },
+      { icon: 'Image', label: 'Templates', value: '—' },
+      { icon: 'PenTool', label: 'Recent designs', value: '—' },
     ],
   },
   successActions: [

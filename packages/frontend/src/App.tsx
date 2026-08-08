@@ -24,6 +24,10 @@ import BrandMemoryPage from './pages/BrandMemoryPage';
 import BrandRoastPage from './pages/BrandRoastPage';
 import ApprovalQueuePage from './pages/ApprovalQueuePage';
 import SystemCheckPage from './pages/SystemCheckPage';
+import ContentPage from './pages/ContentPage';
+import ActivityPage from './pages/ActivityPage';
+import AutopilotPage from './pages/AutopilotPage';
+import NotFoundPage from './pages/NotFoundPage';
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
@@ -38,7 +42,10 @@ function AppRoutes() {
   useEffect(() => {
     if (demoActive) {
       // Demo Mode: pretend the environment is ready and the user is signed in.
-      try { localStorage.setItem('hasPassedSystemCheck', 'true'); } catch { /* ignore */ }
+      try { localStorage.setItem('hasPassedSystemCheck', 'true'); } catch (err) {
+        /* ignore */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
       useAuthStore.getState().setAuth('demo-session');
       useAuthStore.setState({ isSetupComplete: true, isLoading: false });
       useOnboardingStore.setState({ isComplete: true, isLoading: false, currentStep: 4 });
@@ -178,6 +185,30 @@ function AppRoutes() {
                 }
               />
               <Route
+                path="/content"
+                element={
+                  <ErrorBoundary>
+                    <ContentPage />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/activity"
+                element={
+                  <ErrorBoundary>
+                    <ActivityPage />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/autopilot"
+                element={
+                  <ErrorBoundary>
+                    <AutopilotPage />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
                 path="/analytics"
                 element={
                   <ErrorBoundary>
@@ -242,6 +273,7 @@ function AppRoutes() {
                 }
               />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </AppLayout>
         }

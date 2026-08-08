@@ -183,8 +183,9 @@ export default function DashboardPage() {
       if (session?.morningBriefingJson) {
         try {
           setBriefing(session.morningBriefingJson);
-        } catch {
+        } catch (err) {
           // ignore
+          console.warn('[vimo] best-effort operation failed:', err);
         }
       }
 

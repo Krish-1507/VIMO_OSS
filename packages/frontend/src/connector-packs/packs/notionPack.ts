@@ -57,9 +57,9 @@ export const notionPack: ConnectorPack = {
       title: 'Discovering Your Content',
       description: 'VIMO is scanning your Notion workspace...',
       discoveryItems: [
-        { icon: 'FileText', label: 'Pages found', value: '37' },
-        { icon: 'BookOpen', label: 'Product docs', value: '6' },
-        { icon: 'ClipboardList', label: 'Meeting notes', value: '12' },
+        { icon: 'FileText', label: 'Pages found', value: '—' },
+        { icon: 'BookOpen', label: 'Product docs', value: '—' },
+        { icon: 'ClipboardList', label: 'Meeting notes', value: '—' },
       ],
     },
   ],
@@ -72,11 +72,11 @@ export const notionPack: ConnectorPack = {
   ],
   validationRules: [],
   discoveredInfo: {
-    title: 'Notion connected. We found:',
+    title: 'What VIMO now watches:',
     items: [
-      { icon: 'FileText', label: 'Pages', value: '37' },
-      { icon: 'BookOpen', label: 'Product docs', value: '6' },
-      { icon: 'ClipboardList', label: 'Meeting notes', value: '12' },
+      { icon: 'FileText', label: 'Pages', value: '—' },
+      { icon: 'BookOpen', label: 'Product docs', value: '—' },
+      { icon: 'ClipboardList', label: 'Meeting notes', value: '—' },
     ],
   },
   successActions: [

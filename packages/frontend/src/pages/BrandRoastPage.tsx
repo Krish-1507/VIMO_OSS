@@ -86,7 +86,6 @@ export default function BrandRoastPage() {
   const [hasRoast, setHasRoast] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState(false);
-  const loadingStartRef = { current: 0 };
 
   const fetchBrandProfiles = useCallback(async () => {
     try {
@@ -99,8 +98,9 @@ export default function BrandRoastPage() {
       if (data.length > 0 && !selectedBrandId) {
         setSelectedBrandId(data[0].id);
       }
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }, []);
 

@@ -72,9 +72,9 @@ export const woocommercePack: ConnectorPack = {
       title: 'Discovering Your Products',
       description: 'VIMO is scanning your WooCommerce store...',
       discoveryItems: [
-        { icon: 'ShoppingCart', label: 'Products found', value: '36' },
-        { icon: 'Package', label: 'Recent orders', value: '89' },
-        { icon: 'BarChart3', label: 'Top categories', value: '5' },
+        { icon: 'ShoppingCart', label: 'Products found', value: '—' },
+        { icon: 'Package', label: 'Recent orders', value: '—' },
+        { icon: 'BarChart3', label: 'Top categories', value: '—' },
       ],
     },
   ],
@@ -89,9 +89,9 @@ export const woocommercePack: ConnectorPack = {
   discoveredInfo: {
     title: 'WooCommerce connected. We found:',
     items: [
-      { icon: 'ShoppingCart', label: 'Products', value: '36' },
-      { icon: 'Package', label: 'Recent orders', value: '89' },
-      { icon: 'BarChart3', label: 'Top categories', value: '5' },
+      { icon: 'ShoppingCart', label: 'Products', value: '—' },
+      { icon: 'Package', label: 'Recent orders', value: '—' },
+      { icon: 'BarChart3', label: 'Top categories', value: '—' },
     ],
   },
   successActions: [

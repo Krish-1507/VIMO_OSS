@@ -70,9 +70,9 @@ export const hubspotPack: ConnectorPack = {
       title: 'Discovering Your HubSpot Data',
       description: 'VIMO is analyzing your HubSpot account...',
       discoveryItems: [
-        { icon: 'Users', label: 'Contacts', value: '2,450' },
-        { icon: 'DollarSign', label: 'Active deals', value: '18' },
-        { icon: 'BarChart3', label: 'Campaigns running', value: '4' },
+        { icon: 'Users', label: 'Contacts', value: '—' },
+        { icon: 'DollarSign', label: 'Active deals', value: '—' },
+        { icon: 'BarChart3', label: 'Campaigns running', value: '—' },
       ],
     },
   ],
@@ -87,9 +87,9 @@ export const hubspotPack: ConnectorPack = {
   discoveredInfo: {
     title: 'HubSpot connected. We found:',
     items: [
-      { icon: 'Users', label: 'Contacts', value: '2,450' },
-      { icon: 'DollarSign', label: 'Active deals', value: '18' },
-      { icon: 'BarChart3', label: 'Campaigns running', value: '4' },
+      { icon: 'Users', label: 'Contacts', value: '—' },
+      { icon: 'DollarSign', label: 'Active deals', value: '—' },
+      { icon: 'BarChart3', label: 'Campaigns running', value: '—' },
     ],
   },
   successActions: [

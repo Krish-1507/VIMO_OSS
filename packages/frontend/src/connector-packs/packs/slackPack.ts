@@ -71,9 +71,9 @@ export const slackPack: ConnectorPack = {
       title: 'Discovering Your Channels',
       description: 'VIMO is scanning your Slack workspace...',
       discoveryItems: [
-        { icon: 'MessageSquare', label: 'Channels found', value: '15' },
-        { icon: 'Users', label: 'Team members', value: '24' },
-        { icon: 'MessageCircle', label: 'Recent discussions', value: '89' },
+        { icon: 'MessageSquare', label: 'Channels found', value: '—' },
+        { icon: 'Users', label: 'Team members', value: '—' },
+        { icon: 'MessageCircle', label: 'Recent discussions', value: '—' },
       ],
     },
   ],
@@ -88,9 +88,9 @@ export const slackPack: ConnectorPack = {
   discoveredInfo: {
     title: 'Slack connected. We found:',
     items: [
-      { icon: 'MessageSquare', label: 'Channels', value: '15' },
-      { icon: 'Users', label: 'Team members', value: '24' },
-      { icon: 'MessageCircle', label: 'Recent discussions', value: '89' },
+      { icon: 'MessageSquare', label: 'Channels', value: '—' },
+      { icon: 'Users', label: 'Team members', value: '—' },
+      { icon: 'MessageCircle', label: 'Recent discussions', value: '—' },
     ],
   },
   successActions: [

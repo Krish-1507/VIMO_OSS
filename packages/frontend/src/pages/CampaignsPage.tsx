@@ -313,8 +313,9 @@ export default function CampaignsPage() {
     try {
       const res = await api.get('/api/campaigns');
       setCampaigns(res.data);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     } finally {
       setLoading(false);
     }
@@ -327,8 +328,9 @@ export default function CampaignsPage() {
       if (res.data.length > 0) {
         setBrandProfileId(res.data[0].id);
       }
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -336,8 +338,9 @@ export default function CampaignsPage() {
     try {
       const res = await api.get(`/api/campaigns/${id}`);
       setSelectedCampaign(res.data);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -996,8 +999,9 @@ function CampaignDetailView({
     if (campaign.strategy) {
       strategyData = JSON.parse(campaign.strategy);
     }
-  } catch {
+  } catch (err) {
     // strategy may be unparseable text, that's fine
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 
   // Determine current week and phase from strategy

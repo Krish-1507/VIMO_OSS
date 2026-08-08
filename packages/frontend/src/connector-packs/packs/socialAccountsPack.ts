@@ -101,9 +101,9 @@ export const socialAccountsPack: ConnectorPack = {
   postConnectionValue: {
     title: 'Social Accounts Connected',
     metrics: [
-      { label: 'Connected', value: '0', icon: 'CheckCircle2' },
-      { label: 'Platforms', value: '9', icon: 'Globe' },
-      { label: 'Capabilities', value: '5', icon: 'Zap' },
+      { label: 'Platforms supported', value: '9', icon: 'Globe' },
+      { label: 'One-click options', value: '5', icon: 'Zap' },
+      { label: 'Status', value: 'Active', icon: 'CheckCircle2' },
     ],
     suggestedAction: {
       label: 'Go to Social Dashboard',

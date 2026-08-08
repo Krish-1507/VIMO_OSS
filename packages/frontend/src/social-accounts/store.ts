@@ -107,8 +107,9 @@ export const useSocialAccountsStore = create<SocialAccountsStore>((set, get) => 
           packName: 'Social Accounts',
           category: 'social_accounts',
         });
-      } catch {
+      } catch (err) {
         // best-effort
+        console.warn('[vimo] best-effort operation failed:', err);
       }
       set({ setupStep: 4, isLoading: false });
     },
@@ -141,8 +142,9 @@ export const useSocialAccountsStore = create<SocialAccountsStore>((set, get) => 
         if (success) {
           await vimoSocialService.refreshAccounts();
         }
-      } catch {
+      } catch (err) {
         // ignore
+        console.warn('[vimo] best-effort operation failed:', err);
       }
       set({ isLoading: false, connectingPlatform: null });
     },
@@ -154,8 +156,9 @@ export const useSocialAccountsStore = create<SocialAccountsStore>((set, get) => 
 
       try {
         await api.post(`/api/social-accounts/disconnect/${account.platform}`, {});
-      } catch {
+      } catch (err) {
         // best-effort — we still refresh below so the UI reflects truth
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       // Re-pull state from the backend so the UI doesn't drift out of sync

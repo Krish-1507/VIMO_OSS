@@ -55,9 +55,9 @@ export const googleDrivePack: ConnectorPack = {
       title: 'Discovering Your Files',
       description: 'VIMO is scanning your Google Drive...',
       discoveryItems: [
-        { icon: 'FileText', label: 'Documents found', value: '45' },
-        { icon: 'Image', label: 'Presentations', value: '8' },
-        { icon: 'Table', label: 'Spreadsheets', value: '12' },
+        { icon: 'FileText', label: 'Documents found', value: '—' },
+        { icon: 'Image', label: 'Presentations', value: '—' },
+        { icon: 'Table', label: 'Spreadsheets', value: '—' },
       ],
     },
   ],
@@ -72,9 +72,9 @@ export const googleDrivePack: ConnectorPack = {
   discoveredInfo: {
     title: 'Google Drive connected. We found:',
     items: [
-      { icon: 'FileText', label: 'Documents', value: '45' },
-      { icon: 'Image', label: 'Presentations', value: '8' },
-      { icon: 'Table', label: 'Spreadsheets', value: '12' },
+      { icon: 'FileText', label: 'Documents', value: '—' },
+      { icon: 'Image', label: 'Presentations', value: '—' },
+      { icon: 'Table', label: 'Spreadsheets', value: '—' },
     ],
   },
   successActions: [

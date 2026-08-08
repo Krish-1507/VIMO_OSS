@@ -226,7 +226,10 @@ export default function SocialAccountsPage() {
                       </p>
                     </div>
                   </div>
-                  <button className="text-xs text-[var(--teal-500)] hover:text-[var(--teal-400)] font-medium">
+                  <button
+                    onClick={() => reconnectAccount(account.id)}
+                    className="text-xs text-[var(--teal-500)] hover:text-[var(--teal-400)] font-medium"
+                  >
                     Fix
                   </button>
                 </div>

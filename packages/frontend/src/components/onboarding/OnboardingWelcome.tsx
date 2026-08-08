@@ -77,7 +77,7 @@ export default function OnboardingWelcome({ onNext }: Props) {
       </div>
 
       <p className="mt-4 text-xs text-slate-400 dark:text-slate-500 max-w-md">
-        Feel free to explore instantly with the built-in Demo, or connect popular accounts like GitHub, Notion, and Canva with one click — no keys needed.
+        Explore instantly with the built-in Demo, or connect popular accounts like GitHub, Notion, and Canva — one click when available, and VIMO walks you through everything else step by step.
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-2.5 w-full max-w-lg text-left">

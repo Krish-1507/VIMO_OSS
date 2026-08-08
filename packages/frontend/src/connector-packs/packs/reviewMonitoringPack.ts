@@ -76,7 +76,7 @@ export const reviewMonitoringPack: ConnectorPack = {
   discoveredInfo: {
     title: 'Review Monitoring active. VIMO is tracking:',
     items: [
-      { icon: 'Star', label: 'Average rating', value: '4.5' },
+      { icon: 'Star', label: 'Average rating', value: '—' },
       { icon: 'BarChart3', label: 'Total reviews', value: 'Detecting...' },
       { icon: 'Heart', label: 'Positive reviews', value: 'Ready to share' },
     ],

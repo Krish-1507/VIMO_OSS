@@ -42,8 +42,9 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
         currentStep: res.data.currentStep,
         completedSteps: res.data.completedSteps,
       });
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   },
 
@@ -54,8 +55,9 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   resetOnboarding: async () => {
     try {
       await api.post('/api/settings/onboarding/reset');
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   },
 

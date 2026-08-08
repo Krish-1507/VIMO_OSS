@@ -21,8 +21,9 @@ export default function ActivityPage() {
       try {
         const res = await api.get('/api/activity');
         setItems(res.data.items || []);
-      } catch {
+      } catch (err) {
         // ignore
+        console.warn('[vimo] best-effort operation failed:', err);
       } finally {
         setIsLoading(false);
       }

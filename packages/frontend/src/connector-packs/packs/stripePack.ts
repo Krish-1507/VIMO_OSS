@@ -70,7 +70,7 @@ export const stripePack: ConnectorPack = {
       title: 'Analyzing Your Sales Data',
       description: 'VIMO is analyzing your Stripe data...',
       discoveryItems: [
-        { icon: 'CreditCard', label: 'Monthly transactions', value: '1,240' },
+        { icon: 'CreditCard', label: 'Monthly transactions', value: '—' },
         { icon: 'BarChart3', label: 'Revenue trend', value: 'Growing' },
         { icon: 'TrendingUp', label: 'Top product', value: 'Detected' },
       ],
@@ -87,7 +87,7 @@ export const stripePack: ConnectorPack = {
   discoveredInfo: {
     title: 'Stripe connected. VIMO is analyzing:',
     items: [
-      { icon: 'CreditCard', label: 'Monthly transactions', value: '1,240' },
+      { icon: 'CreditCard', label: 'Monthly transactions', value: '—' },
       { icon: 'BarChart3', label: 'Revenue trend', value: 'Growing' },
       { icon: 'TrendingUp', label: 'Growth rate', value: '+12%' },
     ],

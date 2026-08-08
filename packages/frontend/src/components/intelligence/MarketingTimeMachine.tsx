@@ -43,8 +43,9 @@ export default function MarketingTimeMachine() {
       const data = res.data.map((p: BrandProfile) => ({ id: p.id, name: p.name }));
       setBrandProfiles(data);
       if (data.length > 0) setSelectedBrandId(data[0].id);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }, []);
 

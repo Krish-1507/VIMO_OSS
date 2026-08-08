@@ -146,8 +146,9 @@ export default function ContentPage() {
       if (perms?.data?.permissions) setAiDesignerPermissions(perms.data.permissions);
       if (kits?.data?.kits) setAiDesignerBrandKits(kits.data.kits);
       if (recent?.data?.designs) setAiDesignerRecent(recent.data.designs);
-    } catch {
+    } catch (err) {
       /* non-fatal — UI degrades gracefully */
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   };
 
@@ -390,8 +391,9 @@ export default function ContentPage() {
         hashtags: newTiers.allHashtags || [],
         hashtagTiers: { tier1: newTiers.tier1, tier2: newTiers.tier2, tier3: newTiers.tier3 },
       });
-    } catch {
+    } catch (err) {
       // Silent fail
+      console.warn('[vimo] best-effort operation failed:', err);
     } finally {
       setIsRegeneratingHashtags(false);
     }
@@ -440,8 +442,9 @@ export default function ContentPage() {
         if (instagramConn) {
           connectorId = instagramConn.id;
         }
-      } catch {
+      } catch (err) {
         // If we can't find a connector, proceed without one
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       const res = await axios.post(
@@ -454,8 +457,9 @@ export default function ContentPage() {
         { headers: { 'x-session-token': token } }
       );
       setSuggestedTime(res.data);
-    } catch {
+    } catch (err) {
       // Silent fail - user can still pick a time manually
+      console.warn('[vimo] best-effort operation failed:', err);
     } finally {
       setIsSuggestingTime(false);
     }

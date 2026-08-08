@@ -15,6 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import type {
   ConnectorPack,
@@ -60,6 +61,7 @@ export default function SetupAssistant({ pack, isOpen, onClose, onComplete }: Se
   }>({ show: false, provider: '' });
 
   const [discoveryItems, setDiscoveryItems] = useState<{ icon: string; label: string; value: string }[] | null>(null);
+  const [discoveryMode, setDiscoveryMode] = useState<'checking' | 'live' | 'example'>('checking');
 
   // Initialize requirements from pack
   useEffect(() => {
@@ -105,22 +107,30 @@ export default function SetupAssistant({ pack, isOpen, onClose, onComplete }: Se
     setCurrentStepIndex(index);
   }, [currentStepIndex]);
 
-  // Fetch real discovery data when the discovery step becomes active
+  // Fetch real discovery data when the discovery step becomes active. We
+  // never present fabricated numbers as real: if the live call fails (or
+  // returns nothing) the UI shows an honest "example" notice instead.
   useEffect(() => {
     if (currentStep?.type === 'discovery') {
       const packItems = currentStep.discoveryItems;
       setDiscoveryItems(null);
+      setDiscoveryMode('checking');
       api.post('/api/packs/discover', {
         provider: pack.provider,
         credentials,
       }).then((res) => {
         if (res.data?.success && res.data?.items?.length > 0) {
           setDiscoveryItems(res.data.items);
+          setDiscoveryMode('live');
         } else if (packItems) {
           setDiscoveryItems(packItems);
+          setDiscoveryMode('example');
         }
       }).catch(() => {
-        if (packItems) setDiscoveryItems(packItems);
+        if (packItems) {
+          setDiscoveryItems(packItems);
+          setDiscoveryMode('example');
+        }
       });
     }
   }, [currentStep?.id, pack.provider]);
@@ -199,8 +209,8 @@ export default function SetupAssistant({ pack, isOpen, onClose, onComplete }: Se
 
     setTesting(false);
     setIsSuccess(true);
-    onComplete(credentials, discoveryItems ?? undefined);
-  }, [currentStep, credentials, pack.provider, onComplete, discoveryItems]);
+    onComplete(credentials, discoveryMode === 'live' ? (discoveryItems ?? undefined) : undefined);
+  }, [currentStep, credentials, pack.provider, onComplete, discoveryItems, discoveryMode]);
 
   const handleOAuthConnect = useCallback(async () => {
     setOAuthState({ isConnecting: true, isConnected: false });
@@ -387,6 +397,7 @@ export default function SetupAssistant({ pack, isOpen, onClose, onComplete }: Se
                 oAuthState={oAuthState}
                 onOAuthConnect={handleOAuthConnect}
                 discoveryItems={discoveryItems}
+                discoveryMode={discoveryMode}
               />
 
               {/* Screenshot placeholder */}
@@ -552,6 +563,7 @@ function StepContent({
   oAuthState,
   onOAuthConnect,
   discoveryItems,
+  discoveryMode,
 }: {
   step: SetupStep;
   requirements: Requirement[];
@@ -565,6 +577,7 @@ function StepContent({
   oAuthState?: { isConnecting: boolean; isConnected: boolean; authUrl?: string; connectorId?: string; error?: string };
   onOAuthConnect?: () => void;
   discoveryItems?: { icon: string; label: string; value: string }[] | null;
+  discoveryMode?: 'checking' | 'live' | 'example';
 }) {
   switch (step.type) {
     case 'verify_requirements':
@@ -681,6 +694,7 @@ function StepContent({
         <DiscoveryContent
           discoveryItems={items}
           onComplete={onDiscoveryComplete}
+          isExample={discoveryMode === 'example'}
         />
       ) : null;
 
@@ -780,9 +794,11 @@ function OAuthConnectContent({
 function DiscoveryContent({
   discoveryItems,
   onComplete,
+  isExample,
 }: {
   discoveryItems: { icon: string; label: string; value: string }[];
   onComplete?: () => void;
+  isExample?: boolean;
 }) {
   const [discoveredItems, setDiscoveredItems] = useState<Set<number>>(new Set());
   const [isComplete, setIsComplete] = useState(false);
@@ -808,6 +824,15 @@ function DiscoveryContent({
 
   return (
     <div className="space-y-4">
+      {isExample && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Couldn't reach this app right now, so these are the things VIMO will watch
+            once connected — not live numbers. Reconnect any time to see your real data.
+          </p>
+        </div>
+      )}
       {!isComplete && (
         <div className="flex items-center justify-center gap-3 py-4">
           <div className="relative h-8 w-8">
@@ -931,6 +956,22 @@ function CredentialInput({
 
 function SuccessView({ pack, onClose }: { pack: ConnectorPack; onClose: () => void }) {
   const postValue = pack.postConnectionValue;
+  const navigate = useNavigate();
+  const firstAction = pack.successActions?.[0];
+
+  const handlePrimaryAction = () => {
+    if (postValue?.suggestedAction && pack.id === 'social-accounts') {
+      onClose();
+      navigate('/social-accounts');
+      return;
+    }
+    if (firstAction?.route) {
+      onClose();
+      navigate(firstAction.route);
+      return;
+    }
+    onClose();
+  };
 
   return (
     <div className="text-center space-y-6 pt-4">
@@ -962,7 +1003,7 @@ function SuccessView({ pack, onClose }: { pack: ConnectorPack; onClose: () => vo
             ))}
           </div>
           <button
-            onClick={onClose}
+            onClick={handlePrimaryAction}
             className={cn(
               'w-full rounded-lg py-2.5 text-sm font-medium text-white transition-all hover:shadow-md',
               `bg-gradient-to-r ${pack.brandColor}`

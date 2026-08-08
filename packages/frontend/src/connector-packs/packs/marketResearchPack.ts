@@ -72,7 +72,7 @@ export const marketResearchPack: ConnectorPack = {
       description: 'VIMO is preparing your market research dashboard...',
       discoveryItems: [
         { icon: 'Search', label: 'Market signals tracked', value: 'Ongoing' },
-        { icon: 'Bell', label: 'Alert types', value: '5' },
+        { icon: 'Bell', label: 'Alert types', value: '—' },
         { icon: 'FileText', label: 'Briefing frequency', value: 'Weekly' },
       ],
     },

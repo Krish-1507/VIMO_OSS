@@ -50,27 +50,22 @@ export default function Sidebar() {
   const { isSidebarCollapsed, toggleSidebar, isMobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
   const location = useLocation();
   const [approvalCount, setApprovalCount] = useState(0);
-  const [_oppCount, setOppCount] = useState(0);
 
   useEffect(() => {
     fetchApprovalCount();
-    fetchOppCount();
 
     const handleApprovalRequested = () => fetchApprovalCount();
     const handleApprovalExecuted = () => fetchApprovalCount();
     const handleApprovalRejected = () => fetchApprovalCount();
-    const handleDirectorComplete = () => fetchOppCount();
 
     socket.on('approval:requested', handleApprovalRequested);
     socket.on('approval:executed', handleApprovalExecuted);
     socket.on('approval:rejected', handleApprovalRejected);
-    socket.on('director:session_complete', handleDirectorComplete);
 
     return () => {
       socket.off('approval:requested', handleApprovalRequested);
       socket.off('approval:executed', handleApprovalExecuted);
       socket.off('approval:rejected', handleApprovalRejected);
-      socket.off('director:session_complete', handleDirectorComplete);
     };
   }, []);
 
@@ -78,17 +73,9 @@ export default function Sidebar() {
     try {
       const res = await api.get('/api/approvals/queue/count');
       setApprovalCount(res.data.count || 0);
-    } catch {
+    } catch (err) {
       // ignore
-    }
-  }
-
-  async function fetchOppCount() {
-    try {
-      const res = await api.get('/api/opportunities/count');
-      setOppCount(res.data.count || 0);
-    } catch {
-      // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 

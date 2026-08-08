@@ -92,8 +92,9 @@ export default function VimoAssistant() {
     if (stored) {
       try {
         setMessages(JSON.parse(stored));
-      } catch {
+      } catch (err) {
         // ignore
+        console.warn('[vimo] best-effort operation failed:', err);
       }
     }
   }, []);

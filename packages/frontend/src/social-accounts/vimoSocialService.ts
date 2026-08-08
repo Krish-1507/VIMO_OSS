@@ -82,8 +82,9 @@ class VimoSocialService {
   async disconnect(): Promise<void> {
     try {
       await api.post('/api/social-accounts/disconnect/all', {});
-    } catch {
+    } catch (err) {
       // best-effort
+      console.warn('[vimo] best-effort operation failed:', err);
     }
     this.connectionState = {
       isConnected: false,
@@ -128,11 +129,6 @@ class VimoSocialService {
     this.notify();
   }
 
-  async publish(_content: { text: string; platforms: SocialPlatform[] }): Promise<{ success: boolean; jobId: string }> {
-    const res = await api.post('/api/publish', _content);
-    return { success: true, jobId: res.data?.jobId || `job-${Date.now()}` };
-  }
-
   async initiateOAuth(platform: string): Promise<{ authUrl: string; connectorId: string; needsSetup?: boolean; setupGuide?: any }> {
     const res = await api.get(`/api/social-accounts/connect/${platform}`);
     if (res.data.needsSetup) {
@@ -154,7 +150,7 @@ class VimoSocialService {
       // Single resolution channel. We register a finalize() closure that any
       // path (status-poll success, popup-closed, timeout) calls exactly once
       // to clean up every timer and then resolve. This is the fix for the
-      // previous "popup check timer outlives a successful OAuth" leak.
+      // previous popup-check timer leak.
       let resolved = false;
       let pollTimer: ReturnType<typeof setInterval> | undefined;
       let popupCheckTimer: ReturnType<typeof setInterval> | undefined;
@@ -180,8 +176,9 @@ class VimoSocialService {
           if (statusRes.data?.status === 'active') {
             finalize(true);
           }
-        } catch {
+        } catch (err) {
           // still pending — keep polling
+          console.warn('[vimo] best-effort operation failed:', err);
         }
       }, 1500);
       this.pollTimers.set(connectorId, pollTimer);
@@ -215,8 +212,9 @@ class VimoSocialService {
     for (const [, popup] of this.oauthPopups) {
       try {
         popup?.close();
-      } catch {
+      } catch (err) {
         // already gone
+        console.warn('[vimo] best-effort operation failed:', err);
       }
     }
     this.oauthPopups.clear();

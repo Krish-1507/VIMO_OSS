@@ -110,8 +110,9 @@ export default function GuidedSetupView({
       await navigator.clipboard.writeText(text);
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
-    } catch {
+    } catch (err) {
       // fallback
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   };
 
@@ -263,7 +264,7 @@ export default function GuidedSetupView({
                 {step.inputField.key === 'redirectUri' && (
                   <p className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1">
                     <BookOpen className="h-3 w-3" />
-                    Paste this URL into the &ldquo;Redirect URL&rdquo; or &ldquo;Callback URL&rdquo; field in the developer console
+                    Paste this link into the &ldquo;Callback&rdquo; or &ldquo;Return to app&rdquo; field in the app&rsquo;s settings page
                   </p>
                 )}
               </div>
@@ -286,11 +287,11 @@ export default function GuidedSetupView({
           <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-[var(--text-secondary)]">
-                Your {meta.label} API Credentials
+                Your {meta.label} connection details
               </p>
               {!needsSecret && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium">
-                  PKCE &mdash; No secret needed
+                  No secret needed
                 </span>
               )}
             </div>

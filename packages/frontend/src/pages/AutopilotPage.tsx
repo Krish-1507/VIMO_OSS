@@ -85,8 +85,9 @@ export default function AutopilotPage() {
       if (data.length > 0 && !selectedBrandId) {
         setSelectedBrandId(data[0].id);
       }
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }, []);
 

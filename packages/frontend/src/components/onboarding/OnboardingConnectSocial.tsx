@@ -142,9 +142,9 @@ export default function OnboardingConnectSocial({ onComplete }: Props) {
   return (
     <div className="space-y-5">
       <div className="text-center">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Connect your accounts — one click, no keys.</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Connect your accounts</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-          VIMO connects on your behalf. Just click a platform, approve in your browser, and you're done — no developer accounts or API keys. You can connect more anytime from the Connector Hub.
+          VIMO connects on your behalf. Click a platform, approve in your browser, and you're done — no developer accounts needed. For platforms that need a one-time setup, VIMO guides you through it step by step. Connect more anytime from the Connector Hub.
         </p>
       </div>
 

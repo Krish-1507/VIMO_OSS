@@ -145,8 +145,9 @@ export default function ViralPage() {
         headers: { 'x-session-token': token },
       });
       setJobs(response.data);
-    } catch {
+    } catch (err) {
       // ignore background refresh failures
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 

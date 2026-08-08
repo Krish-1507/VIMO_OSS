@@ -46,8 +46,9 @@ export default function GettingStartedChecklist() {
             s.key === 'brand' ? brandCreated : s.key === 'social' ? socialConnected : firstPost,
         })),
       );
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     } finally {
       setLoading(false);
     }

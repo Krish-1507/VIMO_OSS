@@ -58,9 +58,9 @@ export const githubPack: ConnectorPack = {
       title: 'Discovering Your Repositories',
       description: 'VIMO is scanning your GitHub account...',
       discoveryItems: [
-        { icon: 'BookOpen', label: 'Repositories found', value: '12' },
-        { icon: 'Tag', label: 'Releases this month', value: '4' },
-        { icon: 'GitCommit', label: 'Commits this week', value: '58' },
+        { icon: 'BookOpen', label: 'Repositories found', value: '—' },
+        { icon: 'Tag', label: 'Releases this month', value: '—' },
+        { icon: 'GitCommit', label: 'Commits this week', value: '—' },
       ],
     },
   ],
@@ -78,11 +78,11 @@ export const githubPack: ConnectorPack = {
   ],
   validationRules: [],
   discoveredInfo: {
-    title: 'GitHub connected. We found:',
+    title: 'What VIMO now watches:',
     items: [
-      { icon: 'BookOpen', label: 'Repositories', value: '12' },
-      { icon: 'Tag', label: 'Releases this month', value: '4' },
-      { icon: 'GitCommit', label: 'Commits this week', value: '58' },
+      { icon: 'BookOpen', label: 'Repositories', value: '—' },
+      { icon: 'Tag', label: 'Releases this month', value: '—' },
+      { icon: 'GitCommit', label: 'Commits this week', value: '—' },
     ],
   },
   successActions: [

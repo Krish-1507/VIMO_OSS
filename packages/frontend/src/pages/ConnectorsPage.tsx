@@ -319,8 +319,9 @@ export default function ConnectorsPage() {
     try {
       const res = await api.get('/api/plugins');
       setPlugins(res.data?.plugins ?? []);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -345,8 +346,9 @@ export default function ConnectorsPage() {
         map[p.provider] = p.connectable;
       });
       setConnectableMap(map);
-    } catch {
+    } catch (err) {
       // ignore — treat all as guided
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -355,8 +357,9 @@ export default function ConnectorsPage() {
     try {
       const res = await api.get('/api/connectors');
       setConnectors(res.data);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     } finally {
       setIsLoading(false);
     }
@@ -369,8 +372,9 @@ export default function ConnectorsPage() {
       });
       setPresets(res.data.presets ?? res.data);
       if (Array.isArray(res.data.categories)) setPresetCategories(res.data.categories);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -424,8 +428,9 @@ export default function ConnectorsPage() {
     try {
       await api.delete(`/api/connectors/${id}`);
       fetchConnectors();
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -1044,7 +1049,7 @@ export default function ConnectorsPage() {
                           )}
                           {category === 'simple' && (
                             <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                              Paste your access token
+                              Paste your private key
                             </span>
                           )}
                         </div>
@@ -1218,7 +1223,7 @@ export default function ConnectorsPage() {
                           )}
                           {category === 'simple' && (
                             <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                              Paste your access token
+                              Paste your private key
                             </span>
                           )}
                         </div>
@@ -1988,7 +1993,10 @@ function OAuthCredentialsSection() {
     api.get('/api/settings').then((res) => {
       const raw = res.data.oauthAppCredentials;
       if (raw) {
-        try { setCredentials(JSON.parse(raw)); } catch { /* ignore */ }
+        try { setCredentials(JSON.parse(raw)); } catch (err) {
+          /* ignore */
+          console.warn('[vimo] best-effort operation failed:', err);
+        }
       }
     }).catch(() => {});
   }, []);

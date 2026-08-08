@@ -72,9 +72,9 @@ export const figmaPack: ConnectorPack = {
       title: 'Discovering Your Design Files',
       description: 'VIMO is scanning your Figma workspace...',
       discoveryItems: [
-        { icon: 'PenTool', label: 'Design files found', value: '18' },
-        { icon: 'Layers', label: 'Components detected', value: '45' },
-        { icon: 'Palette', label: 'Brand styles', value: '3' },
+        { icon: 'PenTool', label: 'Design files found', value: '—' },
+        { icon: 'Layers', label: 'Components detected', value: '—' },
+        { icon: 'Palette', label: 'Brand styles', value: '—' },
       ],
     },
   ],
@@ -89,9 +89,9 @@ export const figmaPack: ConnectorPack = {
   discoveredInfo: {
     title: 'Figma connected. We found:',
     items: [
-      { icon: 'PenTool', label: 'Design files', value: '18' },
-      { icon: 'Layers', label: 'Components', value: '45' },
-      { icon: 'Palette', label: 'Brand styles', value: '3' },
+      { icon: 'PenTool', label: 'Design files', value: '—' },
+      { icon: 'Layers', label: 'Components', value: '—' },
+      { icon: 'Palette', label: 'Brand styles', value: '—' },
     ],
   },
   successActions: [

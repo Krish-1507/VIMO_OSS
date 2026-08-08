@@ -56,9 +56,9 @@ export const canvaPack: ConnectorPack = {
       title: 'Discovering Your Canva Assets',
       description: 'VIMO is scanning your Canva account for brand assets and templates...',
       discoveryItems: [
-        { icon: 'Image', label: 'Brand assets found', value: '24' },
-        { icon: 'Layers', label: 'Templates available', value: '12' },
-        { icon: 'PenTool', label: 'Recent designs', value: '8' },
+        { icon: 'Image', label: 'Brand assets found', value: '—' },
+        { icon: 'Layers', label: 'Templates available', value: '—' },
+        { icon: 'PenTool', label: 'Recent designs', value: '—' },
       ],
     },
   ],
@@ -71,11 +71,11 @@ export const canvaPack: ConnectorPack = {
   ],
   validationRules: [],
   discoveredInfo: {
-    title: 'Canva connected. We found:',
+    title: 'What VIMO now watches:',
     items: [
-      { icon: 'Image', label: 'Brand assets', value: '24' },
-      { icon: 'Layers', label: 'Templates', value: '12' },
-      { icon: 'PenTool', label: 'Recent designs', value: '8' },
+      { icon: 'Image', label: 'Brand assets', value: '—' },
+      { icon: 'Layers', label: 'Templates', value: '—' },
+      { icon: 'PenTool', label: 'Recent designs', value: '—' },
     ],
   },
   successActions: [

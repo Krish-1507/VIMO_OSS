@@ -113,16 +113,18 @@ export const useDemoMode = create<DemoModeState>((set) => ({
   enter: () => {
     try {
       localStorage.setItem(DEMO_MODE_KEY, 'true');
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
     set({ active: true });
   },
   exit: () => {
     try {
       localStorage.removeItem(DEMO_MODE_KEY);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
     set({ active: false });
   },

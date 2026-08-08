@@ -105,8 +105,9 @@ export default function SchedulerPage() {
         headers: { 'x-session-token': token },
       });
       setPosts(res.data);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     } finally {
       setLoading(false);
     }
@@ -119,8 +120,9 @@ export default function SchedulerPage() {
         headers: { 'x-session-token': token },
       });
       fetchPosts();
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 

@@ -73,9 +73,9 @@ export const shopifyPack: ConnectorPack = {
       title: 'Discovering Your Products',
       description: 'VIMO is scanning your Shopify store...',
       discoveryItems: [
-        { icon: 'ShoppingBag', label: 'Products found', value: '48' },
-        { icon: 'Layers', label: 'Collections', value: '6' },
-        { icon: 'BarChart3', label: 'Best sellers', value: '12' },
+        { icon: 'ShoppingBag', label: 'Products found', value: '—' },
+        { icon: 'Layers', label: 'Collections', value: '—' },
+        { icon: 'BarChart3', label: 'Best sellers', value: '—' },
       ],
     },
   ],
@@ -90,9 +90,9 @@ export const shopifyPack: ConnectorPack = {
   discoveredInfo: {
     title: 'Shopify connected. We found:',
     items: [
-      { icon: 'ShoppingBag', label: 'Products', value: '48' },
-      { icon: 'Layers', label: 'Collections', value: '6' },
-      { icon: 'BarChart3', label: 'Best sellers', value: '12' },
+      { icon: 'ShoppingBag', label: 'Products', value: '—' },
+      { icon: 'Layers', label: 'Collections', value: '—' },
+      { icon: 'BarChart3', label: 'Best sellers', value: '—' },
     ],
   },
   successActions: [

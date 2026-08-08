@@ -84,8 +84,9 @@ export default function ConnectorHubPage() {
       if (connected.has(SOCIAL_ACCOUNTS_PACK.id)) {
         setVimoSocialConnected(true);
       }
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -208,8 +209,9 @@ export default function ConnectorHubPage() {
     // accumulated outside the marketplace flow get a chance to be cleaned up.
     try {
       await api.get('/api/connectors');
-    } catch {
+    } catch (err) {
       // best-effort
+      console.warn('[vimo] best-effort operation failed:', err);
     }
 
     setConnectedIds((prev) => {
@@ -261,11 +263,11 @@ export default function ConnectorHubPage() {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Get started with zero keys
+                Start with one click — no keys
               </h2>
               <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
-                Connect <span className="font-semibold">GitHub</span>, <span className="font-semibold">Notion</span>, and{' '}
-                <span className="font-semibold">Canva</span> with a single click — VIMO handles the connection for you, so you never paste a key or fill in settings.
+                <span className="font-semibold">GitHub</span>, <span className="font-semibold">Notion</span>, and{' '}
+                <span className="font-semibold">Canva</span> connect with one click when VIMO is configured. For anything else, VIMO walks you through the connection step by step — no developer jargon.
                 Not ready yet? Explore a fully working sample brand in the Demo.
               </p>
             </div>

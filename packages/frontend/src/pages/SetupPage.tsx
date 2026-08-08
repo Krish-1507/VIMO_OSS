@@ -10,12 +10,42 @@ export default function SetupPage() {
   const isReset = searchParams.get('mode') === 'reset';
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [confirmReset, setConfirmReset] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [codeRequested, setCodeRequested] = useState(false);
+  const [codeHint, setCodeHint] = useState('');
+  const [isRequestingCode, setIsRequestingCode] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const addNotification = useUIStore((s) => s.addNotification);
+
+  // Ask the server to mint a one-time code. It is deliberately NOT returned in
+  // the response — it is printed in the terminal running VIMO and saved next to
+  // the database, so only someone with access to that machine can read it.
+  const handleRequestCode = async () => {
+    setError('');
+    setIsRequestingCode(true);
+    try {
+      const res = await api.post('/api/auth/reset-pin/request', {});
+      setCodeRequested(true);
+      setCodeHint(
+        res.data?.message ||
+          'A reset code was printed in the terminal window running VIMO.',
+      );
+    } catch (err: any) {
+      const status = err?.response?.status;
+      setError(
+        status === 429
+          ? 'Too many reset requests. Wait a minute and try again.'
+          : err?.response?.data?.message ||
+              err?.response?.data?.error ||
+              'Could not request a reset code. Is the backend server running?',
+      );
+    } finally {
+      setIsRequestingCode(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,13 +58,13 @@ export default function SetupPage() {
       setError('PINs do not match.');
       return;
     }
-    if (isReset && confirmReset !== 'RESET') {
-      setError('Type RESET to confirm.');
+    if (isReset && !/^\d{8}$/.test(resetCode.trim())) {
+      setError('Enter the 8-digit reset code from the VIMO terminal window.');
       return;
     }
     try {
       if (isReset) {
-        await api.post('/api/auth/reset-pin', { pin });
+        await api.post('/api/auth/reset-pin', { pin, code: resetCode.trim() });
         clearAuth();
         addNotification('success', 'PIN Reset', 'Your PIN has been reset. Please log in with your new PIN.');
         navigate('/login');
@@ -46,6 +76,11 @@ export default function SetupPage() {
         navigate('/dashboard');
       }
     } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 429) {
+        setError('Too many attempts. Wait a minute and try again.');
+        return;
+      }
       const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
       const detail = err?.response?.data?.hint ? ` (${err?.response?.data?.hint})` : '';
       setError(serverMsg ? `${serverMsg}${detail}` : 'Setup failed. Is the backend server running?');
@@ -95,15 +130,34 @@ export default function SetupPage() {
           {isReset && (
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                Type <span className="font-bold">RESET</span> to confirm
+                Reset code
               </label>
-              <input
-                type="text"
-                value={confirmReset}
-                onChange={(e) => setConfirmReset(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                placeholder='Type "RESET"'
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={8}
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 tracking-widest text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                  placeholder="8 digits"
+                />
+                <button
+                  type="button"
+                  onClick={handleRequestCode}
+                  disabled={isRequestingCode}
+                  className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  {isRequestingCode ? 'Sending…' : codeRequested ? 'Resend' : 'Send code'}
+                </button>
+              </div>
+              <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                {codeRequested
+                  ? codeHint
+                  : 'Press "Send code". VIMO prints a one-time code in the terminal window it is running in.'}
+              </p>
             </div>
           )}
           {error && <p className="text-sm text-red-500">{error}</p>}

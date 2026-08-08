@@ -72,9 +72,9 @@ export const linearPack: ConnectorPack = {
       title: 'Discovering Your Projects',
       description: 'VIMO is scanning your Linear workspace...',
       discoveryItems: [
-        { icon: 'Kanban', label: 'Projects found', value: '8' },
-        { icon: 'ListChecks', label: 'Active sprints', value: '3' },
-        { icon: 'Tag', label: 'Recent releases', value: '5' },
+        { icon: 'Kanban', label: 'Projects found', value: '—' },
+        { icon: 'ListChecks', label: 'Active sprints', value: '—' },
+        { icon: 'Tag', label: 'Recent releases', value: '—' },
       ],
     },
   ],
@@ -89,9 +89,9 @@ export const linearPack: ConnectorPack = {
   discoveredInfo: {
     title: 'Linear connected. We found:',
     items: [
-      { icon: 'Kanban', label: 'Projects', value: '8' },
-      { icon: 'ListChecks', label: 'Active sprints', value: '3' },
-      { icon: 'Tag', label: 'Recent releases', value: '5' },
+      { icon: 'Kanban', label: 'Projects', value: '—' },
+      { icon: 'ListChecks', label: 'Active sprints', value: '—' },
+      { icon: 'Tag', label: 'Recent releases', value: '—' },
     ],
   },
   successActions: [

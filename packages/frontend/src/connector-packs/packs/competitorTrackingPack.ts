@@ -72,8 +72,8 @@ export const competitorTrackingPack: ConnectorPack = {
       description: 'VIMO is preparing your competitor tracking dashboard...',
       discoveryItems: [
         { icon: 'Eye', label: 'Competitors being tracked', value: 'Add in Intelligence' },
-        { icon: 'BarChart3', label: 'Metrics monitored', value: '12' },
-        { icon: 'Bell', label: 'Alert types', value: '6' },
+        { icon: 'BarChart3', label: 'Metrics monitored', value: '—' },
+        { icon: 'Bell', label: 'Alert types', value: '—' },
       ],
     },
   ],

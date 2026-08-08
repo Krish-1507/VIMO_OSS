@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Bot, CheckCircle2, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import api from '../lib/api';
@@ -20,7 +20,6 @@ export default function SystemCheckPage() {
   const [systemStatus, setSystemStatus] = useState<any>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [allPassed, setAllPassed] = useState(false);
-  const navigate = useNavigate();
   // Track whether checks are running so Retry can't double-trigger
   const running = useRef(false);
 
@@ -83,7 +82,10 @@ export default function SystemCheckPage() {
           try {
             const sysRes = await api.get('/api/system/status');
             setSystemStatus(sysRes.data);
-          } catch { /* optional - system status may not be available pre-auth */ }
+          } catch (err) {
+            /* optional - system status may not be available pre-auth */
+            console.warn('[vimo] best-effort operation failed:', err);
+          }
           // Give the user 1.2 s to see the success state
           await delay(1200);
           localStorage.setItem('hasPassedSystemCheck', 'true');
@@ -185,7 +187,7 @@ export default function SystemCheckPage() {
             Retry
           </button>
           <a
-            href="https://github.com/yourusername/vimo/issues"
+            href="https://github.com/Krish-1507/VIMO_OSS/issues"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] hover:bg-slate-800 transition-colors"

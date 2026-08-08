@@ -225,7 +225,9 @@ export default function BrandMemoryPage() {
           setBrandProfileId(defaultId);
           return fetchMemory(defaultId);
         }
-      } catch {}
+      } catch (err) {
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
     } finally {
       setIsLoading(false);
       setShouldRender(true);
@@ -259,7 +261,9 @@ export default function BrandMemoryPage() {
           fetchKnowledgeGraph(defaultId);
           return;
         }
-      } catch {}
+      } catch (err) {
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
       // Try getting brand profiles directly
       try {
         const bpRes = await api.get('/api/brand-profiles');
@@ -270,7 +274,9 @@ export default function BrandMemoryPage() {
           fetchKnowledgeGraph(id);
           return;
         }
-      } catch {}
+      } catch (err) {
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
       setIsLoading(false);
     };
     load();

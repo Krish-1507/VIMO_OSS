@@ -122,7 +122,7 @@ export default function OnboardingLLMSetup({ onComplete }: Props) {
         </div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Pick your AI brain.</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-          VIMO needs an AI provider to generate content. All calls go through <strong>your own API key</strong> — your data never leaves your machine.
+          VIMO needs an AI provider to generate content. Requests go through <strong>your own key</strong>, which is encrypted and stored only on your machine. Prefer full privacy? Choose a <strong>Local</strong> provider and nothing ever leaves your computer.
         </p>
       </div>
 

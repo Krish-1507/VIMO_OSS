@@ -103,8 +103,9 @@ export default function ConnectionHealthDashboard({
         headers: { 'x-session-token': token },
       });
       if (res.ok) setData(await res.json());
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     } finally {
       setLoading(false);
     }

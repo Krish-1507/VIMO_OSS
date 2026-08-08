@@ -942,7 +942,7 @@ export default function SettingsPage() {
                       { id: 'competitor_analysis', label: 'Competitor Analysis', desc: 'Competitor profile and strategy analysis' },
                       { id: 'growth_analysis', label: 'Growth Analysis', desc: 'High-performer detection and growth opportunities' },
                       { id: 'opportunity_analysis', label: 'Opportunity Analysis', desc: 'Content and news-jacking opportunity scanning' },
-                      { id: 'weekly_content_generation', label: 'Weekly Content Generation', desc: 'Weekly content packages from MCP sources' },
+                      { id: 'weekly_content_generation', label: 'Weekly Content Generation', desc: 'Weekly content packages from your connected sources' },
                     ].map((task) => {
                       const assignedConnectorId = settings[`model_${task.id}`] || '';
                       const assignedConnector = llmConnectors.find(c => c.id === assignedConnectorId);
@@ -1183,16 +1183,16 @@ export default function SettingsPage() {
                      <Bot className="h-10 w-10" />
                    </div>
                    <div className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-mono text-slate-600 dark:text-slate-400">
-                     Version 0.1.0
+                     VIMO v2.0.0
                    </div>
                  </div>
  
                  <div className="grid gap-4 sm:grid-cols-2">
                    {[
-                     { label: 'GitHub Repository', url: 'https://github.com/yourusername/vimo' },
-                     { label: 'Documentation', url: 'https://github.com/yourusername/vimo#readme' },
-                     { label: 'Report a Bug', url: 'https://github.com/yourusername/vimo/issues' },
-                     { label: 'Community Discord', url: 'https://github.com/yourusername/vimo/discussions' },
+                     { label: 'GitHub Repository', url: 'https://github.com/Krish-1507/VIMO_OSS' },
+                     { label: 'Documentation', url: 'https://github.com/Krish-1507/VIMO_OSS#readme' },
+                     { label: 'Report a Bug', url: 'https://github.com/Krish-1507/VIMO_OSS/issues' },
+                     { label: 'Discussions', url: 'https://github.com/Krish-1507/VIMO_OSS/discussions' },
                    ].map((link) => (
                      <a
                        key={link.label}

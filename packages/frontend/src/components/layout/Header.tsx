@@ -145,8 +145,9 @@ export default function Header({ title }: { title: string }) {
       const res = await api.get('/api/notifications');
       setServerNotifications(res.data.notifications || []);
       setUnreadCount(res.data.unreadCount || 0);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -154,8 +155,9 @@ export default function Header({ title }: { title: string }) {
     try {
       await api.post('/api/notifications/read-all');
       setUnreadCount(0);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -163,8 +165,9 @@ export default function Header({ title }: { title: string }) {
     try {
       const res = await api.get('/api/approvals/queue/count');
       setApprovalCount(res.data.count || 0);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -218,7 +221,7 @@ export default function Header({ title }: { title: string }) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate(`/connectors?highlight=${alert.connectorId}`)}
+              onClick={() => navigate('/connector-hub')}
               className="flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-900 dark:text-amber-300"
             >
               Fix now <ExternalLink className="h-3 w-3" />
@@ -378,7 +381,7 @@ export default function Header({ title }: { title: string }) {
 
           <div className="ml-1 sm:ml-2 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 p-0.5 shadow-sm">
             <div className="h-full w-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
-              <span className="text-[9px] sm:text-[10px] font-bold text-teal-600 dark:text-teal-400">JD</span>
+              <span className="text-[9px] sm:text-[10px] font-bold text-teal-600 dark:text-teal-400">V</span>
             </div>
           </div>
         </div>

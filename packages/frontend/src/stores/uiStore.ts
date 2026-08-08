@@ -30,8 +30,9 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
     if (stored !== null) {
       return JSON.parse(stored) as T;
     }
-  } catch {
+  } catch (err) {
     // ignore
+    console.warn('[vimo] best-effort operation failed:', err);
   }
   return defaultValue;
 }
@@ -48,8 +49,9 @@ export const useUIStore = create<UIState>((set) => ({
       const newValue = !state.isSidebarCollapsed;
       try {
         localStorage.setItem('isSidebarCollapsed', JSON.stringify(newValue));
-      } catch {
+      } catch (err) {
         // ignore
+        console.warn('[vimo] best-effort operation failed:', err);
       }
       return { isSidebarCollapsed: newValue };
     }),

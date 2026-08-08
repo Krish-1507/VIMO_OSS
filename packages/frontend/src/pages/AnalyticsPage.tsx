@@ -752,8 +752,9 @@ export default function AnalyticsPage() {
         headers: { 'x-session-token': token },
       });
       setWeeklyReport(res.data);
-    } catch {
+    } catch (err) {
       // ignore
+      console.warn('[vimo] best-effort operation failed:', err);
     } finally {
       setIsGeneratingReport(false);
     }

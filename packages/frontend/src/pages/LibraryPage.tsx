@@ -125,7 +125,9 @@ export default function LibraryPage() {
       if (selectedPlatform) params.set('platform', selectedPlatform);
       const res = await api.get(`/api/content-library?${params.toString()}`);
       setItems(res.data);
-    } catch { }
+    } catch (err) {
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
     finally { setLoading(false); }
   }
 
