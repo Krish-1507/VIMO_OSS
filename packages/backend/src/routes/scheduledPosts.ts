@@ -92,6 +92,7 @@ export default async function scheduledPostsRoutes(app: FastifyInstance) {
         scheduledAt: string;
         mediaUrls?: string[];
         campaignId?: string;
+        socialAccountId?: string;
       };
 
       const id = crypto.randomUUID();
@@ -117,6 +118,7 @@ export default async function scheduledPostsRoutes(app: FastifyInstance) {
         platform: body.platform,
         scheduledAt: body.scheduledAt,
         status: 'pending' as const,
+        socialAccountId: body.socialAccountId || null,
         mediaUrlsJson: body.mediaUrls ? JSON.stringify(body.mediaUrls) : null,
         metadataJson: Object.keys(metadata).length > 0 ? JSON.stringify(metadata) : null,
         createdAt: now,

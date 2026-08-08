@@ -62,10 +62,13 @@ export default function AutopilotPage() {
   const [selectedGoal, setSelectedGoal] = useState('');
   const [audienceDescription, setAudienceDescription] = useState('');
   const [selectedDuration, setSelectedDuration] = useState(28);
+  const [maxPostsPerDay, setMaxPostsPerDay] = useState('');
+  const [spendCapPerDay, setSpendCapPerDay] = useState('');
   const [availableChannels, setAvailableChannels] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [activeSession, setActiveSession] = useState<AutopilotSession | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [isRunningNow, setIsRunningNow] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const [timeline, setTimeline] = useState<AutopilotTimelineEntry[]>([]);
   const [progress, setProgress] = useState(0);
@@ -186,6 +189,8 @@ export default function AutopilotPage() {
           goalType: selectedGoal,
           durationDays: selectedDuration,
           channels: selectedChannels,
+          maxPostsPerDay: maxPostsPerDay ? Number(maxPostsPerDay) : undefined,
+          spendCapPerDay: spendCapPerDay ? Number(spendCapPerDay) : undefined,
         },
         { headers: { 'x-session-token': token } }
       );
@@ -223,8 +228,7 @@ export default function AutopilotPage() {
   };
 
   // Pause autopilot
-  const handlePause = async () => {
-    if (!activeSession) return;
+  const handlePause = async () => {    if (!activeSession) return;
     try {
       const token = localStorage.getItem('session_token') || '';
       await axios.post(
@@ -236,6 +240,26 @@ export default function AutopilotPage() {
       setLog([...log, 'Autopilot paused by user.']);
     } catch (err) {
       console.error('Failed to pause:', err);
+    }
+  };
+
+  // Run one content cycle now (next week's posts)
+  const handleRunNow = async () => {
+    if (!activeSession) return;
+    setIsRunningNow(true);
+    try {
+      const token = localStorage.getItem('session_token') || '';
+      const res = await axios.post(
+        `${API_BASE}/api/autopilot/${activeSession.id}/run-now`,
+        {},
+        { headers: { 'x-session-token': token } }
+      );
+      setLog([...log, res.data?.message || 'Run-now cycle complete.']);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || 'Failed to run cycle';
+      setLog([...log, `Error: ${msg}`]);
+    } finally {
+      setIsRunningNow(false);
     }
   };
 
@@ -338,6 +362,16 @@ export default function AutopilotPage() {
                 <ExternalLink className="h-4 w-4" />
                 View scheduled posts
               </a>
+              {status === 'monitoring' && (
+                <button
+                  onClick={handleRunNow}
+                  disabled={isRunningNow}
+                  className="inline-flex items-center gap-2 rounded-xl bg-teal-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-400 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isRunningNow ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                  Run next week now
+                </button>
+              )}
             </div>
 
             {/* Summary when monitoring */}
@@ -420,6 +454,38 @@ export default function AutopilotPage() {
                     {d.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Guardrails — daily limits so autonomy never runs away */}
+            <div className="mb-6">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Daily guardrails <span className="normal-case font-normal text-slate-600">(optional — leave blank for no limits)</span>
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <input
+                    type="number"
+                    min={1}
+                    value={maxPostsPerDay}
+                    onChange={(e) => setMaxPostsPerDay(e.target.value)}
+                    placeholder="Max posts / day"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">VIMO never schedules more than this many posts per day.</p>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={spendCapPerDay}
+                    onChange={(e) => setSpendCapPerDay(e.target.value)}
+                    placeholder="AI spend cap / day ($)"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Pauses AI work once this much is spent in a day.</p>
+                </div>
               </div>
             </div>
 

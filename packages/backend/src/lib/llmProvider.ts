@@ -1,6 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import axios from 'axios';
 import { ConnectorRegistry } from './connectorRegistry';
 import * as credentialStore from './credentialStore';
 import { callLLMWithFallback } from './llmErrorHandler';
@@ -286,4 +287,71 @@ export async function callWithProviderChain<T>(
     if (templateFallback) return templateFallback();
     throw new Error(`All providers (including built-in free Pollinations.ai) failed for task "${task}".`);
   }
+}
+
+/**
+ * Generates an embedding vector for a piece of text using the active LLM
+ * provider.
+ *
+ * - Ollama uses its native /api/embeddings endpoint (it has no
+ *   OpenAI-compatible embeddings route).
+ * - Every other provider uses the OpenAI-compatible /v1/embeddings endpoint.
+ *
+ * Falls back to the active LLM connector, then the built-in Pollinations.ai.
+ */
+export async function embedText(
+  input: string,
+  modelOverride?: string
+): Promise<{ embedding: number[]; model: string; provider: string }> {
+  const registry = new ConnectorRegistry(db);
+  const allConnectors = await registry.getAll();
+  const llmConnector = allConnectors.find((c) => c.type === 'llm' && c.status === 'active');
+
+  const providerName = llmConnector?.provider || 'pollinations';
+  const apiKey = llmConnector ? (await credentialStore.getCredential(llmConnector.id, 'apiKey')) || '' : 'pollinations';
+  const config = llmConnector ? await registry.getConfig(llmConnector.id) : {};
+  const modelId = modelOverride || resolveModelName(providerName, config);
+
+  if (!input || !input.trim()) {
+    throw new Error('embedText requires a non-empty input string');
+  }
+
+  // Ollama native embeddings endpoint
+  if (providerName === 'ollama') {
+    const baseUrl = (config.baseUrl as string) || 'http://localhost:11434';
+    const res = await axios.post(`${baseUrl}/api/embeddings`, {
+      model: modelId,
+      prompt: input,
+    });
+    const embedding = res.data?.embedding;
+    if (!Array.isArray(embedding)) {
+      throw new Error('Ollama returned no embedding for the input.');
+    }
+    return { embedding: embedding as number[], model: modelId, provider: providerName };
+  }
+
+  // OpenAI-compatible embeddings endpoint
+  const baseUrls: Record<string, string> = {
+    openai: 'https://api.openai.com/v1',
+    groq: 'https://api.groq.com/openai/v1',
+    openrouter: 'https://openrouter.ai/api/v1',
+    mistral: 'https://api.mistral.ai/v1',
+    pollinations: 'https://text.pollinations.ai/openai',
+    custom: (config.baseUrl as string) || '',
+  };
+  const baseUrl = baseUrls[providerName] || 'https://api.openai.com/v1';
+  if (!apiKey) {
+    throw new Error(`No API key available for embedding provider "${providerName}".`);
+  }
+
+  const res = await axios.post(
+    `${baseUrl}/embeddings`,
+    { model: modelId, input },
+    { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
+  );
+  const embedding = res.data?.data?.[0]?.embedding;
+  if (!Array.isArray(embedding)) {
+    throw new Error('Embedding provider returned no embedding for the input.');
+  }
+  return { embedding: embedding as number[], model: modelId, provider: providerName };
 }

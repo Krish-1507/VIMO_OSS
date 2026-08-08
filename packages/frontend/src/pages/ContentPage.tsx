@@ -103,6 +103,8 @@ export default function ContentPage() {
   const [editingContent, setEditingContent] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleAccounts, setScheduleAccounts] = useState<Array<{ id: string; platform: string; name: string; handle?: string }>>([]);
+  const [selectedScheduleAccount, setSelectedScheduleAccount] = useState('');
   const [schedulingVariant, setSchedulingVariant] = useState<VariantPost | null>(null);
   const [schedulingExtraMeta, setSchedulingExtraMeta] = useState<Record<string, unknown>>({});
   const [attachedMediaUrl, setAttachedMediaUrl] = useState('');
@@ -204,6 +206,24 @@ export default function ContentPage() {
   useEffect(() => {
     fetchBrandProfiles();
   }, [fetchBrandProfiles]);
+
+  // Fetch connected accounts so users can pick which account publishes
+  useEffect(() => {
+    if (!showScheduleModal) return;
+    setSelectedScheduleAccount('');
+    const token = localStorage.getItem('session_token') || '';
+    axios
+      .get(`${API_BASE}/api/social-accounts/connected`, {
+        headers: { 'x-session-token': token },
+      })
+      .then((res) => {
+        const accounts = (res.data?.accounts || []) as Array<{ id: string; platform: string; name: string; handle?: string }>;
+        setScheduleAccounts(accounts);
+      })
+      .catch((err) => {
+        console.warn('[vimo] best-effort operation failed:', err);
+      });
+  }, [showScheduleModal]);
 
   useEffect(() => {
     if (searchParams.get('prefill') !== 'viral') {
@@ -409,6 +429,7 @@ export default function ContentPage() {
         content: postContent,
         hashtags,
         ...extraMetadata,
+        socialAccountId: selectedScheduleAccount || undefined,
         mediaUrls: attachedMediaUrl ? [attachedMediaUrl] : undefined,
         scheduledAt: new Date(scheduledAt).toISOString(),
       },
@@ -1650,6 +1671,21 @@ export default function ContentPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-lg bg-white p-6 dark:bg-slate-900">
             <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">Schedule Post</h3>
+            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Publish as</label>
+            <select
+              value={selectedScheduleAccount}
+              onChange={(e) => setSelectedScheduleAccount(e.target.value)}
+              className="mb-4 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            >
+              <option value="">Auto — first connected {selectedPlatform} account</option>
+              {scheduleAccounts
+                .filter((a) => a.platform === selectedPlatform)
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}{a.handle ? ` (@${a.handle})` : ''}
+                  </option>
+                ))}
+            </select>
             <input
               type="datetime-local"
               value={scheduledAt}

@@ -60,6 +60,9 @@ export const scheduledPosts = sqliteTable('scheduled_posts', {
   status: text('status').default('pending').notNull(),
   mediaUrlsJson: text('media_urls_json'),
   metadataJson: text('metadata_json'),
+  // Which connected account (connector) this post publishes through. NULL =
+  // "first active account for the platform" (backwards compatible).
+  socialAccountId: text('social_account_id'),
   // Growth loop: whether we already evaluated this post for high performance
   isHighPerformerChecked: integer('is_high_performer_checked'),
   createdAt: text('created_at').notNull(),
@@ -218,6 +221,11 @@ export const autopilotSessions = sqliteTable('autopilot_sessions', {
   channelsJson: text('channels_json'),
   status: text('status').notNull(),
   progressPercent: integer('progress_percent').default(0).notNull(),
+  // Guardrails: daily post cap (NULL = unlimited) and daily AI spend cap in
+  // USD (NULL = unlimited). Enforced in the content-creation + scheduling
+  // phases so autonomy never runs away.
+  maxPostsPerDay: integer('max_posts_per_day'),
+  spendCapPerDay: real('spend_cap_per_day'),
   strategyDocument: text('strategy_document'),
   contentCalendarJson: text('content_calendar_json'),
   scheduledPostIdsJson: text('scheduled_post_ids_json'),
@@ -453,4 +461,19 @@ export const installedPacks = sqliteTable('installed_packs', {
 }, (table) => ({
   installedPacksBrandProfileIdIdx: index('idx_installed_packs_brand_profile_id').on(table.brandProfileId),
   installedPacksPackIdIdx: index('idx_installed_packs_pack_id').on(table.packId),
+}));
+
+export const webhookEvents = sqliteTable('webhook_events', {
+  id: text('id').primaryKey(),
+  // e.g. 'post_published', 'post_failed', 'test', 'engagement_received'
+  event: text('event').notNull(),
+  url: text('url'),
+  payloadJson: text('payload_json'),
+  // 200 on success, 0 when delivery failed, null for inbound events
+  responseStatus: integer('response_status'),
+  responseBody: text('response_body'),
+  createdAt: text('created_at').notNull(),
+}, (table) => ({
+  webhookEventsEventIdx: index('idx_webhook_events_event').on(table.event),
+  webhookEventsCreatedAtIdx: index('idx_webhook_events_created_at').on(table.createdAt),
 }));

@@ -142,8 +142,10 @@ export async function generatePost(params: {
   topic: string;
   additionalContext?: string;
   tone?: string;
+  /** Optional entity (e.g. autopilot session id) to attribute LLM spend to. */
+  relatedEntityId?: string;
 }): Promise<GeneratePostResult> {
-  const { brandProfileId, platform, topic, additionalContext, tone } = params;
+  const { brandProfileId, platform, topic, additionalContext, tone, relatedEntityId } = params;
 
   const sanitizedTopic = sanitizeUserInput(topic);
   const sanitizedContext = additionalContext ? sanitizeUserInput(additionalContext) : undefined;
@@ -372,6 +374,7 @@ Return ONLY a JSON object with:
         outputTokens,
         costUSD: cost,
         brandProfileId,
+        relatedEntityId: relatedEntityId || undefined,
         relatedEntityType: 'content_generation',
       });
       return t;

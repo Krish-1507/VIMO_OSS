@@ -667,7 +667,48 @@ export async function facebookAdsGetCampaigns(connectorId: string, input: Record
 
 type PlatformHandler = (connectorId: string, input: Record<string, unknown>) => Promise<unknown>;
 
+/**
+ * Generic LLM completion handler — used by the assistant agent's
+ * `llm_complete` tool. The active LLM connector (or the built-in free
+ * provider) handles the call, so the connectorId is informational.
+ */
+async function llmComplete(_connectorId: string, input: Record<string, unknown>) {
+  const { generateText } = await import('ai');
+  const { getActiveLLMProvider } = await import('../lib/llmProvider');
+  const prompt = String(input.prompt || input.text || '');
+  if (!prompt.trim()) throw new Error('prompt is required for llm_complete');
+  const system = input.system ? String(input.system) : undefined;
+
+  const { provider, modelId } = await getActiveLLMProvider('general');
+  const { text } = await generateText({
+    model: provider.chat(modelId),
+    system,
+    prompt,
+  });
+  return { text };
+}
+
+/**
+ * Generic embedding handler — backs the `llm_embed` tool. Uses the active
+ * LLM provider (Ollama native when available, otherwise OpenAI-compatible).
+ */
+async function llmEmbed(_connectorId: string, input: Record<string, unknown>) {
+  const { embedText } = await import('../lib/llmProvider');
+  const text = String(input.input || input.text || '');
+  const modelOverride = input.model ? String(input.model) : undefined;
+  const result = await embedText(text, modelOverride);
+  return {
+    embedding: result.embedding,
+    dimension: result.embedding.length,
+    model: result.model,
+    provider: result.provider,
+  };
+}
+
 const handlerRegistry: Record<string, PlatformHandler> = {
+  // Generic LLM tools (provider-agnostic)
+  llm_complete: llmComplete,
+  llm_embed: llmEmbed,
   // Instagram
   'instagram_post_image': instagramPostImage,
   'instagram_get_comments': instagramGetComments,

@@ -74,10 +74,10 @@ export const PRESET_LAUNCH_STATUS: Record<string, LaunchStatus> = {
   medium: 'ready',
   bluesky: 'ready',
 
-  // ── Social connect + analytics, publishing not yet wired ──
-  youtube: 'connect-only',
-  tiktok: 'connect-only',
-  pinterest: 'connect-only',
+  // ── Social publishing — real publish handlers (media upload required) ──
+  youtube: 'ready',
+  tiktok: 'ready',
+  pinterest: 'ready',
 
   // ── Design / media generation — implemented ──
   canva: 'ready',

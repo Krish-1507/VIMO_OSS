@@ -12,6 +12,7 @@ import { StateGraph, END, START } from '@langchain/langgraph';
 import { generateText } from 'ai';
 import crypto from 'crypto';
 import { eq, desc } from 'drizzle-orm';
+import { llmUsage as llmUsageTable } from '../db/schema';
 import { db } from '../db';
 import {
   autopilotSessions,
@@ -81,6 +82,10 @@ export interface AutopilotState {
   startedAt: string;
   lastUpdatedAt: string;
   error: string | null;
+  /** Guardrail: max posts VIMO schedules per calendar day (null = unlimited). */
+  maxPostsPerDay: number | null;
+  /** Guardrail: max LLM spend per day in USD (null = unlimited). */
+  spendCapPerDay: number | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -151,6 +156,71 @@ function emitStatus(state: AutopilotState) {
     // Socket not available
     console.warn('[vimo] best-effort operation failed:', err);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Guardrails — daily post cap + daily AI spend cap                   */
+/* ------------------------------------------------------------------ */
+
+function dayKeyOf(date: Date | string): string {
+  return new Date(date).toISOString().slice(0, 10);
+}
+
+/**
+ * LLM spend (USD) recorded for this autopilot session today.
+ */
+export async function getAutopilotSpendToday(autopilotId: string): Promise<number> {
+  const rows = db
+    .select({ costUSD: llmUsageTable.costUSD, createdAt: llmUsageTable.createdAt })
+    .from(llmUsageTable)
+    .where(eq(llmUsageTable.relatedEntityId, autopilotId))
+    .all() as Array<{ costUSD: number | null; createdAt: string | null }>;
+  const today = dayKeyOf(new Date());
+  return rows.reduce((sum, r) => {
+    const day = r.createdAt ? r.createdAt.slice(0, 10) : '';
+    return day === today && r.costUSD ? sum + r.costUSD : sum;
+  }, 0);
+}
+
+/**
+ * Number of posts this session already has scheduled (or published) on a
+ * given calendar day. Drafts are excluded — they haven't been assigned a
+ * final date yet.
+ */
+export async function getAutopilotPostCountOnDay(autopilotId: string, day: string): Promise<number> {
+  const allPosts = db.select().from(scheduledPosts).all() as any[];
+  return allPosts.filter((p: any) => {
+    if (!p.scheduledAt || !p.scheduledAt.startsWith(day)) return false;
+    if (p.status === 'autopilot_draft' || p.status === 'cancelled' || p.status === 'failed') return false;
+    let meta: any = {};
+    try {
+      meta = p.metadataJson ? JSON.parse(p.metadataJson) : {};
+    } catch { /* ignore */ }
+    return meta.autopilotId === autopilotId;
+  }).length;
+}
+
+interface GuardrailStatus {
+  spendToday: number;
+  spendCapped: boolean;
+  message?: string;
+}
+
+/**
+ * True when the daily AI spend cap (if any) still has room for more
+ * generation work today.
+ */
+export async function guardrailSpendAllows(state: AutopilotState): Promise<GuardrailStatus> {
+  if (!state.spendCapPerDay) return { spendToday: 0, spendCapped: false };
+  const spendToday = await getAutopilotSpendToday(state.autopilotId);
+  const spendCapped = spendToday >= state.spendCapPerDay;
+  return {
+    spendToday,
+    spendCapped,
+    message: spendCapped
+      ? `Daily AI spend cap reached ($${spendToday.toFixed(2)} of $${state.spendCapPerDay.toFixed(2)}). Pausing content creation until tomorrow.`
+      : undefined,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -266,6 +336,8 @@ async function initializeNode(state: AutopilotState): Promise<AutopilotState> {
     logJson: JSON.stringify(['Autopilot activated. Starting research phase.']),
     startDate: state.startDate,
     endDate: state.endDate,
+    maxPostsPerDay: state.maxPostsPerDay,
+    spendCapPerDay: state.spendCapPerDay,
     completedAt: null,
     startedAt: now,
     createdAt: now,
@@ -490,7 +562,7 @@ async function contentCreationPhaseNode(state: AutopilotState): Promise<Autopilo
   }, 0);
 
   let postsCreated = 0;
-  const allPostIds: string[] = [];
+  let allPostIds: string[] = [];
   const contentCalendar: CalendarEntry[] = [];
 
   // Process weeks sequentially
@@ -522,6 +594,28 @@ async function contentCreationPhaseNode(state: AutopilotState): Promise<Autopilo
         const contentType = typeDistribution[p] || 'educational';
         const keyMessages = week.keyMessages || [];
 
+        // Guardrail: stop creating when the daily AI spend cap is reached
+        const spend = await guardrailSpendAllows(state);
+        if (spend.spendCapped) {
+          allPostIds = [...state.scheduledPostIds, ...allPostIds];
+          const cappedState = addEntry(
+            { ...state, scheduledPostIds: allPostIds, contentCalendar },
+            spend.message || 'Daily AI spend cap reached.',
+            {
+              phase: 'content',
+              action: 'checkpoint',
+              title: 'Paused content creation — daily spend cap reached',
+              detail: spend.message,
+              why: 'You set a budget for how much AI work I can do in a day. I stopped at the cap so your spend stays predictable. Content creation will resume tomorrow.',
+              status: 'done',
+              metrics: { spendTodayUSD: spend.spendToday },
+            }
+          );
+          await persistState(cappedState);
+          emitStatus(cappedState);
+          return { ...cappedState, status: 'scheduling' };
+        }
+
         try {
           // Process in batches of 5 with 2-second delay between batches
           if (postsCreated > 0 && postsCreated % 5 === 0) {
@@ -533,6 +627,7 @@ async function contentCreationPhaseNode(state: AutopilotState): Promise<Autopilo
             platform,
             topic: week.theme || state.primaryGoal,
             additionalContext: `Content type: ${contentType}. Key messages: ${keyMessages.join(', ')}. Week ${weekNum} of the campaign.`,
+            relatedEntityId: state.autopilotId,
           });
 
           const now = new Date().toISOString();
@@ -699,6 +794,21 @@ async function schedulingPhaseNode(state: AutopilotState): Promise<AutopilotStat
             }
           }
           attempts++;
+        }
+
+        // Guardrail: never exceed maxPostsPerDay for any calendar day.
+        // Push the post to the next day that still has room.
+        if (state.maxPostsPerDay && state.maxPostsPerDay > 0) {
+          let guardrailAttempts = 0;
+          while (guardrailAttempts < 60) {
+            const dayCount =
+              allScheduledPosts.filter((p) => p.scheduledAt.slice(0, 10) === dayKeyOf(candidateTime)).length +
+              (await getAutopilotPostCountOnDay(state.autopilotId, dayKeyOf(candidateTime)));
+            if (dayCount < state.maxPostsPerDay) break;
+            candidateTime = new Date(candidateTime.getTime() + 24 * 3600000);
+            candidateTime.setHours(suggested.getHours(), suggested.getMinutes(), 0, 0);
+            guardrailAttempts++;
+          }
         }
 
         platformSchedule[platform].push(candidateTime);
@@ -1019,6 +1129,10 @@ export async function startAutopilot(params: {
   goalType: string;
   durationDays: number;
   channels: string[];
+  /** Guardrail: max posts scheduled per calendar day (optional). */
+  maxPostsPerDay?: number;
+  /** Guardrail: max LLM spend per day in USD (optional). */
+  spendCapPerDay?: number;
 }): Promise<{ autopilotId: string }> {
   const { brandProfileId, audienceDescription, primaryGoal, goalType, durationDays, channels } = params;
 
@@ -1050,6 +1164,8 @@ export async function startAutopilot(params: {
     startedAt: now.toISOString(),
     lastUpdatedAt: now.toISOString(),
     error: null,
+    maxPostsPerDay: params.maxPostsPerDay && params.maxPostsPerDay > 0 ? params.maxPostsPerDay : null,
+    spendCapPerDay: params.spendCapPerDay && params.spendCapPerDay > 0 ? params.spendCapPerDay : null,
   };
 
   // Run in background (non-blocking)
@@ -1128,4 +1244,229 @@ export async function resumeAutopilot(autopilotId: string): Promise<void> {
     .run();
 
   console.log(`[Autopilot] ${autopilotId} resumed from ${session.status}`);
+}
+
+/* ================================================================== */
+/*  Run now — one full content cycle for an active session             */
+/* ================================================================== */
+
+/**
+ * Reconstructs the in-memory AutopilotState from a persisted session row.
+ */
+async function loadStateFromSession(autopilotId: string): Promise<AutopilotState> {
+  const session = await db
+    .select()
+    .from(autopilotSessions)
+    .where(eq(autopilotSessions.id, autopilotId))
+    .get() as any;
+
+  if (!session) throw new Error(`Autopilot session ${autopilotId} not found`);
+  if (session.status === 'paused') throw new Error('Autopilot is paused. Resume it before running a cycle.');
+
+  return {
+    autopilotId,
+    brandProfileId: session.brandProfileId,
+    audienceDescription: session.audienceDescription,
+    primaryGoal: session.primaryGoal,
+    goalType: session.goalType,
+    durationDays: session.durationDays,
+    channels: session.channelsJson ? JSON.parse(session.channelsJson) : [],
+    startDate: session.startDate,
+    endDate: session.endDate,
+    status: session.status,
+    currentPhase: session.currentPhase || '',
+    trendSignals: [],
+    strategyDocument: session.strategyDocument,
+    contentCalendar: session.contentCalendarJson ? JSON.parse(session.contentCalendarJson) : null,
+    scheduledPostIds: session.scheduledPostIdsJson ? JSON.parse(session.scheduledPostIdsJson) : [],
+    engagementEnabled: false,
+    progressPercent: session.progressPercent || 0,
+    log: session.logJson ? JSON.parse(session.logJson) : [],
+    timeline: session.timelineJson ? JSON.parse(session.timelineJson) : [],
+    startedAt: session.startedAt || session.createdAt,
+    lastUpdatedAt: new Date().toISOString(),
+    error: null,
+    maxPostsPerDay: session.maxPostsPerDay ?? null,
+    spendCapPerDay: session.spendCapPerDay ?? null,
+  };
+}
+
+/**
+ * Creates the next week of posts for an active autopilot session and
+ * schedules them, honoring the session's guardrails (daily spend cap while
+ * creating, daily post cap when assigning dates).
+ *
+ * Safe to call repeatedly — each cycle advances the week counter, so it
+ * never duplicates an existing week's content.
+ */
+export async function runAutopilotCycle(autopilotId: string): Promise<{
+  success: boolean;
+  message: string;
+  postsCreated: number;
+}> {
+  const state = await loadStateFromSession(autopilotId);
+
+  const strategy = state.strategyDocument ? JSON.parse(state.strategyDocument) : null;
+  const postingSchedule = strategy?.postingSchedule || Object.fromEntries(state.channels.map((c) => [c, 5]));
+  const weeks = strategy?.weekByWeekPlan || [{ week: 1, theme: state.primaryGoal, contentMix: { educational: 40, entertaining: 30, promotional: 30 }, keyMessages: [state.primaryGoal] }];
+
+  // Which week number are we creating next?
+  const allSessionPosts = db.select().from(scheduledPosts).all() as any[];
+  const weekNumbers = allSessionPosts
+    .filter((p: any) => {
+      try {
+        const m = p.metadataJson ? JSON.parse(p.metadataJson) : {};
+        return m.autopilotId === autopilotId && m.weekNumber;
+      } catch { return false; }
+    })
+    .map((p: any) => JSON.parse(p.metadataJson).weekNumber);
+  const nextWeekNum = (weekNumbers.length ? Math.max(...weekNumbers) : 0) + 1;
+  const week = weeks.find((w: any) => w.week === nextWeekNum) || {
+    week: nextWeekNum,
+    theme: weeks[0]?.theme || state.primaryGoal,
+    contentMix: weeks[0]?.contentMix || { educational: 40, entertaining: 30, promotional: 30 },
+    keyMessages: weeks[0]?.keyMessages || [state.primaryGoal],
+  };
+
+  const newPostIds: string[] = [];
+  const errors: string[] = [];
+  const guardrailNotes: string[] = [];
+
+  for (const platform of state.channels) {
+    const count = (postingSchedule[platform] as number) || 5;
+    for (let i = 0; i < count; i++) {
+      const spend = await guardrailSpendAllows(state);
+      if (spend.spendCapped) {
+        guardrailNotes.push(spend.message || 'Daily AI spend cap reached.');
+        break;
+      }
+      try {
+        const result = await generatePost({
+          brandProfileId: state.brandProfileId,
+          platform,
+          topic: week.theme || state.primaryGoal,
+          additionalContext: `Content type: ${i % 3 === 0 ? 'educational' : i % 3 === 1 ? 'entertaining' : 'promotional'}. Key messages: ${(week.keyMessages || []).join(', ')}. Week ${nextWeekNum} of the campaign.`,
+          relatedEntityId: autopilotId,
+        });
+        const now = new Date().toISOString();
+        const postId = crypto.randomUUID();
+        await db.insert(scheduledPosts).values({
+          id: postId,
+          brandProfileId: state.brandProfileId,
+          content: result.content,
+          platform,
+          scheduledAt: now,
+          status: 'autopilot_draft',
+          metadataJson: JSON.stringify({
+            hashtags: result.hashtags,
+            imageSuggestion: result.imageSuggestion,
+            contentType: result.contentType || 'social_post',
+            autopilotId,
+            weekNumber: nextWeekNum,
+            campaignWeek: week.theme,
+            generatedBy: 'autopilot_run_now',
+          }),
+          createdAt: now,
+          updatedAt: now,
+        });
+        newPostIds.push(postId);
+      } catch (err) {
+        errors.push(`Failed to generate ${platform} post: ${(err as Error).message}`);
+      }
+    }
+    if (guardrailNotes.length > 0) break;
+  }
+
+  if (newPostIds.length === 0) {
+    const reason = guardrailNotes[0] || errors[0] || 'No posts were created.';
+    return { success: false, message: reason, postsCreated: 0 };
+  }
+
+  // Schedule the new drafts: one per day starting tomorrow, respecting the
+  // daily post cap, with 3-hour spacing within each platform.
+  const drafts = db
+    .select()
+    .from(scheduledPosts)
+    .all()
+    .filter((p: any) => newPostIds.includes(p.id) && p.status === 'autopilot_draft');
+
+  const assignedDays = new Map<string, number>();
+  const platformLastTime = new Map<string, Date>();
+  const suggested = await suggestPostingTime(state.channels[0] || 'instagram', state.brandProfileId, '');
+  const suggestedTime = new Date(suggested.suggestedDateTime);
+
+  let cursor = new Date();
+  cursor.setDate(cursor.getDate() + 1);
+  cursor.setHours(suggestedTime.getHours(), suggestedTime.getMinutes(), 0, 0);
+
+  const assigned: Array<{ id: string; scheduledAt: string }> = [];
+  for (const draft of drafts as any[]) {
+    const day = dayKeyOf(cursor);
+    const existingToday = assignedDays.get(day) || 0;
+    const onDay = state.maxPostsPerDay && state.maxPostsPerDay > 0
+      ? existingToday + (await getAutopilotPostCountOnDay(autopilotId, day))
+      : existingToday;
+    if (state.maxPostsPerDay && state.maxPostsPerDay > 0 && onDay >= state.maxPostsPerDay) {
+      cursor.setDate(cursor.getDate() + 1);
+      cursor.setHours(suggestedTime.getHours(), suggestedTime.getMinutes(), 0, 0);
+      continue;
+    }
+
+    const lastForPlatform = platformLastTime.get(draft.platform);
+    if (lastForPlatform && Math.abs(cursor.getTime() - lastForPlatform.getTime()) < 3 * 3600000) {
+      cursor = new Date(lastForPlatform.getTime() + 3 * 3600000);
+    }
+    if (cursor.getTime() < new Date().getTime() + 3600000) {
+      cursor = new Date(new Date().getTime() + 3600000);
+    }
+
+    const d = dayKeyOf(cursor);
+    assignedDays.set(d, (assignedDays.get(d) || 0) + 1);
+    platformLastTime.set(draft.platform, cursor);
+
+    await db
+      .update(scheduledPosts)
+      .set({ scheduledAt: cursor.toISOString(), status: 'awaiting_approval', updatedAt: new Date().toISOString() })
+      .where(eq(scheduledPosts.id, draft.id))
+      .run();
+    assigned.push({ id: draft.id, scheduledAt: cursor.toISOString() });
+    cursor = new Date(cursor.getTime() + 24 * 3600000);
+    cursor.setHours(suggestedTime.getHours(), suggestedTime.getMinutes(), 0, 0);
+  }
+
+  const allPostIds = [...state.scheduledPostIds, ...newPostIds];
+  const newState = addEntry(
+    {
+      ...state,
+      scheduledPostIds: allPostIds,
+      status: 'monitoring',
+      currentPhase: 'Autopilot is fully active',
+    },
+    `Run-now cycle complete: created ${newPostIds.length} posts for week ${nextWeekNum} and scheduled them.`,
+    {
+      phase: 'content',
+      action: 'content',
+      title: `Created week ${nextWeekNum} content`,
+      detail: `${newPostIds.length} posts drafted and scheduled. ${guardrailNotes.length ? guardrailNotes[0] : 'No guardrails were hit.'}`,
+      why: 'You triggered a run-now cycle. I drafted the next week of content and placed it on the calendar within your daily limits.',
+      status: 'done',
+      metrics: { postsCreated: newPostIds.length, week: nextWeekNum },
+    }
+  );
+
+  await db
+    .update(autopilotSessions)
+    .set({
+      scheduledPostIdsJson: JSON.stringify(allPostIds),
+      logJson: JSON.stringify(newState.log),
+      timelineJson: JSON.stringify(newState.timeline),
+    })
+    .where(eq(autopilotSessions.id, autopilotId))
+    .run();
+  emitStatus(newState);
+
+  const message = errors.length > 0
+    ? `Created ${newPostIds.length} posts (${errors.length} failed).`
+    : `Created and scheduled ${newPostIds.length} posts for week ${nextWeekNum}.`;
+  return { success: true, message, postsCreated: newPostIds.length };
 }

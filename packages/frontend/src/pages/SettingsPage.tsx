@@ -75,6 +75,13 @@ export default function SettingsPage() {
    const [resetConfirm, setResetConfirm] = useState('');
    const [showResetDialog, setShowResetDialog] = useState(false);
    const [streamingEnabled, setStreamingEnabled] = useState(false);
+   // Webhook states
+   const [webhookUrl, setWebhookUrl] = useState('');
+   const [webhookSecret, setWebhookSecret] = useState('');
+   const [webhookHasSecret, setWebhookHasSecret] = useState(false);
+   const [webhookSaving, setWebhookSaving] = useState(false);
+   const [webhookTesting, setWebhookTesting] = useState(false);
+   const [webhookEvents, setWebhookEvents] = useState<Array<{ id: string; event: string; url: string | null; responseStatus: number | null; responseBody: string | null; createdAt: string }>>([]);
    // User profile states
    const [userName, setUserName] = useState('');
    const [userEmail, setUserEmail] = useState('');
@@ -202,6 +209,13 @@ export default function SettingsPage() {
      fetchUserProfile();
    }, []);
 
+   // Load webhook config + history whenever the notifications tab opens
+   useEffect(() => {
+     if (activeTab !== 'notifications') return;
+     fetchWebhookConfig();
+     fetchWebhookEvents();
+   }, [activeTab]);
+
   async function fetchData() {
     try {
       const [settingsRes, profilesRes, connectorsRes] = await Promise.all([
@@ -325,6 +339,58 @@ export default function SettingsPage() {
       alert('Failed to clear analytics');
     }
   }
+
+  // Webhooks
+  const fetchWebhookConfig = async () => {
+    try {
+      const res = await api.get('/api/webhooks/config');
+      setWebhookUrl(res.data?.url || '');
+      setWebhookHasSecret(Boolean(res.data?.hasSecret));
+    } catch (err) {
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
+  };
+
+  const fetchWebhookEvents = async () => {
+    try {
+      const res = await api.get('/api/webhooks/events');
+      setWebhookEvents(res.data?.events || []);
+    } catch (err) {
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
+  };
+
+  const handleSaveWebhook = async () => {
+    setWebhookSaving(true);
+    try {
+      const res = await api.post('/api/webhooks/config', {
+        url: webhookUrl,
+        secret: webhookSecret || undefined,
+      });
+      setWebhookHasSecret(Boolean(res.data?.url));
+      if (webhookSecret) setWebhookSecret('');
+    } catch (err) {
+      alert('Failed to save webhook config');
+    } finally {
+      setWebhookSaving(false);
+    }
+  };
+
+  const handleTestWebhook = async () => {
+    setWebhookTesting(true);
+    try {
+      const res = await api.post('/api/webhooks/fire-test', {
+        content: 'VIMO webhook test — hello from your marketing autopilot!',
+        platforms: ['instagram'],
+      });
+      alert(res.data?.webhookDelivery?.delivered ? 'Test webhook delivered.' : 'Test published but delivery failed. Check the history below.');
+      fetchWebhookEvents();
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Test failed');
+    } finally {
+      setWebhookTesting(false);
+    }
+  };
 
   // AI provider management
   function getProviderPresets() {
@@ -1106,6 +1172,80 @@ export default function SettingsPage() {
                       <span>Enable Browser Notifications</span>
                     </button>
                     <p className="mt-2 text-xs text-slate-500">Receive alerts for post failures and urgent engagement items directly on your desktop.</p>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <ExternalLink className="h-5 w-5 text-teal-500" />
+                    Webhooks
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    VIMO POSTs a JSON payload to your endpoint whenever a post is published, a post fails, or a test fires.
+                    Your endpoint receives <code className="text-xs bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">{"{ event, timestamp, payload }"}</code>.
+                  </p>
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Endpoint URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://your-server.com/vimo-webhook"
+                        value={webhookUrl}
+                        onChange={(e) => setWebhookUrl(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Signature secret {webhookHasSecret && '(already set — leave blank to keep)'}
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Optional: HMAC-SHA256 signing secret"
+                        value={webhookSecret}
+                        onChange={(e) => setWebhookSecret(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveWebhook}
+                        disabled={webhookSaving}
+                        className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+                      >
+                        {webhookSaving ? 'Saving...' : 'Save webhook'}
+                      </button>
+                      <button
+                        onClick={handleTestWebhook}
+                        disabled={webhookTesting}
+                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50"
+                      >
+                        {webhookTesting ? 'Testing...' : 'Send test webhook'}
+                      </button>
+                    </div>
+                    {webhookEvents.length > 0 && (
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Recent deliveries</p>
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                          {webhookEvents.map((ev) => (
+                            <div key={ev.id} className="flex items-center justify-between text-xs">
+                              <span className="truncate text-slate-700 dark:text-slate-300">
+                                {ev.event} · {new Date(ev.createdAt).toLocaleString()}
+                              </span>
+                              <span className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                ev.responseStatus === null
+                                  ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                                  : ev.responseStatus >= 200 && ev.responseStatus < 300
+                                    ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
+                                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                              }`}>
+                                {ev.responseStatus === null ? 'received' : ev.responseStatus}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>

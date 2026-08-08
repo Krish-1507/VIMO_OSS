@@ -4,7 +4,7 @@ import * as schema from './schema';
 import fs from 'fs';
 import path from 'path';
 import { addEngagementFields } from './migrations/002_add_engagement_fields';
-
+import { addAutonomyFields } from './migrations/003_add_autonomy_fields';
 const dbPath = process.env.DB_PATH || './data/vimo.db';
 const dbDir = path.dirname(dbPath);
 
@@ -397,6 +397,19 @@ sqlite.exec(`
   );
 `);
 
+// Ensure webhook_events table exists
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS webhook_events (
+    id TEXT PRIMARY KEY,
+    event TEXT NOT NULL,
+    url TEXT,
+    payload_json TEXT,
+    response_status INTEGER,
+    response_body TEXT,
+    created_at TEXT NOT NULL
+  );
+`);
+
 // Ensure opportunities table exists
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS opportunities (
@@ -582,9 +595,12 @@ try {
   sqlite.exec(`
     SELECT reply_status FROM engagement_queue LIMIT 1;
   `);
-} catch {
+ } catch {
   addEngagementFields(sqlite);
 }
+
+// Phase 2 autonomy fields (idempotent)
+addAutonomyFields(sqlite);
 
 // Ensure director_sessions has morning_briefing_json column
 try {

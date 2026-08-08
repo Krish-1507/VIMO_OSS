@@ -41,6 +41,7 @@ import canvaIntegrationRoutes from './routes/canvaIntegration';
 import usageRoutes from './routes/usage';
 import higgsfieldRoutes from './routes/higgsfield';
 import opportunityRoutes from './routes/opportunities';
+import webhookRoutes from './routes/webhooks';
 import knowledgeGraphRoutes from './routes/knowledgeGraph';
 import { requireAuth } from './middleware/auth';
 import { formatError } from './lib/errorFormatter';
@@ -257,6 +258,7 @@ async function main() {
   await app.register(usageRoutes);
   await app.register(higgsfieldRoutes);
   await app.register(opportunityRoutes);
+await app.register(webhookRoutes);
   await app.register(knowledgeGraphRoutes);
   await app.register(packInsightsRoutes);
   await app.register(socialAccountsRoutes);

@@ -20,6 +20,8 @@ export interface ScheduledPost {
   scheduledAt: string;
   mediaUrls?: string[];
   metadata?: Record<string, unknown>;
+  /** Connector id of the specific account to publish through (optional). */
+  socialAccountId?: string | null;
 }
 
 let queue: Queue | null = null;
@@ -263,9 +265,13 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
     if (post.platform === 'instagram') {
       // Find the active Instagram connector
       const allConnectors = await registry.getAll();
-      const instagramConnector = allConnectors.find(
-        (c) => c.provider === 'instagram' && c.status === 'active'
-      );
+      const instagramConnector = post.socialAccountId
+        ? allConnectors.find(
+            (c) => c.id === post.socialAccountId && c.status === 'active'
+          )
+        : allConnectors.find(
+            (c) => c.provider === 'instagram' && c.status === 'active'
+          );
 
       if (!instagramConnector) {
         publishResult = {
@@ -316,6 +322,9 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
           platforms: [post.platform],
           mediaUrls: post.mediaUrls,
           metadata: post.metadata,
+          accounts: post.socialAccountId
+            ? { [post.platform]: post.socialAccountId }
+            : undefined,
         });
         const pr = zr.platformResults[post.platform];
         publishResult = pr
@@ -408,6 +417,21 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
         permalink: publishResult.permalink,
       });
 
+      // Fire webhook so external tools get notified (best-effort)
+      try {
+        const { fireWebhook } = await import('./webhookService');
+        await fireWebhook('post_published', {
+          postId,
+          platform: post.platform,
+          content: row.content.slice(0, 1000),
+          platformPostId: publishResult.platformPostId,
+          permalink: publishResult.permalink,
+          scheduledAt: post.scheduledAt,
+        });
+      } catch (hookErr) {
+        console.warn('[Scheduler] Failed to fire webhook:', (hookErr as Error).message);
+      }
+
       // Trigger Marketing Director via post_published event
       setImmediate(async () => {
         try {
@@ -427,6 +451,20 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
       // Publishing failed — handle specific error types
       const errorMsg = publishResult.error || 'Unknown error';
       console.error(`[Scheduler] Failed to publish to ${post.platform}: ${errorMsg}`);
+
+      // Fire webhook so external tools get notified (best-effort)
+      try {
+        const { fireWebhook } = await import('./webhookService');
+        await fireWebhook('post_failed', {
+          postId,
+          platform: post.platform,
+          content: row.content.slice(0, 1000),
+          error: errorMsg,
+          scheduledAt: post.scheduledAt,
+        });
+      } catch (hookErr) {
+        console.warn('[Scheduler] Failed to fire webhook:', (hookErr as Error).message);
+      }
 
       // Check for rate limit error — reschedule 1 hour later
       if (errorMsg.toLowerCase().includes('rate limit')) {

@@ -6,6 +6,8 @@
  * GET    /api/autopilot/active      — get the currently active autopilot for the brand
  * POST   /api/autopilot/:id/pause   — pause an autopilot session
  * POST   /api/autopilot/:id/resume  — resume a paused autopilot session
+ * POST   /api/autopilot/:id/run-now — run one content cycle now (next week's
+ *                                     posts, guardrails respected)
  */
 
 import { FastifyInstance } from 'fastify';
@@ -13,7 +15,7 @@ import { eq, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { autopilotSessions } from '../db/schema';
 import { formatError } from '../lib/errorFormatter';
-import { startAutopilot, pauseAutopilot, resumeAutopilot } from '../agents/autopilotAgent';
+import { startAutopilot, pauseAutopilot, resumeAutopilot, runAutopilotCycle } from '../agents/autopilotAgent';
 
 export default async function autopilotRoutes(app: FastifyInstance) {
   // POST /api/autopilot/start — start a new autopilot session
@@ -26,6 +28,8 @@ export default async function autopilotRoutes(app: FastifyInstance) {
         goalType: string;
         durationDays: number;
         channels: string[];
+        maxPostsPerDay?: number;
+        spendCapPerDay?: number;
       };
 
       // Validate required fields
@@ -66,6 +70,8 @@ export default async function autopilotRoutes(app: FastifyInstance) {
         goalType: body.goalType,
         durationDays: body.durationDays,
         channels: body.channels,
+        maxPostsPerDay: body.maxPostsPerDay,
+        spendCapPerDay: body.spendCapPerDay,
       });
 
       return {
@@ -221,6 +227,30 @@ export default async function autopilotRoutes(app: FastifyInstance) {
       await resumeAutopilot(id);
 
       return { success: true, message: 'Autopilot resuming.' };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  // POST /api/autopilot/:id/run-now — run one full content cycle now
+  app.post('/api/autopilot/:id/run-now', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+
+      const session = await db
+        .select()
+        .from(autopilotSessions)
+        .where(eq(autopilotSessions.id, id))
+        .get();
+
+      if (!session) {
+        return reply.status(404).send({ error: 'Autopilot session not found' });
+      }
+
+      const result = await runAutopilotCycle(id);
+      return result.success
+        ? { success: true, message: result.message, postsCreated: result.postsCreated }
+        : reply.status(400).send({ error: result.message });
     } catch (err) {
       return reply.status(500).send(formatError(err));
     }

@@ -6,6 +6,11 @@ import * as credentialStore from '../lib/credentialStore';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
 import { getOAuthAppCredentials } from '../lib/oauthManager';
 import { createLogger } from '../lib/logger';
+import {
+  publishToTikTok,
+  publishToYouTube,
+  publishToPinterest,
+} from './platformPublishers';
 
 const log = createLogger('social:publish');
 
@@ -18,6 +23,8 @@ export interface VimoSocialPublishParams {
   mediaUrls?: string[];
   scheduledAt?: string;
   metadata?: Record<string, unknown>;
+  /** Optional per-platform connector override: platform → connector id. */
+  accounts?: Record<string, string>;
 }
 
 export interface VimoSocialPublishResult {
@@ -63,9 +70,14 @@ class VimoSocialPublishIntegration {
         const allConnectors = await registry.getAll();
         const providerKey =
           platform === 'instagram' ? 'instagram_facebook' : platform === 'twitter' ? 'x' : platform;
-        const platformConnector = allConnectors.find(
-          (c) => c.provider === providerKey && c.status === 'active'
-        );
+        const explicitConnectorId = params.accounts?.[platform];
+        const platformConnector = explicitConnectorId
+          ? allConnectors.find(
+              (c) => c.id === explicitConnectorId && c.status === 'active'
+            )
+          : allConnectors.find(
+              (c) => c.provider === providerKey && c.status === 'active'
+            );
 
         if (!platformConnector) {
           platformResults[platform] = {
@@ -141,20 +153,11 @@ class VimoSocialPublishIntegration {
       case 'bluesky':
         return this.publishToBluesky(opts);
       case 'tiktok':
-        return {
-          success: false,
-          error: 'TikTok only accepts video/photo posts via API. Attach a video or use the TikTok app to publish.',
-        };
+        return publishToTikTok(opts);
       case 'youtube':
-        return {
-          success: false,
-          error: 'YouTube requires a video file upload. Attach a video, or use YouTube Studio to publish.',
-        };
+        return publishToYouTube(opts);
       case 'pinterest':
-        return {
-          success: false,
-          error: 'Pinterest requires a board. Connect a board in Social Accounts to enable pin publishing.',
-        };
+        return publishToPinterest(opts);
       default:
         return { success: false, error: `Unsupported platform: ${platform}` };
     }
