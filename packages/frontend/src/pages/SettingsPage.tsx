@@ -370,7 +370,7 @@ export default function SettingsPage() {
       setWebhookHasSecret(Boolean(res.data?.url));
       if (webhookSecret) setWebhookSecret('');
     } catch (err) {
-      alert('Failed to save webhook config');
+      alert('Failed to save endpoint');
     } finally {
       setWebhookSaving(false);
     }
@@ -380,10 +380,10 @@ export default function SettingsPage() {
     setWebhookTesting(true);
     try {
       const res = await api.post('/api/webhooks/fire-test', {
-        content: 'VIMO webhook test — hello from your marketing autopilot!',
+        content: 'VIMO test event — hello from your marketing autopilot!',
         platforms: ['instagram'],
       });
-      alert(res.data?.webhookDelivery?.delivered ? 'Test webhook delivered.' : 'Test published but delivery failed. Check the history below.');
+      alert(res.data?.webhookDelivery?.delivered ? 'Test event delivered.' : 'Test published but delivery failed. Check the history below.');
       fetchWebhookEvents();
     } catch (err: any) {
       alert(err?.response?.data?.error || 'Test failed');
@@ -1178,10 +1178,10 @@ export default function SettingsPage() {
                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
                   <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                     <ExternalLink className="h-5 w-5 text-teal-500" />
-                    Webhooks
+                    Event Notifications
                   </h2>
                   <p className="text-sm text-slate-500">
-                    VIMO POSTs a JSON payload to your endpoint whenever a post is published, a post fails, or a test fires.
+                    VIMO sends a JSON event to your endpoint whenever a post is published, a post fails, or a test fires.
                     Your endpoint receives <code className="text-xs bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">{"{ event, timestamp, payload }"}</code>.
                   </p>
                   <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
@@ -1213,14 +1213,14 @@ export default function SettingsPage() {
                         disabled={webhookSaving}
                         className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
                       >
-                        {webhookSaving ? 'Saving...' : 'Save webhook'}
+                        {webhookSaving ? 'Saving...' : 'Save endpoint'}
                       </button>
                       <button
                         onClick={handleTestWebhook}
                         disabled={webhookTesting}
                         className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50"
                       >
-                        {webhookTesting ? 'Testing...' : 'Send test webhook'}
+                        {webhookTesting ? 'Testing...' : 'Send test event'}
                       </button>
                     </div>
                     {webhookEvents.length > 0 && (

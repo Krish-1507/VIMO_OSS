@@ -195,7 +195,9 @@ export async function getAutopilotPostCountOnDay(autopilotId: string, day: strin
     let meta: any = {};
     try {
       meta = p.metadataJson ? JSON.parse(p.metadataJson) : {};
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.warn('[Autopilot] Failed to parse post metadata:', (err as Error).message);
+    }
     return meta.autopilotId === autopilotId;
   }).length;
 }
