@@ -125,7 +125,9 @@ describe('Pack Marketplace + Social Accounts — HTTP routes (real Fastify)', ()
         payload: { packId: 'p' }, // missing packName + category
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toMatch(/packId, packName, and category/);
+      const body = res.json() as { error: string; issues: Array<{ path: string }> };
+      expect(body.error).toBe('ValidationError');
+      expect(body.issues.map((i) => i.path).sort()).toEqual(['category', 'packName']);
     });
 
     it('rejects non-string discoveryItems with 400', async () => {
@@ -139,7 +141,9 @@ describe('Pack Marketplace + Social Accounts — HTTP routes (real Fastify)', ()
         },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toMatch(/discoveryItems/);
+      const body = res.json() as { error: string; issues: Array<{ path: string }> };
+      expect(body.error).toBe('ValidationError');
+      expect(body.issues.some((i) => i.path === 'discoveryItems')).toBe(true);
     });
 
     it('rejects non-object config with 400', async () => {
@@ -225,7 +229,9 @@ describe('Pack Marketplace + Social Accounts — HTTP routes (real Fastify)', ()
         headers: { 'x-session-token': SESSION_TOKEN, 'x-csrf-token': CSRF_TOKEN },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toMatch(/packId/);
+      const body = res.json() as { error: string; issues: Array<{ path: string }> };
+      expect(body.error).toBe('ValidationError');
+      expect(body.issues.some((i) => i.path === 'packId')).toBe(true);
     });
 
     it('returns 404 when the pack is not installed (instead of silently lying)', async () => {
@@ -466,7 +472,9 @@ describe('Pack Marketplace + Social Accounts — HTTP routes (real Fastify)', ()
         payload: { provider: 'bluesky' }, // no handle, no appPassword
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toMatch(/credential value/i);
+      const body = res.json() as { error: string; issues: Array<{ message: string }> };
+      expect(body.error).toBe('ValidationError');
+      expect(body.issues.some((i) => /credential value/i.test(i.message))).toBe(true);
     });
 
     it('rejects Bluesky with a missing handle', async () => {
@@ -477,7 +485,9 @@ describe('Pack Marketplace + Social Accounts — HTTP routes (real Fastify)', ()
         payload: { provider: 'bluesky', appPassword: 'abcd-efgh-ijkl-mnop' },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toMatch(/handle/i);
+      const body = res.json() as { error: string; issues: Array<{ path: string; message: string }> };
+      expect(body.error).toBe('ValidationError');
+      expect(body.issues.some((i) => i.path === 'handle' && /handle/i.test(i.message))).toBe(true);
     });
 
     it('rejects Bluesky with a too-short app password', async () => {
@@ -488,7 +498,9 @@ describe('Pack Marketplace + Social Accounts — HTTP routes (real Fastify)', ()
         payload: { provider: 'bluesky', handle: 'me.bsky.social', appPassword: 'short' },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toMatch(/app password/i);
+      const body = res.json() as { error: string; issues: Array<{ path: string; message: string }> };
+      expect(body.error).toBe('ValidationError');
+      expect(body.issues.some((i) => i.path === 'appPassword' && /app password/i.test(i.message))).toBe(true);
     });
 
     it('connects Bluesky with a valid handle + app password', async () => {

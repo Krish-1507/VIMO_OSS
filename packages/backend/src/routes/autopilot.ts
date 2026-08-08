@@ -124,7 +124,10 @@ export default async function autopilotRoutes(app: FastifyInstance) {
       let timeline: unknown[] = [];
       try {
         timeline = session.timelineJson ? JSON.parse(session.timelineJson) : [];
-      } catch { /* ignore */ }
+      } catch (err) {
+        /* ignore */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       return {
         autopilotId: id,

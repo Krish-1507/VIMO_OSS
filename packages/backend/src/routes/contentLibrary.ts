@@ -173,8 +173,9 @@ export default async function contentLibraryRoutes(app: FastifyInstance) {
           try {
             const imgResult = await generateImage({ prompt: result.imageSuggestion, width: 1024, height: 1024 });
             generatedMediaUrl = imgResult.url;
-          } catch {
+          } catch (err) {
             // non-critical — image suggestion is optional
+            console.warn('[vimo] best-effort operation failed:', err);
           }
         }
       } catch (err) {

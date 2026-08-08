@@ -119,8 +119,9 @@ async function resolveBrandId(request: any): Promise<string | null> {
       .where(eq(as.key, 'defaultBrandId'))
       .get();
     if (row && row.value) return row.value;
-  } catch {
+  } catch (err) {
     // ignore
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 
   // Fall back to the first brand profile in the DB

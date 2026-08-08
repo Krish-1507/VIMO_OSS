@@ -77,7 +77,10 @@ export default async function activityRoutes(app: FastifyInstance) {
         let actions: any[] = [];
         try {
           actions = s.recommendedActionsJson ? JSON.parse(s.recommendedActionsJson) : [];
-        } catch { /* ignore */ }
+        } catch (err) {
+          /* ignore */
+          console.warn('[vimo] best-effort operation failed:', err);
+        }
 
         for (const a of actions) {
           items.push({
@@ -117,7 +120,10 @@ export default async function activityRoutes(app: FastifyInstance) {
         let lessons: string[] = [];
         try {
           lessons = m.lessonsJson ? JSON.parse(m.lessonsJson) : [];
-        } catch { /* ignore */ }
+        } catch (err) {
+          /* ignore */
+          console.warn('[vimo] best-effort operation failed:', err);
+        }
         items.push({
           id: `memory-${m.id}`,
           kind: meta.kind,
@@ -167,7 +173,10 @@ export default async function activityRoutes(app: FastifyInstance) {
         let timeline: any[] = [];
         try {
           timeline = a.timelineJson ? JSON.parse(a.timelineJson) : [];
-        } catch { /* ignore */ }
+        } catch (err) {
+          /* ignore */
+          console.warn('[vimo] best-effort operation failed:', err);
+        }
 
         if (timeline.length > 0) {
           const actionToKind: Record<string, ActivityItem['kind']> = {
@@ -196,7 +205,10 @@ export default async function activityRoutes(app: FastifyInstance) {
           let log: string[] = [];
           try {
             log = a.logJson ? JSON.parse(a.logJson) : [];
-          } catch { /* ignore */ }
+          } catch (err) {
+            /* ignore */
+            console.warn('[vimo] best-effort operation failed:', err);
+          }
           log.slice(-12).forEach((entry: string, i: number) => {
             items.push({
               id: `autopilot-${a.id}-${i}`,

@@ -8,6 +8,13 @@ import { discoverPack } from '../services/packDiscoveryService';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
 import { formatError } from '../lib/errorFormatter';
 import { closeConnectorServer } from '../mcp/builtin-server';
+import { parseBody, parseQuery } from '../lib/validate';
+import {
+  PackDiscoverSchema,
+  PackInstallSchema,
+  PackUninstallQuerySchema,
+  PackProviderParamSchema,
+} from '../../../shared/src/schemas/requests/packs';
 
 const registry = new ConnectorRegistry(db);
 
@@ -70,8 +77,9 @@ async function cleanupPackConnectors(
   for (const c of matches) {
     try {
       await closeConnectorServer(c.id);
-    } catch {
+    } catch (err) {
       // best-effort
+      console.warn('[vimo] best-effort operation failed:', err);
     }
     await registry.delete(c.id);
   }
@@ -96,14 +104,8 @@ export default async function packInsightsRoutes(app: FastifyInstance) {
   // POST /api/packs/discover — fetch real discovery data for a pack
   app.post('/api/packs/discover', async (request, reply) => {
     try {
-      const body = (request.body || {}) as {
-        provider: string;
-        credentials: Record<string, string>;
-      };
-
-      if (!body.provider || typeof body.provider !== 'string') {
-        return reply.status(400).send({ error: 'provider is required' });
-      }
+      const body = parseBody(PackDiscoverSchema, request, reply);
+      if (!body) return;
 
       const result = await discoverPack(body.provider, body.credentials || {});
       return result;
@@ -115,35 +117,8 @@ export default async function packInsightsRoutes(app: FastifyInstance) {
   // POST /api/packs/install — register a pack installation
   app.post('/api/packs/install', async (request, reply) => {
     try {
-      const body = (request.body || {}) as {
-        packId: string;
-        packName: string;
-        category: string;
-        brandProfileId?: string;
-        provider?: string;
-        config?: Record<string, unknown>;
-        discoveryItems?: { icon: string; label: string; value: string }[];
-      };
-
-      if (!body.packId || !body.packName || !body.category) {
-        return reply.status(400).send({ error: 'packId, packName, and category are required' });
-      }
-
-      // Defensive type guards — bad client payloads can corrupt the configJson blob.
-      if (body.config !== undefined && (typeof body.config !== 'object' || Array.isArray(body.config))) {
-        return reply.status(400).send({ error: 'config must be an object' });
-      }
-      if (
-        body.discoveryItems !== undefined &&
-        (!Array.isArray(body.discoveryItems) ||
-          !body.discoveryItems.every(
-            (i) =>
-              i && typeof i === 'object' &&
-              typeof i.icon === 'string' && typeof i.label === 'string' && typeof i.value === 'string'
-          ))
-      ) {
-        return reply.status(400).send({ error: 'discoveryItems must be an array of { icon, label, value }' });
-      }
+      const body = parseBody(PackInstallSchema, request, reply);
+      if (!body) return;
 
       const brandProfileId = body.brandProfileId || 'default';
       const now = new Date().toISOString();
@@ -245,11 +220,8 @@ export default async function packInsightsRoutes(app: FastifyInstance) {
   // DELETE /api/packs/uninstall — remove a pack installation AND its connectors
   app.delete('/api/packs/uninstall', async (request, reply) => {
     try {
-      const query = (request.query || {}) as { packId?: string; brandProfileId?: string; brandId?: string };
-
-      if (!query.packId || typeof query.packId !== 'string') {
-        return reply.status(400).send({ error: 'packId query parameter is required' });
-      }
+      const query = parseQuery(PackUninstallQuerySchema, request, reply);
+      if (!query) return;
 
       const brandProfileId = query.brandProfileId || query.brandId || 'default';
 
@@ -279,8 +251,9 @@ export default async function packInsightsRoutes(app: FastifyInstance) {
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           savedConfig = parsed as Record<string, unknown>;
         }
-      } catch {
+      } catch (err) {
         // best-effort
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       db.delete(installedPacks).where(eq(installedPacks.id, existing.id)).run();

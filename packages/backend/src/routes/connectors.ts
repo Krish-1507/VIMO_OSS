@@ -10,9 +10,18 @@ import { formatError } from '../lib/errorFormatter';
 import { isOAuthProvider, isSimpleCredentialProvider, generateAuthUrl, refreshAccessToken, isManagedProvider } from '../lib/oauthManager';
 import { discoverPack } from '../services/packDiscoveryService';
 import { createConnectorServer, closeConnectorServer, closeAllServers } from '../mcp/builtin-server';
-import { verifyAccountType } from '../connectors/native/instagramNative';
+import { verifyAccountType } from '../connectors/handlers/instagramHandler';
 import { resolveModelName } from '../lib/llmProvider';
 import { syncEnvForProvider, removeEnvForProvider } from '../lib/envWriter';
+import { parseBody, parseParams } from '../lib/validate';
+import {
+  ConnectorBuilderSchema,
+  CreateConnectorSchema,
+  UpdateConnectorSchema,
+  TestCredentialsSchema,
+  McpConnectSchema,
+  ConnectorIdParamSchema,
+} from '../../../shared/src/schemas/requests/connectors';
 
 const registry = new ConnectorRegistry(db);
 
@@ -182,22 +191,8 @@ export default async function connectorRoutes(app: FastifyInstance) {
   // reusable custom preset.
   app.post('/api/connectors/builder', async (request, reply) => {
     try {
-      const body = request.body as {
-        name: string;
-        provider: string;
-        type?: string;
-        authType?: 'api_key' | 'oauth2' | 'oauth2_manual' | 'app_password' | 'none';
-        accountLabel?: string;
-        iconSlug?: string;
-        description?: string;
-        requiredCredentials?: { key: string; label: string; placeholder?: string; isSecret?: boolean }[];
-        tools?: { name: string; description: string }[];
-        config?: Record<string, unknown>;
-      };
-
-      if (!body.name || !body.provider) {
-        return reply.status(400).send({ error: 'name and provider are required' });
-      }
+      const body = parseBody(ConnectorBuilderSchema, request, reply);
+      if (!body) return;
 
       const credentials = body.requiredCredentials || [];
       const tools = body.tools && body.tools.length ? body.tools : [{ name: 'custom_action', description: 'Custom action' }];
@@ -351,14 +346,8 @@ export default async function connectorRoutes(app: FastifyInstance) {
   // POST /api/connectors — creates a new connector
   app.post('/api/connectors', async (request, reply) => {
     try {
-      const body = request.body as {
-        name: string;
-        type: string;
-        provider: string;
-        status?: string;
-        config?: Record<string, unknown>;
-        credentials?: Record<string, string>;
-      };
+      const body = parseBody(CreateConnectorSchema, request, reply);
+      if (!body) return;
 
       const connector = await registry.create({
         name: body.name,
@@ -423,7 +412,9 @@ export default async function connectorRoutes(app: FastifyInstance) {
   // POST /api/connectors/:id/test — runs a connectivity test
   app.post('/api/connectors/:id/test', async (request, reply) => {
     try {
-      const { id } = request.params as { id: string };
+      const params = parseParams(ConnectorIdParamSchema, request, reply);
+      if (!params) return;
+      const { id } = params;
       const connector = await registry.getById(id);
       if (!connector) {
         return reply.status(404).send(formatError(new Error('Connector not found')));
@@ -488,15 +479,11 @@ export default async function connectorRoutes(app: FastifyInstance) {
 
   // PUT /api/connectors/:id — updates connector config
   app.put('/api/connectors/:id', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const body = request.body as {
-      name?: string;
-      type?: string;
-      provider?: string;
-      status?: string;
-      config?: Record<string, unknown>;
-      credentials?: Record<string, string>;
-    };
+    const params = parseParams(ConnectorIdParamSchema, request, reply);
+    if (!params) return;
+    const { id } = params;
+    const body = parseBody(UpdateConnectorSchema, request, reply);
+    if (!body) return;
 
     const updateData: Partial<{
       name: string;
@@ -546,7 +533,9 @@ export default async function connectorRoutes(app: FastifyInstance) {
 
   // DELETE /api/connectors/:id — deletes connector, its credentials, and MCP server
   app.delete('/api/connectors/:id', async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const params = parseParams(ConnectorIdParamSchema, request, reply);
+    if (!params) return;
+    const { id } = params;
     const connector = await registry.getById(id);
     if (connector && connector.type === 'llm') {
       try {
@@ -606,14 +595,9 @@ export default async function connectorRoutes(app: FastifyInstance) {
   // API call so the marketplace only ever shows "Connected" when access works.
   app.post('/api/connectors/test-credentials', async (request, reply) => {
     try {
-      const { provider, credentials } = request.body as {
-        provider: string;
-        credentials: Record<string, string>;
-      };
-
-      if (!provider) {
-        return reply.status(400).send({ error: 'provider is required' });
-      }
+      const body = parseBody(TestCredentialsSchema, request, reply);
+      if (!body) return;
+      const { provider, credentials } = body;
 
       const result = await validateProviderCredentials(provider, credentials || {});
       if (!result.success) {
@@ -628,7 +612,9 @@ export default async function connectorRoutes(app: FastifyInstance) {
   // POST /api/connectors/:id/reconnect — one-click self-healing reconnect.
   app.post('/api/connectors/:id/reconnect', async (request, reply) => {
     try {
-      const { id } = request.params as { id: string };
+      const params = parseParams(ConnectorIdParamSchema, request, reply);
+      if (!params) return;
+      const { id } = params;
       const connector = await registry.getById(id);
       if (!connector) {
         return reply.status(404).send(formatError(new Error('Connector not found')));
@@ -679,12 +665,9 @@ export default async function connectorRoutes(app: FastifyInstance) {
 
   // POST /api/connectors/mcp/connect — connects to a remote MCP server
   app.post('/api/connectors/mcp/connect', async (request, reply) => {
-    const body = request.body as { serverUrl: string; connectorId: string };
+    const body = parseBody(McpConnectSchema, request, reply);
+    if (!body) return;
     const { serverUrl, connectorId } = body;
-
-    if (!serverUrl || !connectorId) {
-      return reply.status(400).send({ error: 'serverUrl and connectorId are required' });
-    }
 
     try {
       await mcpClient.connectSSE(connectorId, serverUrl);

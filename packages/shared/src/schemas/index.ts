@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 import { VIMO_CONNECTOR_TYPES } from './connectorTypes';
 
+// Request schemas (what clients send) live alongside these entity schemas
+// (what VIMO stores) and are re-exported so both are importable from
+// `@vimo/shared`.
+export * from './requests';
+
 export const ConnectorSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),

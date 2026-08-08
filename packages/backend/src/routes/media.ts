@@ -66,8 +66,9 @@ export default async function mediaRoutes(app: FastifyInstance) {
           publicUrl: null,
           createdAt: new Date().toISOString(),
         });
-      } catch {
+      } catch (err) {
         // Media table may not exist yet, fall back to file-only tracking
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       return reply.status(201).send({
@@ -97,8 +98,9 @@ export default async function mediaRoutes(app: FastifyInstance) {
           storedFilename = row.storedFilename;
           reply.type(row.mimeType);
         }
-      } catch {
+      } catch (err) {
         // Media table may not exist
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       if (!storedFilename) {

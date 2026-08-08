@@ -173,7 +173,10 @@ export default async function brandMemoryRoutes(app: FastifyInstance) {
               console.error('[BrandMemory] knowledge graph rebuild failed:', err);
             });
           });
-        } catch { /* ignore */ }
+        } catch (err) {
+          /* ignore */
+          console.warn('[vimo] best-effort operation failed:', err);
+        }
         return { success: true, ruleCount: rules.length, rules };
       } catch (err) {
         return reply.status(500).send(formatError(err));

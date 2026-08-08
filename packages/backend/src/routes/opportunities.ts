@@ -123,7 +123,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
                 requestType: a.requestType,
               });
             }
-          } catch { /* ignore if fail */ }
+          } catch (err) {
+            /* ignore if fail */
+            console.warn('[vimo] best-effort operation failed:', err);
+          }
 
           return { success: true, actionType: 'approve_all', approvedCount: pendingApprovals.length };
         } catch {

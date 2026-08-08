@@ -1,6 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { packAdapterRegistry } from '../services/packIntegrations';
 import type { PackWritePayload } from '../services/packIntegrations';
+import { parseBody, parseParams } from '../lib/validate';
+import {
+  PackProviderParamSchema,
+  PackWriteSchema,
+} from '../../../shared/src/schemas/requests/packs';
 
 /**
  * Pack Connections — bidirectional operations.
@@ -21,11 +26,14 @@ export default async function packConnectionsRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/pack-connections/:provider/write', async (request, reply) => {
-    const { provider } = request.params as { provider: string };
-    const body = request.body as { connectorId?: string; payload?: PackWritePayload };
+    const params = parseParams(PackProviderParamSchema, request, reply);
+    if (!params) return;
+    const { provider } = params;
+    const body = parseBody(PackWriteSchema, request, reply);
+    if (!body) return;
 
-    const connectorId = body?.connectorId;
-    const payload = body?.payload;
+    const connectorId = body.connectorId;
+    const payload = body.payload;
     if (!connectorId || !payload?.title) {
       return reply.status(400).send({ error: 'connectorId and payload.title are required' });
     }
@@ -40,7 +48,7 @@ export default async function packConnectionsRoutes(app: FastifyInstance) {
         .send({ error: `Provider "${provider}" is read-only (discovery only).` });
     }
 
-    const result = await adapter.write(connectorId, payload);
+    const result = await adapter.write(connectorId, payload as unknown as PackWritePayload);
     if (!result.success) {
       return reply.status(502).send({ error: result.error });
     }

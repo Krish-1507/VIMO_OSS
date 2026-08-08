@@ -36,8 +36,9 @@ export default async function growthActionsRoutes(app: FastifyInstance) {
             if (sourcePost) {
               sourcePostPreview = sourcePost.content.substring(0, 200);
             }
-          } catch {
+          } catch (err) {
             // ignore
+            console.warn('[vimo] best-effort operation failed:', err);
           }
 
           return {
@@ -101,8 +102,9 @@ export default async function growthActionsRoutes(app: FastifyInstance) {
               .where(eq(scheduledPosts.id, post.id))
               .run();
           }
-        } catch {
+        } catch (err) {
           // skip posts with unparseable metadata
+          console.warn('[vimo] best-effort operation failed:', err);
         }
       }
 

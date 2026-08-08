@@ -162,7 +162,10 @@ export default async function campaignRoutes(app: FastifyInstance) {
             linkedEntityType: 'campaign',
             lessonsJson: [summary.aiSummary],
           });
-        } catch { /* ignore */ }
+        } catch (err) {
+          /* ignore */
+          console.warn('[vimo] best-effort operation failed:', err);
+        }
       });
 
       // Trigger Marketing Director

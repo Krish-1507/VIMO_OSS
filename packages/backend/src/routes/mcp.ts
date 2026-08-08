@@ -49,7 +49,10 @@ export default async function mcpRoutes(app: FastifyInstance) {
       try {
         await db.select().from(appSettings).limit(1).get();
         dbStatus = 'ok';
-      } catch { /* db error */ }
+      } catch (err) {
+        /* db error */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       // Active LLM connector
       let allConnectors: any[] = [];
@@ -57,7 +60,10 @@ export default async function mcpRoutes(app: FastifyInstance) {
       try {
         allConnectors = db.select().from(connectors).all();
         activeLLM = allConnectors.find((c) => c.type === 'llm' && c.status === 'active');
-      } catch { /* table may not exist */ }
+      } catch (err) {
+        /* table may not exist */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       // Active native connectors (social platforms)
       let activeNativeConnectors = 0;
@@ -67,7 +73,10 @@ export default async function mcpRoutes(app: FastifyInstance) {
         activeNativeConnectors = allConnectors.filter(
           (c) => c.status === 'active' && nativeProviderIds.has(c.provider)
         ).length;
-      } catch { /* ignore */ }
+      } catch (err) {
+        /* ignore */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       // Active MCP connectors
       let activeMCPConnectors = 0;
@@ -77,7 +86,10 @@ export default async function mcpRoutes(app: FastifyInstance) {
         activeMCPConnectors = allConnectors.filter(
           (c) => c.status === 'active' && mcpProviderIds.has(c.provider)
         ).length;
-      } catch { /* ignore */ }
+      } catch (err) {
+        /* ignore */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       // Pending posts
       let pendingPosts = 0;
@@ -88,7 +100,10 @@ export default async function mcpRoutes(app: FastifyInstance) {
           .where(eq(scheduledPosts.status, 'pending'))
           .all()
           .length;
-      } catch { /* table may not exist */ }
+      } catch (err) {
+        /* table may not exist */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       // Active autopilots
       let activeAutopilots = 0;
@@ -99,7 +114,10 @@ export default async function mcpRoutes(app: FastifyInstance) {
           .where(eq(autopilotSessions.status, 'monitoring'))
           .all()
           .length;
-      } catch { /* table may not exist */ }
+      } catch (err) {
+        /* table may not exist */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       // Approval queue count
       let pendingApprovals = 0;

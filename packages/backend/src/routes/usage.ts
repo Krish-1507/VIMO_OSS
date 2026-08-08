@@ -132,8 +132,9 @@ export default async function usageRoutes(app: FastifyInstance) {
         const route = await getModelForTask(taskType as TaskType);
         modelId = route.modelId;
         provider = route.provider;
-      } catch {
+      } catch (err) {
         // Fallback to defaults
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       const costs = estimateTaskCost(taskType as TaskType);

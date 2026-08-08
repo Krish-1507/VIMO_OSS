@@ -369,7 +369,10 @@ export default async function brandProfileRoutes(app: FastifyInstance) {
           try {
             await db.update(brandProfiles).set({ logoUrl: websiteAnalysis.logoUrl, updatedAt: new Date().toISOString() }).where(eq(brandProfiles.id, id)).run();
             console.log('[GenerateWeek] Saved extracted logo:', websiteAnalysis.logoUrl);
-          } catch { /* non-critical */ }
+          } catch (err) {
+            /* non-critical */
+            console.warn('[vimo] best-effort operation failed:', err);
+          }
         }
         console.log('[GenerateWeek] Website crawled:', websiteAnalysis.title, '-', websiteAnalysis.keywords.length, 'keywords,', websiteAnalysis.services.length, 'services,', websiteAnalysis.pagesCrawled, 'pages');
       } else {

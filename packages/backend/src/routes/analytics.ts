@@ -111,8 +111,9 @@ export default async function analyticsRoutes(app: FastifyInstance) {
             });
           }
         }
-      } catch {
+      } catch (err) {
         // Social accounts service unavailable — fall back to post-based stats only.
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       // Real engagement from stored post performance over the last 30 days.

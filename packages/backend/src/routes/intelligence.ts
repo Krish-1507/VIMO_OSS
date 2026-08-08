@@ -104,7 +104,10 @@ export default async function intelligenceRoutes(app: FastifyInstance) {
           linkedEntityType: 'trend_signal',
           lessonsJson: null,
         });
-      } catch { /* ignore */ }
+      } catch (err) {
+        /* ignore */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       return {
         success: true,

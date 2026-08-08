@@ -13,6 +13,13 @@ import { vimoSocialPublish, enrichConnectorAfterOAuth } from '../services/vimoSo
 import { getOAuthProviderKey } from '../lib/oauthManager';
 import { formatError } from '../lib/errorFormatter';
 import { closeConnectorServer } from '../mcp/builtin-server';
+import { parseBody, parseParams } from '../lib/validate';
+import {
+  SaveSocialCredentialsSchema,
+  ConnectAppPasswordSchema,
+  SocialPlatformParamSchema,
+  SocialDisconnectSchema,
+} from '../../../shared/src/schemas/requests/socialAccounts';
 
 const registry = new ConnectorRegistry(db);
 
@@ -40,8 +47,9 @@ async function cleanupAbandonedOAuthConnectors(): Promise<number> {
     if (created < cutoff) {
       try {
         await closeConnectorServer(c.id);
-      } catch {
+      } catch (err) {
         // best-effort
+        console.warn('[vimo] best-effort operation failed:', err);
       }
       await registry.delete(c.id);
       removed++;
@@ -120,8 +128,9 @@ export default async function socialAccountsRoutes(app: FastifyInstance) {
         // dangling "inactive" row in the Connector Hub.
         try {
           await registry.delete(connector.id);
-        } catch {
+        } catch (err) {
           // best-effort
+          console.warn('[vimo] best-effort operation failed:', err);
         }
         return { needsSetup: true, setupGuide: result.setupGuide, platform };
       }
@@ -135,23 +144,14 @@ export default async function socialAccountsRoutes(app: FastifyInstance) {
   // POST /api/social-accounts/save-credentials — persist user-supplied app credentials
   app.post('/api/social-accounts/save-credentials', async (request, reply) => {
     try {
-      const body = (request.body || {}) as {
-        provider?: string;
-        clientId?: string;
-        clientSecret?: string;
-      };
-
-      if (!body.provider || typeof body.provider !== 'string') {
-        return reply.status(400).send({ error: 'provider is required' });
-      }
-      if (!body.clientId || typeof body.clientId !== 'string') {
-        return reply.status(400).send({ error: 'clientId is required' });
-      }
+      const body = parseBody(SaveSocialCredentialsSchema, request, reply);
+      if (!body) return;
+      const { provider, clientId, clientSecret } = body;
 
       // Normalize the provider key (e.g. "instagram" -> "instagram_facebook",
       // "twitter" -> "x") so the saved credentials line up with what the
       // OAuth manager reads when building the authorization URL.
-      const providerKey = getOAuthProviderKey(body.provider);
+      const providerKey = getOAuthProviderKey(provider);
 
       // Merge with existing credentials instead of overwriting
       const existing = (await getOAuthAppCredentials()) as Record<string, any>;
@@ -175,12 +175,11 @@ export default async function socialAccountsRoutes(app: FastifyInstance) {
   // `platform = "all"` wipes every social connector.
   app.post('/api/social-accounts/disconnect/:platform', async (request, reply) => {
     try {
-      const { platform } = request.params as { platform: string };
-      const body = (request.body || {}) as { connectorId?: string };
-
-      if (!platform || typeof platform !== 'string') {
-        return reply.status(400).send({ error: 'platform is required' });
-      }
+      const params = parseParams(SocialPlatformParamSchema, request, reply);
+      if (!params) return;
+      const { platform } = params;
+      const body = parseBody(SocialDisconnectSchema, request, reply);
+      if (!body) return;
 
       if (platform === 'all') {
         const all = await registry.getAll();
@@ -193,8 +192,9 @@ export default async function socialAccountsRoutes(app: FastifyInstance) {
         for (const conn of socialConnectors) {
           try {
             await closeConnectorServer(conn.id);
-          } catch {
+          } catch (err) {
             // best-effort
+            console.warn('[vimo] best-effort operation failed:', err);
           }
           await registry.delete(conn.id);
         }
@@ -232,8 +232,9 @@ export default async function socialAccountsRoutes(app: FastifyInstance) {
       for (const conn of targets) {
         try {
           await closeConnectorServer(conn.id);
-        } catch {
+        } catch (err) {
           // best-effort
+          console.warn('[vimo] best-effort operation failed:', err);
         }
         await registry.delete(conn.id);
       }
@@ -247,45 +248,28 @@ export default async function socialAccountsRoutes(app: FastifyInstance) {
   // POST /api/social-accounts/connect-app-password — connect app-password platforms (e.g. Bluesky)
   app.post('/api/social-accounts/connect-app-password', async (request, reply) => {
     try {
-      const body = (request.body || {}) as {
-        provider?: string;
-        handle?: string;
-        appPassword?: string;
-        [key: string]: string | undefined;
-      };
+      const body = parseBody(ConnectAppPasswordSchema, request, reply);
+      if (!body) return;
 
-      if (!body.provider || typeof body.provider !== 'string') {
-        return reply.status(400).send({ error: 'provider is required' });
-      }
+      const { provider, handle } = body;
 
+      // The schema guarantees `provider` is present and `value` is a string on
+      // every extra field. `credentialKeys` excludes `provider` itself.
       const credentialKeys = Object.keys(body).filter(
-        (k) => k !== 'provider' && typeof body[k] === 'string' && (body[k] as string).length > 0
+        (k) => k !== 'provider' && typeof body[k] === 'string' && (body[k] as string).length > 0,
       );
-      if (credentialKeys.length === 0) {
-        return reply.status(400).send({ error: 'At least one credential value is required' });
-      }
-
-      // App-password providers (Bluesky) require a handle + appPassword pair.
-      if (body.provider === 'bluesky') {
-        if (!body.handle) {
-          return reply.status(400).send({ error: 'Bluesky requires a handle (e.g. you.bsky.social).' });
-        }
-        if (!body.appPassword || body.appPassword.length < 8) {
-          return reply.status(400).send({ error: 'Bluesky requires an app password (min 8 characters).' });
-        }
-      }
 
       const existing = await registry.getAll();
-      const dup = existing.find((c) => c.provider === body.provider && c.status === 'active');
+      const dup = existing.find((c) => c.provider === provider && c.status === 'active');
 
       let connectorId: string;
       if (dup) {
         connectorId = dup.id;
       } else {
         const connector = await registry.create({
-          name: body.handle || `${body.provider} Account`,
+          name: handle || `${provider} Account`,
           type: 'social',
-          provider: body.provider as string,
+          provider: provider as string,
           status: 'active',
           config: { tools: [], serverType: 'builtin' },
         });
@@ -297,7 +281,7 @@ export default async function socialAccountsRoutes(app: FastifyInstance) {
       }
 
       try {
-        await enrichConnectorAfterOAuth(connectorId, body.provider as string, '');
+        await enrichConnectorAfterOAuth(connectorId, provider as string, '');
       } catch (enrichErr) {
         // Enrichment can fail for legit reasons (network, bad creds). We
         // still report the connector as connected because the credentials
