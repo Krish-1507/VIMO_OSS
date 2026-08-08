@@ -13,7 +13,10 @@ export default function DemoModeBar() {
   const handleExit = () => {
     exit();
     clearAuth();
-    try { localStorage.removeItem('session_token'); } catch { /* ignore */ }
+    try { localStorage.removeItem('session_token'); } catch (err) {
+      /* ignore */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
     navigate('/setup');
   };
 

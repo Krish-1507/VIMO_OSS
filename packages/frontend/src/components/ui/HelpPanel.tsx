@@ -341,7 +341,7 @@ export default function HelpPanel({ isOpen, onClose, pageId }: Props) {
 
           <div className="border-t border-slate-100 p-6 dark:border-slate-800">
             <a
-              href="https://github.com/yourusername/vimo/discussions"
+              href="https://github.com/Krish-1507/VIMO_OSS/discussions"
               target="_blank"
               rel="noopener noreferrer"
               className="flex w-full items-center justify-center space-x-2 rounded-xl bg-slate-900 py-3 text-sm font-bold text-white hover:bg-slate-800 dark:bg-teal-600 dark:hover:bg-teal-700"
