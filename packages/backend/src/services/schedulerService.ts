@@ -8,7 +8,7 @@ import { vimoSocialPublish } from './vimoSocialPublishService';
 import { addPerformanceLesson } from './brandMemoryService';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
 import * as credentialStore from '../lib/credentialStore';
-import * as instagramHandler from '../connectors/native/instagramNative';
+import * as instagramHandler from '../connectors/handlers/instagramHandler';
 import { io } from '../index';
 
 export interface ScheduledPost {
@@ -53,8 +53,9 @@ async function tryConnectRedis(): Promise<boolean> {
       client.removeAllListeners();
       try {
         client.disconnect();
-      } catch {
+      } catch (err) {
         // ignore
+        console.warn('[vimo] best-effort operation failed:', err);
       }
       resolve(false);
     }, 2000);
@@ -66,8 +67,9 @@ async function tryConnectRedis(): Promise<boolean> {
       client.removeAllListeners();
       try {
         client.disconnect();
-      } catch {
+      } catch (err) {
         // ignore
+        console.warn('[vimo] best-effort operation failed:', err);
       }
       resolve(ok);
     };
@@ -146,7 +148,10 @@ export async function initScheduler(): Promise<void> {
           try {
             const { notifyPostFailed } = await import('./notificationService');
             await notifyPostFailed(`Post to ${post.platform} failed permanently: ${errorMsg}`);
-          } catch { /* notification service may not be available */ }
+          } catch (err) {
+            /* notification service may not be available */
+            console.warn('[vimo] best-effort operation failed:', err);
+          }
         }
       }
     });
@@ -352,7 +357,10 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
       try {
         const { notifyPostPublished } = await import('./notificationService');
         await notifyPostPublished(post.content, post.platform);
-      } catch { /* notification service may not be available */ }
+      } catch (err) {
+        /* notification service may not be available */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       // Record to marketing memory timeline
       try {

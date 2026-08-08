@@ -214,7 +214,10 @@ Return ONLY valid JSON with:
         goalType: state.goalType || state.goal,
         brandMemory: brandContext,
       });
-    } catch { /* optional */ }
+    } catch (err) {
+      /* optional */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
 
     return {
       ...state,
@@ -354,7 +357,10 @@ Return ONLY valid JSON: an array of calendar entries. Each entry: { date: 'YYYY-
       });
       adaptiveContentTypeWeights = adjustments.contentTypeWeights || {};
       adaptiveAvoidedTypes = adjustments.avoidedContentTypes || [];
-    } catch { /* no-op */ }
+    } catch (err) {
+      /* no-op */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
 
     // Remove any entries whose postType is in the avoid list
     let filteredEntries = entries.filter(
@@ -669,7 +675,10 @@ async function done(state: CampaignAgentState): Promise<CampaignAgentState> {
     if (campaignRow) {
       await notifyCampaignComplete(campaignRow.name);
     }
-  } catch { /* notification may not be available */ }
+  } catch (err) {
+    /* notification may not be available */
+    console.warn('[vimo] best-effort operation failed:', err);
+  }
 
   // Record campaign completion in brand memory
   try {

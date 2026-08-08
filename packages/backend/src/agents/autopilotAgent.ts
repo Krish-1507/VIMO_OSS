@@ -147,8 +147,9 @@ function emitStatus(state: AutopilotState) {
     if (io) {
       io.emit('autopilot:status_update', state);
     }
-  } catch {
+  } catch (err) {
     // Socket not available
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 }
 
@@ -769,7 +770,10 @@ async function schedulingPhaseNode(state: AutopilotState): Promise<AutopilotStat
             .set({ status: 'pending', updatedAt: new Date().toISOString() })
             .where(eq(scheduledPosts.id, p.id))
             .run();
-        } catch { /* ignore */ }
+        } catch (err) {
+          /* ignore */
+          console.warn('[vimo] best-effort operation failed:', err);
+        }
       }
     }
   }
@@ -925,8 +929,9 @@ async function activateMonitoringNode(state: AutopilotState): Promise<AutopilotS
     if (io) {
       io.emit('autopilot:fully_active', finalState);
     }
-  } catch {
+  } catch (err) {
     // Socket not available
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 
   return finalState;
@@ -1063,8 +1068,9 @@ export async function startAutopilot(params: {
           })
           .where(eq(autopilotSessions.id, autopilotId))
           .run();
-      } catch {
+      } catch (err) {
         // ignore
+        console.warn('[vimo] best-effort operation failed:', err);
       }
     }
   })();
@@ -1093,8 +1099,9 @@ export async function pauseAutopilot(autopilotId: string): Promise<void> {
     for (const post of autopilotPosts) {
       await cancelPost(post.id);
     }
-  } catch {
+  } catch (err) {
     // BullMQ might not be available
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 
   console.log(`[Autopilot] ${autopilotId} paused.`);

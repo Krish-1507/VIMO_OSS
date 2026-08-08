@@ -63,7 +63,10 @@ export async function callLLMWithFallback<T>(
     if (classified.category === 'auth_error') {
       try {
         io.emit('llm:auth_error', { context, error: (err as Error).message });
-      } catch { /* io may not be ready */ }
+      } catch (err) {
+        /* io may not be ready */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
       throw new Error(`LLM authentication failed. Please check your API key in Connector Hub.`);
     }
 
@@ -71,7 +74,10 @@ export async function callLLMWithFallback<T>(
     if (classified.category === 'model_error') {
       try {
         io.emit('llm:model_error', { context, error: (err as Error).message });
-      } catch { /* io may not be ready */ }
+      } catch (err) {
+        /* io may not be ready */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
       throw new Error(`LLM model not found. Please check your model configuration in Connector Hub.`);
     }
 

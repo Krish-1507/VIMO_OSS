@@ -78,8 +78,9 @@ class ToolRouter {
     if (credentials) {
       try {
         parsedCredentials = JSON.parse(credentials);
-      } catch {
+      } catch (err) {
         // ignore parse error
+        console.warn('[vimo] best-effort operation failed:', err);
       }
     }
 

@@ -3,7 +3,7 @@ import { db } from '../db';
 import { engagementQueue } from '../db/schema';
 import { sanitizeUserInput } from '../lib/promptSanitizer';
 import { generateReply as agentGenerateReply } from '../agents/engagementAgent';
-import * as instagramHandler from '../connectors/native/instagramNative';
+import * as instagramHandler from '../connectors/handlers/instagramHandler';
 import * as credentialStore from '../lib/credentialStore';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
 import { io } from '../index';

@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { accountSnapshots, connectors, appSettings } from '../db/schema';
-import { verifyAccountType } from '../connectors/native/instagramNative';
+import { verifyAccountType } from '../connectors/handlers/instagramHandler';
 import * as credentialStore from '../lib/credentialStore';
 
 /**
@@ -58,7 +58,10 @@ export async function captureAccountSnapshot(connectorId: string): Promise<void>
       try {
         const { notifyFollowerMilestone } = await import('./notificationService');
         await notifyFollowerMilestone(accountData.followersCount);
-      } catch { /* notification may not be available */ }
+      } catch (err) {
+        /* notification may not be available */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
 
       // Record follower_milestone to marketing memory
       try {
@@ -76,7 +79,10 @@ export async function captureAccountSnapshot(connectorId: string): Promise<void>
           linkedEntityType: 'connector',
           lessonsJson: null,
         });
-      } catch { /* ignore */ }
+      } catch (err) {
+        /* ignore */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
     }
   } catch (err) {
     console.warn(

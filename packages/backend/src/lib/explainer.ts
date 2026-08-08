@@ -438,7 +438,10 @@ export async function explainCampaignStrategy(params: {
   if (brandRow?.campaignMemory) {
     try {
       pastCampaigns = JSON.parse(brandRow.campaignMemory) as typeof pastCampaigns;
-    } catch { /* ignore */ }
+    } catch (err) {
+      /* ignore */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
   }
 
   const similarCampaigns = pastCampaigns.filter(

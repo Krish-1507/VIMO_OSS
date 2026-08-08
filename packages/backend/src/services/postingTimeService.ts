@@ -285,7 +285,10 @@ export async function suggestPostingTime(
       suggestedHour: chosenHour,
       suggestedDayOfWeek: chosenDay,
     });
-  } catch { /* explanation is optional */ }
+  } catch (err) {
+    /* explanation is optional */
+    console.warn('[vimo] best-effort operation failed:', err);
+  }
 
   return {
     suggestedDateTime: suggestedDateTime.toISOString(),

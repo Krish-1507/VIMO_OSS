@@ -221,7 +221,10 @@ async function fetchAndParseCSS(html: string, baseUrl: string): Promise<{
   while ((m = linkRegex.exec(html)) !== null) {
     try {
       cssUrls.push(new URL(m[1], baseUrl).href);
-    } catch { /* skip */ }
+    } catch (err) {
+      /* skip */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
   }
 
   // Fetch linked stylesheets (max 5, with shorter timeout)
@@ -232,7 +235,10 @@ async function fetchAndParseCSS(html: string, baseUrl: string): Promise<{
         headers: { 'User-Agent': 'VIMO-Marketing-Bot/1.0' },
       });
       if (res.ok) return await res.text();
-    } catch { /* skip */ }
+    } catch (err) {
+      /* skip */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
     return null;
   });
 
@@ -360,7 +366,10 @@ function discoverInternalLinks(html: string, currentUrl: string, baseUrl: string
       if (absolute.startsWith(baseUrl) && absolute !== currentUrl) {
         links.add(absolute);
       }
-    } catch { /* skip invalid URLs */ }
+    } catch (err) {
+      /* skip invalid URLs */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
   }
   return [...links];
 }

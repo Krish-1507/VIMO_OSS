@@ -153,7 +153,10 @@ export async function addPerformanceLesson(
       linkedEntityType: null,
       lessonsJson: [lesson.lesson, lesson.whatWorked].filter(Boolean),
     });
-  } catch { /* ignore */ }
+  } catch (err) {
+    /* ignore */
+    console.warn('[vimo] best-effort operation failed:', err);
+  }
 
   // Adaptive planning: every 10 new lessons, derive fresh behavior rules
   try {
@@ -431,8 +434,9 @@ export async function getBrandContext(brandProfileId: string, topic: string): Pr
     if (memoryContext) {
       result += memoryContext;
     }
-  } catch {
+  } catch (err) {
     // Memory timeline service not available
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 
   return result;

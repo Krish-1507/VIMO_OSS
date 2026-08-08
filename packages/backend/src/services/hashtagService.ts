@@ -177,7 +177,10 @@ Rules:
       tier3,
       topic: params.topic,
     });
-  } catch { /* ignore */ }
+  } catch (err) {
+    /* ignore */
+    console.warn('[vimo] best-effort operation failed:', err);
+  }
 
   return {
     tier1,

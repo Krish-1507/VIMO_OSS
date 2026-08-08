@@ -806,7 +806,10 @@ export async function getContentRecommendationFromGraph(params: {
         }
       }
     }
-  } catch { /* fall back to default topic */ }
+  } catch (err) {
+    /* fall back to default topic */
+    console.warn('[vimo] best-effort operation failed:', err);
+  }
 
   // 6. Build reasoning chain
   const reasoningParts: string[] = [];

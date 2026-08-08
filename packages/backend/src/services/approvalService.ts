@@ -234,8 +234,9 @@ export async function requestApproval(
         requestedBy: request.requestedBy,
         summary,
       });
-    } catch {
+    } catch (err) {
       // Socket may not be available
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
 
@@ -283,8 +284,9 @@ export async function approveRequest(approvalRequestId: string): Promise<void> {
       approvalRequestId,
       requestType: request.requestType,
     });
-  } catch {
+  } catch (err) {
     // Socket may not be available
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 }
 
@@ -333,8 +335,9 @@ export async function executeApprovedRequest(approvalRequestId: string): Promise
             scheduledAt: postData.scheduledAt || new Date().toISOString(),
             metadata: postData.metadata || {},
           });
-        } catch {
+        } catch (err) {
           // Fallback mode - just saved to DB
+          console.warn('[vimo] best-effort operation failed:', err);
         }
       }
       break;
@@ -343,7 +346,7 @@ export async function executeApprovedRequest(approvalRequestId: string): Promise
     case 'send_reply': {
       // Send the reply via Instagram handler
       try {
-        const { replyToComment } = await import('../connectors/native/instagramNative');
+        const { replyToComment } = await import('../connectors/handlers/instagramHandler');
         const result = await replyToComment({
           commentId: (payload as any).commentId || '',
           replyText: (payload as any).replyText || '',
@@ -460,8 +463,9 @@ export async function rejectRequest(approvalRequestId: string, reason?: string):
       requestType: request.requestType,
       reason: reason || undefined,
     });
-  } catch {
+  } catch (err) {
     // Socket may not be available
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 }
 

@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { connectors } from '../db/schema';
-import type { Connector } from '@shared/types';
+import type { Connector } from '../../../shared/src/types';
 import * as credentialStore from './credentialStore';
 
 export type ConnectorStatus = 'active' | 'inactive' | 'error' | 'rate_limited';

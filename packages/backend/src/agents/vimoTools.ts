@@ -71,10 +71,11 @@ export const createCampaignTool = tool({
       const { createCampaign } = await import('../services/campaignService');
       const now = new Date();
       const endDate = new Date(now.getTime() + (durationDays || 30) * 24 * 60 * 60 * 1000);
+      const brand = db.select().from(brandProfiles).all()[0];
       const campaign = await createCampaign({
         name,
         goal,
-        brandProfileId: '',
+        brandProfileId: brand?.id || '',
         channels: channels || ['instagram'],
         startDate: now.toISOString(),
         endDate: endDate.toISOString(),
@@ -431,8 +432,10 @@ export const schedulePostTool = tool({
       const postId = crypto.randomUUID();
       const scheduledDate = when ? new Date(when) : new Date(Date.now() + 86400000);
       const now = new Date().toISOString();
-      await db.insert(scheduledPosts).values({ id: postId, brandProfileId: '', content, platform, scheduledAt: scheduledDate.toISOString(), status: 'pending', createdAt: now, updatedAt: now });
-      await schedule({ id: postId, brandProfileId: '', content, platform, scheduledAt: scheduledDate.toISOString() });
+      const brand = db.select().from(brandProfiles).all()[0];
+      const brandProfileId = brand?.id || '';
+      await db.insert(scheduledPosts).values({ id: postId, brandProfileId, content, platform, scheduledAt: scheduledDate.toISOString(), status: 'pending', createdAt: now, updatedAt: now });
+      await schedule({ id: postId, brandProfileId, content, platform, scheduledAt: scheduledDate.toISOString() });
       return { success: true, message: `Post scheduled for ${platform}`, navigationTarget: '/scheduler', data: { postId, platform, scheduledAt: scheduledDate.toISOString() } };
     } catch (err) { return { success: false, message: `Failed: ${(err as Error).message}` }; }
   },

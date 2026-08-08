@@ -34,7 +34,10 @@ export async function createConnectorServer(
   // Close existing instance for this connector if any
   const existing = instances.get(connectorId);
   if (existing) {
-    try { await existing.server.close(); } catch { /* ignore */ }
+    try { await existing.server.close(); } catch (err) {
+      /* ignore */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
     instances.delete(connectorId);
   }
 
@@ -89,7 +92,10 @@ export async function createConnectorServer(
 export async function closeConnectorServer(connectorId: string): Promise<void> {
   const instance = instances.get(connectorId);
   if (instance) {
-    try { await instance.server.close(); } catch { /* ignore */ }
+    try { await instance.server.close(); } catch (err) {
+      /* ignore */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
     instances.delete(connectorId);
   }
 }

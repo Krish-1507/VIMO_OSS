@@ -11,7 +11,7 @@ import { db } from '../db';
 import { engagementQueue, appSettings } from '../db/schema';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
 import * as credentialStore from '../lib/credentialStore';
-import * as instagramHandler from '../connectors/native/instagramNative';
+import * as instagramHandler from '../connectors/handlers/instagramHandler';
 import { generateReply } from '../agents/engagementAgent';
 import { io } from '../index';
 import { requestApproval } from './approvalService';
@@ -232,7 +232,10 @@ export async function runEngagementPipeline(connectorId: string): Promise<Pipeli
           try {
             const { notifyPurchaseIntent } = await import('./notificationService');
             await notifyPurchaseIntent(item.authorHandle?.replace('@', '') || item.authorName);
-          } catch { /* notification may not be available */ }
+          } catch (err) {
+            /* notification may not be available */
+            console.warn('[vimo] best-effort operation failed:', err);
+          }
 
           result.highPriority++;
         } else {
@@ -321,8 +324,9 @@ export async function runEngagementPipeline(connectorId: string): Promise<Pipeli
             .run();
           continue;
         }
-      } catch {
+      } catch (err) {
         // If approval service fails, proceed with existing logic
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       try {

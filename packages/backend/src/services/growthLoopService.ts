@@ -93,8 +93,9 @@ export async function runGrowthLoopForAllBrands(): Promise<void> {
             })
             .where(eq(scheduledPosts.id, post.id))
             .run();
-        } catch {
+        } catch (err) {
           // ignore secondary errors
+          console.warn('[vimo] best-effort operation failed:', err);
         }
       }
     }

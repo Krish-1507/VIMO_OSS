@@ -71,7 +71,10 @@ async function tryRefreshOAuthToken(connectorId: string, provider: string): Prom
             type: 'token_expiring',
             expiresAt: new Date(expiresAt).toISOString(),
           });
-        } catch { /* ignore */ }
+        } catch (err) {
+          /* ignore */
+          console.warn('[vimo] best-effort operation failed:', err);
+        }
       }
       return;
     }
@@ -140,7 +143,7 @@ async function checkInstagramConnector(connectorId: string): Promise<void> {
       return;
     }
 
-    const { verifyAccountType } = await import('../connectors/native/instagramNative');
+    const { verifyAccountType } = await import('../connectors/handlers/instagramHandler');
     await verifyAccountType(accessToken);
     await updateConnectorStatus(connectorId, 'active', undefined, new Date().toISOString());
   } catch (err) {

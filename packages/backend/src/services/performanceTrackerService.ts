@@ -162,7 +162,10 @@ export async function refreshPostPerformance(): Promise<void> {
       try {
         const { notifyEngagementSpike } = await import('./notificationService');
         await notifyEngagementSpike(spikedPostPreview);
-      } catch { /* notification may not be available */ }
+      } catch (err) {
+        /* notification may not be available */
+        console.warn('[vimo] best-effort operation failed:', err);
+      }
     }
 
     // Notify connected clients

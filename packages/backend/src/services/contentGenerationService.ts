@@ -37,7 +37,10 @@ async function getWebsiteContext(brandProfileId: string): Promise<string> {
       websiteCache.set(brandProfileId, { analysis, prompt, fetchedAt: Date.now() });
       return prompt;
     }
-  } catch { /* non-critical */ }
+  } catch (err) {
+    /* non-critical */
+    console.warn('[vimo] best-effort operation failed:', err);
+  }
   return '';
 }
 
@@ -165,8 +168,9 @@ export async function generatePost(params: {
       .get();
     industry = brandRow?.industry || 'General';
     brandKeywords = brandRow?.toneKeywordsJson ? (JSON.parse(brandRow.toneKeywordsJson) as string[]) : [];
-  } catch {
+  } catch (err) {
     // ignore and use defaults
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 
   // Get recent post types for content variety selection
@@ -411,7 +415,10 @@ Return ONLY a JSON object with:
         confidence: Math.max(contentTypeExplanation.confidence, Math.round(graphConfidence * 100)),
       };
     }
-  } catch { /* ignore */ }
+  } catch (err) {
+    /* ignore */
+    console.warn('[vimo] best-effort operation failed:', err);
+  }
 
   const result: GeneratePostResult = {
     content: parsed.content,

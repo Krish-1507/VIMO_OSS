@@ -14,6 +14,10 @@ import * as credentialStore from '../lib/credentialStore';
 import { formatError } from '../lib/errorFormatter';
 import { generateText } from 'ai';
 import { callWithProviderChain } from '../lib/llmProvider';
+import { buildCanvaDeepLink, createDesignFromText } from '../connectors/handlers/canvaHandler';
+import { createLogger } from '../lib/logger';
+
+const log = createLogger('canva');
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -257,6 +261,75 @@ export default async function canvaIntegrationRoutes(app: FastifyInstance) {
       };
     } catch (err: any) {
       return reply.status(500).send({ error: err.message });
+    }
+  });
+
+  // GET /api/connectors/canva/design-url — get a Canva deep link, or create a
+  // real design when the user has an active Canva connector with a token.
+  //
+  // Every failure path degrades to a deep link rather than erroring: the
+  // caller always gets a usable URL, and `isConnected` tells the UI whether
+  // the design was actually created in the user's Canva account.
+  app.get('/api/connectors/canva/design-url', async (request, reply) => {
+    try {
+      const { postContent, platform } = request.query as {
+        postContent?: string;
+        platform?: string;
+        brandProfileId?: string;
+      };
+
+      const headline = (postContent || '').slice(0, 100);
+      const bodyText = (postContent || '').slice(0, 500);
+      const deepLink = () =>
+        buildCanvaDeepLink({ platform: platform || 'instagram', headline, bodyText });
+
+      let isConnected = false;
+      let canvaUrl = '';
+
+      try {
+        const allConnectors = await db
+          .select()
+          .from(connectors)
+          .where(eq(connectors.provider, 'canva'))
+          .all();
+        const activeCanva = allConnectors.find((c) => c.status === 'active');
+
+        if (!activeCanva) {
+          canvaUrl = deepLink();
+        } else {
+          isConnected = true;
+          const accessToken = await credentialStore.getCredential(activeCanva.id, 'accessToken');
+
+          if (accessToken) {
+            const result = await createDesignFromText({
+              accessToken,
+              designTitle: headline || 'New Design',
+              designType: 'instagram_post',
+              brandColors: [],
+              headline,
+              bodyText,
+            });
+            canvaUrl = result.editUrl;
+          } else {
+            log.warn('Canva connector is active but has no stored access token; falling back to deep link', {
+              connectorId: activeCanva.id,
+            });
+            canvaUrl = deepLink();
+          }
+        }
+      } catch (err) {
+        // Design creation failed (network, expired token, Canva API change).
+        // A deep link still lets the user build the design by hand.
+        log.warn('Canva design creation failed; falling back to deep link', {
+          platform: platform || 'instagram',
+          err: err instanceof Error ? err.message : String(err),
+        });
+        canvaUrl = deepLink();
+      }
+
+      return reply.status(200).send({ canvaUrl, isConnected });
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
     }
   });
 }

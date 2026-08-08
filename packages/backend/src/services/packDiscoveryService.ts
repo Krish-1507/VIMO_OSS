@@ -21,8 +21,9 @@ async function resolveToken(provider: string, credentials: Record<string, string
       const stored = await credentialStore.getCredential(conn.id, key);
       if (stored) return stored;
     }
-  } catch {
+  } catch (err) {
     // ignore
+    console.warn('[vimo] best-effort operation failed:', err);
   }
   return null;
 }
@@ -396,8 +397,9 @@ async function discoverCompetitorTracking(creds: Record<string, string>): Promis
       await axios.get(`https://${searchName}`, { timeout: 3000, headers: { 'User-Agent': 'Mozilla/5.0' } });
       liveFound++;
       reachable.push(searchName);
-    } catch {
+    } catch (err) {
       // skip
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
   return {
@@ -428,8 +430,9 @@ async function discoverMarketResearch(creds: Record<string, string>): Promise<Di
       const searchName = name.replace(/^@/, '').replace(/https?:\/\//, '').split('/')[0];
       await axios.get(`https://${searchName}`, { timeout: 3000, headers: { 'User-Agent': 'Mozilla/5.0' } });
       reachableCount++;
-    } catch {
+    } catch (err) {
       // skip
+      console.warn('[vimo] best-effort operation failed:', err);
     }
   }
   return {

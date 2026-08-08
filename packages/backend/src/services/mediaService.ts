@@ -91,8 +91,9 @@ export async function getPublicUrl(mediaId: string): Promise<string | null> {
     });
     clearTimeout(timeout);
     if (res.ok) return row.publicUrl;
-  } catch {
+  } catch (err) {
     // URL not accessible
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 
   return null;

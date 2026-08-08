@@ -90,7 +90,10 @@ export async function startCampaign(
         linkedEntityType: 'campaign',
         lessonsJson: null,
       });
-    } catch { /* ignore */ }
+    } catch (err) {
+      /* ignore */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
 
     // Translate the goal into a funnel strategy before running the agent
     let funnelPlan: Record<number, string> | null = null;
@@ -108,8 +111,9 @@ export async function startCampaign(
       funnelPlan = strategy.funnelPlan;
       goalType = strategy.goalType;
       refinedGoal = strategy.refinedGoal;
-    } catch {
+    } catch (err) {
       // Fallback: proceed without funnel plan
+      console.warn('[vimo] best-effort operation failed:', err);
     }
 
     // Request approval before running the campaign agent
@@ -132,8 +136,9 @@ export async function startCampaign(
         // Campaign agent still runs to prepare content, but final scheduling will also go through approval
         console.log(`[CampaignService] Campaign ${campaignId} awaiting approval. Agent will prepare content.`);
       }
-    } catch {
+    } catch (err) {
       // If approval service fails, proceed with campaign
+      console.warn('[vimo] best-effort operation failed:', err);
     }
 
     try {
@@ -328,8 +333,9 @@ export async function getCampaignPerformanceSummary(campaignId: string): Promise
       const growth = await getFollowerGrowth(igConnector.id, daysDiff);
       followerGrowthDuringCampaign = growth.change;
     }
-  } catch {
+  } catch (err) {
     // Ignore — follower data may not be available
+    console.warn('[vimo] best-effort operation failed:', err);
   }
 
   // Generate AI summary

@@ -19,7 +19,10 @@ async function getCreds(connectorId: string): Promise<Record<string, string>> {
     try {
       const val = await credentialStore.getCredential(connectorId, key);
       if (val) creds[key] = val;
-    } catch { /* key not stored */ }
+    } catch (err) {
+      /* key not stored */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
   }
   return creds;
 }
