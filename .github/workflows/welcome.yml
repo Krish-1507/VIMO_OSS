@@ -1,0 +1,54 @@
+name: Welcome first-time contributors
+
+# Greets the first issue and the first PR from any given person. Runs only for
+# a contributor's *first* interaction with the repo, so regulars are never
+# spammed.
+#
+# `issues: write` / `pull-requests: write` are required to post the comment.
+# This workflow uses `pull_request_target` so the token is available for PRs
+# opened from forks — it never checks out or executes fork code.
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    name: Say hello
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: >
+            Thanks for opening your first issue on VIMO.
+
+
+            A maintainer will take a look shortly. To help us move fast, please make sure
+            you've included your OS, your Node version (`node -v`), and the steps to
+            reproduce. If you hit a crash, the backend terminal output is the single most
+            useful thing you can paste.
+
+
+            New here and looking to contribute? Issues labelled
+            [`good first issue`](https://github.com/Krish-1507/VIMO_OSS/labels/good%20first%20issue)
+            are scoped to be shippable in an afternoon, and
+            [CONTRIBUTING.md](https://github.com/Krish-1507/VIMO_OSS/blob/main/CONTRIBUTING.md)
+            covers the local setup.
+          pr-message: >
+            Thanks for your first pull request to VIMO.
+
+
+            CI will run typecheck, build, tests, and a banned-words check on this branch.
+            If something goes red, click through to the logs — the failure is almost always
+            named clearly. You can reproduce the whole suite locally with
+            `npm run lint && npm run build && npm test`.
+
+
+            A maintainer will review shortly. Thanks for helping build this.

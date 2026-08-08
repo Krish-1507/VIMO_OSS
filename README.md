@@ -4,6 +4,9 @@
 
 # VIMO — Vibe Marketing Operations
 
+[![CI](https://github.com/Krish-1507/VIMO_OSS/actions/workflows/ci.yml/badge.svg)](https://github.com/Krish-1507/VIMO_OSS/actions/workflows/ci.yml)
+[![Nightly cross-platform smoke](https://github.com/Krish-1507/VIMO_OSS/actions/workflows/nightly.yml/badge.svg)](https://github.com/Krish-1507/VIMO_OSS/actions/workflows/nightly.yml)
+
 **The open-source autonomous marketing OS for people who have a brand to grow, not a DevOps team to manage.**
 
 You describe what you want. VIMO researches trends, writes the content, posts it, replies to
@@ -18,8 +21,8 @@ $4,000/month SaaS stack. No copy-pasting API keys into developer portals.
 - **[Connector & Marketplace Verification](docs/CONNECTORS_VERIFICATION.md)** — manual smoke-tests + automated suite that prove install/uninstall/connect/disconnect are bulletproof.
 - **[Extending VIMO](docs/EXTENDING_VIMO.md)** — write your own connector or Pack in ~50 lines.
 - **[Contributing](CONTRIBUTING.md)** · **[Security](SECURITY.md)** · **[Roadmap](ROADMAP.md)** · **[Code of Conduct](CODE_OF_CONDUCT.md)**
-- **[GitHub Discussions](https://github.com/yourusername/vimo/discussions)** — questions, ideas, and roadmap input.
-- **[Releases](https://github.com/yourusername/vimo/releases)** — automated versioning & changelog via Changesets.
+- **[GitHub Discussions](https://github.com/Krish-1507/VIMO_OSS/discussions)** — questions, ideas, and roadmap input.
+- **[Releases](https://github.com/Krish-1507/VIMO_OSS/releases)** — automated versioning & changelog via Changesets.
 
 > Tip: pin these to the repo's GitHub **About** section so newcomers find them instantly.
 
@@ -134,7 +137,7 @@ That's it. One key and you're running a complete autonomous marketing operation.
 
 ```bash
 # 1. Clone
-git clone https://github.com/yourusername/vimo.git
+git clone https://github.com/Krish-1507/VIMO_OSS.git
 cd vimo
 
 # 2. Install (monorepo: backend + frontend + shared)
@@ -352,7 +355,7 @@ connection change ships with an integration test), and how to add a connector, a
 Versions and the changelog are automated via **[Changesets](.changeset/README.md)** — open a PR with
 a changeset, never bump a version by hand.
 
-Good first contributions (see the [`good first issue`](https://github.com/yourusername/vimo/labels/good%20first%20issue) label and the [label legend](CONTRIBUTING.md#label-legend-one-liners)):
+Good first contributions (see the [`good first issue`](https://github.com/Krish-1507/VIMO_OSS/labels/good%20first%20issue) label and the [label legend](CONTRIBUTING.md#label-legend-one-liners)):
 
 - Add a connector preset.
 - Add a `PackAdapter` for a new intelligence source.

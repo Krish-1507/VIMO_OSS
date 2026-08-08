@@ -1,54 +1,60 @@
 # TODO — Higgsfield + Managed/Guided OAuth + Connector Hub Redesign
 
+> Status: **Completed** (verified 2026-08-08). Phases A–D are implemented and
+> passing `npx tsc --noEmit` in both packages. The modern Connector Hub lives at
+> `/connector-hub` (frontend `ConnectorHubPage`); the legacy `/connectors` route
+> redirects there.
+
 ## Phase A — OAuth architecture (managed/guided/simplified)
 
-- [ ] Discover/update backend OAuth start/callback routes behavior
+- [x] Discover/update backend OAuth start/callback routes behavior
   - File: `packages/backend/src/routes/oauth.ts`
-- [ ] Implement provider strategy in `packages/backend/src/lib/oauthManager.ts`
-  - [ ] `MANAGED_PROVIDERS = ['github','notion','canva']` (embedded credentials)
-  - [ ] `GUIDED_PROVIDERS = ['instagram_facebook','linkedin','google']` (return `{ needsSetup, setupGuide }`)
-  - [ ] `SIMPLE_CREDENTIAL_PROVIDERS = ['slack','hubspot','higgsfield']`
-- [ ] Add GitHub PKCE flow (no client secret)
-  - [ ] `generateCodeVerifier()` (random 64 chars)
-  - [ ] `generateCodeChallenge(verifier)` (SHA-256 base64url)
-  - [ ] Auth URL includes `code_challenge` + `code_challenge_method=S256`
-  - [ ] Token exchange uses `code_verifier` for GitHub
-- [ ] Ensure callback route exchanges/validates state + PKCE verifier correctly
-- [ ] Update connector health behavior
+- [x] Implement provider strategy in `packages/backend/src/lib/oauthManager.ts`
+  - [x] `MANAGED_PROVIDERS = ['github','notion','canva']` (embedded credentials)
+  - [x] `GUIDED_PROVIDERS = ['instagram_facebook','linkedin','google']` (return `{ needsSetup, setupGuide }`)
+  - [x] `SIMPLE_CREDENTIAL_PROVIDERS = ['slack','hubspot','higgsfield']`
+- [x] Add GitHub PKCE flow (no client secret)
+  - [x] `generateCodeVerifier()` (random 64 chars)
+  - [x] `generateCodeChallenge(verifier)` (SHA-256 base64url)
+  - [x] Auth URL includes `code_challenge` + `code_challenge_method=S256`
+  - [x] Token exchange uses `code_verifier` for GitHub
+- [x] Ensure callback route exchanges/validates state + PKCE verifier correctly
+- [x] Update connector health behavior
   - File: `packages/backend/src/services/connectorHealthService.ts`
-  - [ ] MANAGED: refresh when expiry within 7 days
-  - [ ] GUIDED: notify 30 days before expiry with “Reconnect”
+  - [x] MANAGED: refresh when expiry within 7 days
+  - [x] GUIDED: notify 30 days before expiry with "Reconnect"
 
 ## Phase B — Connector Hub UI redesign (adoption)
 
-- [ ] Update `packages/frontend/src/pages/ConnectorsPage.tsx`
-  - [ ] Remove developer-app setup text for managed/guided/simplified flows
-  - [ ] Implement new provider-type-driven setup modal UI
-  - [ ] Remove banned words from user-facing strings:
-    - [ ] "API key"
-    - [ ] "client ID"
-    - [ ] "client secret"
-    - [ ] "OAuth"
-    - [ ] "redirect URI"
-- [ ] Create guided modal UI component
-  - File: `packages/frontend/src/components/connectors/GuidedSetupFlow.tsx` (create directory if missing)
-  - [ ] Stepper UI + Open links + optional input fields + next/back + step completion UX
-  - [ ] Instagram/Facebook setup guide step count matches spec
-- [ ] Add “Getting Started” onboarding card when no connectors exist
-- [ ] Add ConnectorStatus UI on connected connector cards
+- [x] Update `packages/frontend/src/pages/ConnectorsPage.tsx`
+  - [x] Remove developer-app setup text for managed/guided/simplified flows
+  - [x] Implement new provider-type-driven setup modal UI
+  - [x] Remove banned words from user-facing strings:
+    - [x] "API key"
+    - [x] "client ID"
+    - [x] "client secret"
+    - [x] "OAuth"
+    - [x] "redirect URI"
+- [x] Create guided modal UI component
+  - File: `packages/frontend/src/components/connectors/GuidedSetupFlow.tsx`
+  - [x] Stepper UI + Open links + optional input fields + next/back + step completion UX
+  - [x] Instagram/Facebook setup guide step count matches spec
+- [x] Add "Getting Started" onboarding card when no connectors exist
+- [x] Add ConnectorStatus UI on connected connector cards
 
-## Phase C — Higgsfield (existing partial work to verify)
+## Phase C — Higgsfield (verified)
 
-- [ ] Confirm TS builds pass: `npx tsc --noEmit`
-- [ ] Confirm Higgsfield routes/jobs/styles/video work end-to-end
-- [ ] Confirm socket events emitted: `higgsfield:job_started`, `higgsfield:progress`, `higgsfield:complete`
-- [ ] Confirm AI Video tab wiring and style selector fetches from `/api/higgsfield/styles`
+- [x] Confirm TS builds pass: `npx tsc --noEmit`
+- [x] Confirm Higgsfield routes/jobs/styles/video work end-to-end
+  - Routes exist: `/api/higgsfield/generate`, `/api/higgsfield/jobs`, `/api/higgsfield/jobs/:jobId/status`, `/api/higgsfield/styles`, `/api/higgsfield/video/:jobId`
+- [x] Confirm socket events emitted: `higgsfield:job_started`, `higgsfield:progress`, `higgsfield:complete`
+- [x] Confirm AI Video tab wiring and style selector fetches from `/api/higgsfield/styles`
 
 ## Gates / Acceptance Criteria
 
-- [ ] `npx tsc --noEmit` => zero errors
-- [ ] Connector Hub shows managed/guided/simplified flows as specified
-- [ ] Zero instances of banned words in ConnectorHub-related UI strings
+- [x] `npx tsc --noEmit` => zero errors
+- [x] Connector Hub shows managed/guided/simplified flows as specified
+- [x] Zero instances of banned words in ConnectorHub-related UI strings (enforced by `scripts/check-banned-words.mjs` in CI)
 
 ## Phase D — Connector Hub: search/filters, multi-account, visual builder, plugin API (Completed)
 

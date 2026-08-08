@@ -7,7 +7,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-
+      // Keep in sync with the `paths` entry in tsconfig.json. Without this,
+      // `tsc --noEmit` resolves `@shared/*` but the Vite build cannot.
+      '@shared': path.resolve(__dirname, '../shared/src'),
     },
   },
   server: {

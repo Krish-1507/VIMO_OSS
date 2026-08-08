@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/Krish-1507/VIMO_OSS/discussions
+    about: Ask a question, share what you built, or propose an idea before opening an issue.
+  - name: Report a security vulnerability
+    url: https://github.com/Krish-1507/VIMO_OSS/security/advisories/new
+    about: Please report vulnerabilities privately. Do NOT open a public issue.
+  - name: Getting started
+    url: https://github.com/Krish-1507/VIMO_OSS/blob/main/GET_STARTED.md
+    about: Zero-keys quick start — try the Demo before filing a bug.

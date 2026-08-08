@@ -8,7 +8,7 @@ for an indie hacker or agency to extend VIMO, and make every change **provably**
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/vimo.git
+git clone https://github.com/Krish-1507/VIMO_OSS.git
 cd vimo
 npm install
 
@@ -47,6 +47,32 @@ vimo/
 ├── docker-compose.yml
 └── package.json
 ```
+
+### Import aliases
+
+| Alias       | Resolves to               | Available in |
+| ----------- | ------------------------- | ------------ |
+| `@/*`       | `packages/frontend/src/*` | frontend     |
+| `@shared/*` | `packages/shared/src/*`   | **frontend only** |
+
+`@shared/*` is declared in `packages/frontend/tsconfig.json` and
+`packages/frontend/vite.config.ts` (`resolve.alias`). Both must stay in sync — if
+you add the alias to the tsconfig but not to the Vite config, `tsc --noEmit`
+passes while `npm run build` fails.
+
+**The backend imports shared code with a relative path**, e.g.:
+
+```ts
+import { AuthSetupSchema } from '../../../shared/src/schemas/requests/auth';
+```
+
+This is deliberate, not an oversight. `tsc` does not rewrite path aliases in the
+JavaScript it emits, and `npm start` runs plain `node dist/backend/src/index.js`
+with no alias resolver. An `@shared/*` **value** import therefore typechecks,
+builds, and runs fine under `ts-node`, then throws `MODULE_NOT_FOUND` in
+production. A type-only import happens to survive because it is erased entirely,
+which is what made this trap so easy to miss. The alias is not configured for the
+backend so the failure cannot be reintroduced.
 
 ## Connection-layer tests are required for integration work
 

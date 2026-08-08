@@ -1,0 +1,31 @@
+# VIMO code owners
+#
+# GitHub auto-requests a review from the matching owner on every PR.
+# Later matches win, so the security-sensitive paths at the bottom of this
+# file override the catch-all rule at the top.
+#
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Catch-all — every change gets at least one review.
+*                                               @Krish-1507
+
+# ── Security-sensitive: auth, crypto, sessions ──────────────────────────────
+# Changes here can silently reintroduce an auth bypass. Never merge unreviewed.
+/packages/backend/src/routes/auth.ts            @Krish-1507
+/packages/backend/src/middleware/auth.ts        @Krish-1507
+/packages/backend/src/lib/credentialStore.ts    @Krish-1507
+/packages/backend/src/lib/session.ts            @Krish-1507
+/packages/backend/src/lib/pin.ts                @Krish-1507
+/packages/backend/src/lib/env.ts                @Krish-1507
+
+# ── Request validation boundary ─────────────────────────────────────────────
+/packages/backend/src/lib/validate.ts           @Krish-1507
+/packages/shared/src/schemas/                   @Krish-1507
+
+# ── CI, release automation, and repo policy ─────────────────────────────────
+/.github/                                       @Krish-1507
+/scripts/                                       @Krish-1507
+/.changeset/                                    @Krish-1507
+
+# ── Database schema and migrations ──────────────────────────────────────────
+/packages/backend/src/db/                       @Krish-1507

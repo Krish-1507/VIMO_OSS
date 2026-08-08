@@ -4,6 +4,17 @@ This document reviews the current security posture of VIMO (backend + integratio
 
 > Note: This audit is based on the currently visible implementation in the repository. It does **not** constitute a complete formal security review.
 
+## Status Addendum (2026-08-08)
+
+Items from the gap list below that have since been addressed:
+
+- **"MCP" wording (P0, item 8)**: now enforced automatically — `scripts/check-banned-words.mjs` fails CI if "MCP" (or "OAuth", "PKCE", "webhook", "API key", etc.) appears in user-facing strings. `bannedWords.ts` drives both the CI check and the in-app copy rules.
+- **Input validation (P0, item 7)**: Zod schemas now used for request validation in backend routes (e.g. `McpConnectSchema`, vimoTools parameter schemas) — partially addressed; not every endpoint has a schema yet.
+- **Audit log viewer (already present at time of audit)**: still present at `GET /api/settings/audit-logs`.
+- **`.env` copy behavior**: `ensureEnvFile()` copies `.env.example` → `.env` on first run but never writes a key into the user's existing `.env`; key validation lives in `lib/env.ts` (fail-closed on missing/placeholder keys).
+
+Outstanding gaps (unchanged, refer to the sections below): JWT/RBAC/CSRF for team deployments, strict per-route rate limits, argon2id PIN hashing + lockout, strict Helmet CSP, upload magic-byte validation, keychain-backed secret storage, and integration consent/sandboxing UX.
+
 ---
 
 ## 1) Executive Summary

@@ -1,6 +1,5 @@
 import path from 'path';
 import fs from 'fs';
-import crypto from 'crypto';
 import net from 'net';
 import dotenv from 'dotenv';
 import fastify, { FastifyInstance } from 'fastify';
@@ -9,7 +8,9 @@ import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import { Server } from 'socket.io';
+import { count as sqlCount, like } from 'drizzle-orm';
 import { db } from './db';
+import { classifyEncryptionKey, validateEncryptionKey } from './lib/env';
 import authRoutes from './routes/auth';
 import connectorRoutes from './routes/connectors';
 import brandProfileRoutes from './routes/brandProfiles';
@@ -23,7 +24,6 @@ import engagementRoutes from './routes/engagement';
 import integrationsRoutes from './routes/integrations';
 import pluginRoutes from './routes/plugins';
 import mediaRoutes from './routes/media';
-import canvaRoutes from './routes/canva';
 import reelsScriptRoutes from './routes/reelsScript';
 import notificationRoutes from './routes/notifications';
 import growthActionsRoutes from './routes/growthActions';
@@ -64,29 +64,35 @@ import cron from 'node-cron';
 
 let io: Server;
 
+/**
+ * Ensure a `.env` exists, seeded from `.env.example`.
+ *
+ * This only *copies* the template — it deliberately does not try to repair the
+ * encryption key. Key policy lives in one place (`lib/env.ts`) so the rules
+ * cannot drift between the copy path and the validation path, which is exactly
+ * how every fresh clone ended up sharing one hardcoded key.
+ */
 async function ensureEnvFile() {
   const envPath = path.resolve(process.cwd(), '../../.env');
   const examplePath = path.resolve(process.cwd(), '../../.env.example');
-  const placeholder = 'change-this-to-a-random-32-character-string';
 
-  if (!fs.existsSync(envPath)) {
-    if (fs.existsSync(examplePath)) {
-      let content = fs.readFileSync(examplePath, 'utf8');
-      const newKey = crypto.randomBytes(32).toString('hex');
-      content = content.replace(placeholder, newKey);
-      fs.writeFileSync(envPath, content);
-      console.log('\x1b[32m%s\x1b[0m', 'VIMO: Created .env file with a secure encryption key automatically.');
-    }
-  } else {
-    let content = fs.readFileSync(envPath, 'utf8');
-    if (content.includes(placeholder)) {
-      const newKey = crypto.randomBytes(32).toString('hex');
-      content = content.replace(placeholder, newKey);
-      fs.writeFileSync(envPath, content);
-      console.warn('VIMO: Updated your .env file with a secure encryption key.');
-    }
+  if (!fs.existsSync(envPath) && fs.existsSync(examplePath)) {
+    fs.copyFileSync(examplePath, envPath);
+    console.log('\x1b[32m%s\x1b[0m', 'VIMO: Created .env from .env.example.');
   }
+
   dotenv.config({ path: envPath });
+  return envPath;
+}
+
+/** Count credentials encrypted with the current key. Used to decide whether a key rotation is safe. */
+function countStoredCredentials(): number {
+  const row = db
+    .select({ n: sqlCount() })
+    .from(appSettings)
+    .where(like(appSettings.key, 'cred:%'))
+    .get();
+  return Number(row?.n ?? 0);
 }
 
 /**
@@ -102,7 +108,12 @@ async function ensureEnvFile() {
  */
 
 async function main() {
-  await ensureEnvFile();
+  const envPath = await ensureEnvFile();
+
+  // Must run after dotenv populates process.env and before anything encrypts
+  // or decrypts. In production a weak key is fatal; in dev it is healed only
+  // when no credentials would be orphaned.
+  validateEncryptionKey({ envPath, countStoredCredentials });
 
   const NODE_ENV = process.env.NODE_ENV || 'development';
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -135,8 +146,10 @@ async function main() {
   await app.register(rateLimit, {
     max: 3000,
     timeWindow: '1 minute',
-    allowList: (request) =>
-      request.url === '/api/health' || request.url.startsWith('/api/auth'),
+    // Only the health probe is exempt. `/api/auth` used to be allowlisted here,
+    // which left setup, reset-pin, renew, and logout completely unthrottled.
+    // Those routes now carry their own, much tighter per-route limits.
+    allowList: (request) => request.url === '/api/health',
   });
 
   // Light rate limit for AI-calling routes
@@ -226,7 +239,6 @@ async function main() {
   await app.register(analyticsRoutes);
   await app.register(engagementRoutes);
   await app.register(mediaRoutes);
-  await app.register(canvaRoutes);
   await app.register(reelsScriptRoutes);
   await app.register(notificationRoutes);
   await app.register(growthActionsRoutes);
@@ -275,10 +287,7 @@ async function main() {
       timestamp: new Date().toISOString(),
       nodeVersion: process.version,
       dbStatus,
-      encryptionKeySet:
-        process.env.ENCRYPTION_KEY !== 'change-this-to-a-random-32-character-string' &&
-        Boolean(process.env.ENCRYPTION_KEY) &&
-        (process.env.ENCRYPTION_KEY?.length || 0) >= 32,
+      encryptionKeySet: classifyEncryptionKey(process.env.ENCRYPTION_KEY) === null,
       port: process.env.PORT,
     };
   });
@@ -298,7 +307,10 @@ async function main() {
       } else {
         db.insert(as).values({ key, value: now, updatedAt: now }).run();
       }
-    } catch { /* skip tracking errors */ }
+    } catch (err) {
+      /* skip tracking errors */
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
   }
 
   // Schedule periodic post performance refresh every 6 hours
@@ -382,14 +394,11 @@ async function main() {
           brandProfileId: brand.id,
           trigger: 'scheduled_daily',
         });
-        // Wait a bit for director to complete, then generate briefing
-        setTimeout(async () => {
-          try {
-            await generateMorningBriefing(brand.id);
-          } catch (err) {
-            console.error(`[Cron] Morning briefing error for ${brand.id}:`, err);
-          }
-        }, 90000); // 90s to let director finish
+        try {
+          await generateMorningBriefing(brand.id);
+        } catch (err) {
+          console.error(`[Cron] Morning briefing error for ${brand.id}:`, err);
+        }
       }
     } catch (err) {
       console.error('[Cron] Morning Briefing error:', err);
@@ -513,12 +522,14 @@ function setupShutdownHandlers(getApp: () => FastifyInstance | null): void {
             });
             await queue.pause();
             await queue.close();
-          } catch {
+          } catch (err) {
             // Queue not available
+            console.warn('[vimo] best-effort operation failed:', err);
           }
         }
-      } catch {
+      } catch (err) {
         // BullMQ not available
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       // 2. Wait up to 5 seconds for in-progress work
@@ -533,8 +544,9 @@ function setupShutdownHandlers(getApp: () => FastifyInstance | null): void {
         if (database && typeof (database as any).close === 'function') {
           (database as any).close();
         }
-      } catch {
+      } catch (err) {
         // DB close not critical
+        console.warn('[vimo] best-effort operation failed:', err);
       }
 
       // 4. Close the Fastify server
@@ -542,19 +554,20 @@ function setupShutdownHandlers(getApp: () => FastifyInstance | null): void {
       if (app) {
         try {
           await app.close();
-        } catch {
+        } catch (err) {
           // Server close may fail
+          console.warn('[vimo] best-effort operation failed:', err);
         }
       }
 
       // 5. Close Socket.IO
       try {
-        const { io: socketIo } = await import('./index');
-        if (socketIo) {
-          socketIo.close();
+        if (io) {
+          io.close();
         }
-      } catch {
+      } catch (err) {
         // Socket may not be available
+        console.warn('[vimo] best-effort operation failed:', err);
       }
     } catch (err) {
       console.error('[Shutdown] Error during graceful shutdown:', err);

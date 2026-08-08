@@ -5,7 +5,7 @@ document — it reflects what we're building next and where we'd love help. It i
 **intentionally honest**: items are marked by the same readiness language we use
 everywhere else (`Ready` · `In progress` · `Planned` · `Idea`).
 
-> Want to shape the roadmap? Open a [Discussion](https://github.com/yourusername/vimo/discussions)
+> Want to shape the roadmap? Open a [Discussion](https://github.com/Krish-1507/VIMO_OSS/discussions)
 > or a feature request. The best contributions start there.
 
 ## Now (next release)
@@ -40,5 +40,5 @@ everywhere else (`Ready` · `In progress` · `Planned` · `Idea`).
 ## How this maps to "good first issues"
 
 The items above tagged **Ready to start** are great first contributions. Look
-for the [`good first issue`](https://github.com/yourusername/vimo/labels/good%20first%20issue)
+for the [`good first issue`](https://github.com/Krish-1507/VIMO_OSS/labels/good%20first%20issue)
 label on GitHub for small, well-scoped tasks pulled from this roadmap.

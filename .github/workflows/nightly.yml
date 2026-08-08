@@ -1,0 +1,60 @@
+name: Nightly cross-platform smoke
+
+# A platform-specific break (a native dep that won't build on Windows, a path
+# that assumes forward slashes, an ENCRYPTION_KEY heal path that writes the
+# wrong file) would otherwise ship to users on macOS/Windows without ever
+# being exercised by the Linux-only PR CI. This nightly boots VIMO on all three
+# OSes and runs the backend test suite where it matters most. It is scheduled,
+# not run on every PR, so it stays cheap.
+on:
+  schedule:
+    # 03:17 UTC daily — an odd minute to avoid the top-of-hour stampede.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Boot + tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      ENCRYPTION_KEY: ci-test-encryption-key-32chars-long!!
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The dev auto-heal and the ENCRYPTION_KEY validation both write to the
+      # repo .env. On Windows the path resolution must still land next to the
+      # DB. We exercise the full boot so a platform path bug fails loudly here.
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Silent catch check
+        run: npm run check:catches
+
+      - name: Install Playwright browsers (Linux only — hostnames/ports)
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium
+
+      - name: Backend tests
+        run: npm run test --workspace=packages/backend
+
+      # The frontend is built above; a deeper E2E is covered by the PR CI.
+      - name: Frontend tests
+        run: npm run test --workspace=packages/frontend

@@ -10,10 +10,7 @@
     "outDir": "./dist",
     "resolveJsonModule": true,
     "rootDir": "..",
-    "ignoreDeprecations": "5.0",
-    "paths": {
-      "@shared/*": ["../shared/src/*"]
-    }
+    "ignoreDeprecations": "5.0"
   },
   "include": ["src/**/*"],
   "ts-node": {
