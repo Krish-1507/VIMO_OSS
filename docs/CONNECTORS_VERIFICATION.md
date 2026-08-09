@@ -7,8 +7,10 @@ covered by `packages/backend/src/tests/connectorsMarketplaceRoutes.test.ts`.
 
 ## TL;DR
 
-- **All 100 backend tests + 9 frontend tests pass** (run `npm test` in the
-  repo root).
+- **All 211 backend tests + 9 frontend tests pass** (run `npm test` in the
+  repo root). A Playwright smoke (`npm run test:e2e`) additionally boots the
+  real app, performs first-run PIN setup, runs the Marketing Director, and
+  checks the webhook, approval, and CSV-export endpoints end-to-end.
 - **Pack install / uninstall is now atomic.** A pack uninstall always
   tears down the underlying connectors too, so we never leave orphaned
   credentials or dead MCP server sockets behind.
@@ -43,7 +45,7 @@ You should see:
 
 - `connectorsMarketplaceRoutes.test.ts`: **26/26 passing** (real Fastify
   app, real session token + CSRF, real DB, mocked axios only).
-- Full backend suite: **100/100 passing** across 13 test files.
+- Full backend suite: **211/211 passing** across 25 test files.
 - Frontend: **9/9 passing** across 3 test files.
 
 ---

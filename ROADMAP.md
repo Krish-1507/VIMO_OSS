@@ -51,8 +51,8 @@ everywhere else (`Ready` · `In progress` · `Planned` · `Idea`).
 
 - **Local model parity.** First-class Ollama support for fully offline runs
   (generation + embeddings) — embeddings are wired; surface them in Settings.
-- **Approval Queue batching by campaign.** Group pending actions into campaigns
-  you approve in one click — done; deepen with per-campaign schedules.
+- **Approval Queue depth.** Deeper per-campaign controls — schedules, bulk edits, and
+  campaign-level notifications (batching by campaign already ships).
 - **Connector Hub polish.** Popularity sort, richer metadata.
 
 ## Later / Ideas
@@ -67,7 +67,7 @@ everywhere else (`Ready` · `In progress` · `Planned` · `Idea`).
 - **Scheduled analytics digests.** Periodic PDF/CSV digests of brand
   performance to email.
 - **Webhook retry observability.** Admin view of the retry queue with manual
-  re-fire.
+  re-fire (automatic retries with exponential backoff already ship).
 
 ## How this maps to "good first issues"
 

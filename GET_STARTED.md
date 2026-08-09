@@ -41,10 +41,11 @@ No credit card needed to start. Connect more accounts whenever you like from the
 
 ## Want to verify before trusting it?
 
-- **Automated tests** — `npm test` runs the full suite (100+ backend tests, 9 frontend
-  tests). The Pack Marketplace + Social Accounts flows are covered by
+- **Automated tests** — `npm test` runs the full suite (**211 backend tests** across 25 files, 9
+  frontend tests). The Pack Marketplace + Social Accounts flows are covered by
   `connectorsMarketplaceRoutes.test.ts` on a real Fastify app with a real session
-  token + CSRF token. See
+  token + CSRF token. A Playwright smoke boots the real app, runs the Marketing
+  Director, and checks webhooks, approvals, and CSV export end-to-end. See
   [docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_VERIFICATION.md).
 - **Manual smoke-tests** — the same doc has copy-pasteable `fetch` snippets you can
   run from the browser console to verify install, uninstall, disconnect, and

@@ -13,7 +13,49 @@ Items from the gap list below that have since been addressed:
 - **Audit log viewer (already present at time of audit)**: still present at `GET /api/settings/audit-logs`.
 - **`.env` copy behavior**: `ensureEnvFile()` copies `.env.example` → `.env` on first run but never writes a key into the user's existing `.env`; key validation lives in `lib/env.ts` (fail-closed on missing/placeholder keys).
 
-Outstanding gaps (unchanged, refer to the sections below): JWT/RBAC/CSRF for team deployments, strict per-route rate limits, argon2id PIN hashing + lockout, strict Helmet CSP, upload magic-byte validation, keychain-backed secret storage, and integration consent/sandboxing UX.
+## Status Addendum (2026-08-09)
+
+Further gaps from the original audit have since been closed. Each item below is
+covered by an automated test, so it cannot silently regress:
+
+- **CSRF protection (P0, item 3)**: implemented as **double-submit** `x-csrf-token`
+  (equal to the session token) required on every state-changing request. Header-based
+  auth already prevents classic CSRF at the transport layer; the double-submit check
+  hardens it and is forward-compatible with cookie sessions. Enforced in the global
+  `onRequest` hook (`packages/backend/src/index.ts`) and asserted by
+  `connectorsMarketplaceRoutes.test.ts`.
+- **Strict per-route rate limits (P0, item 6)**: `/api/auth/setup` 5/min,
+  `/api/auth/verify` 10/min, `/api/auth/renew` 20/min, `/api/auth/reset-pin/request`
+  3/min, per IP (`routes/auth.ts`). The global limiter no longer allowlists `/api/auth`
+  (max 3000/min, health exempt), and AI-calling prefixes (`/api/assistant`, `/api/mcp`)
+  carry 30/min caps. Enforced by `authRateLimit.test.ts`.
+- **PIN hashing (P0/P1)**: PINs are hashed with **bcrypt (cost 10)**; legacy unsalted
+  SHA-256 digests are transparently upgraded on the next successful login.
+  Enforced by `pinHashing.test.ts`.
+- **Session expiry NaN bypass (audit §2.3 / FUTURE_IMPROVEMENTS P0#4)**: `decryptSession`
+  now rejects any stored session whose expiry is missing or non-finite — a malformed
+  value can never produce a token that "never expires." Enforced by
+  `sessionExpiry.test.ts` (five lock-in cases) and `sessionEncryption.test.ts`.
+- **One-time PIN reset code (audit §2.3)**: `reset-pin/request` issues a machine-bound
+  one-time code printed to the terminal and written next to the database; `reset-pin/reset`
+  consumes it once and it cannot be reused. Enforced by `authResetPin.test.ts`.
+- **ENCRYPTION_KEY fail-closed (P0, item 2)**: missing/placeholder keys refuse to start
+  and weak keys are rejected. Enforced by `encryptionKeyValidation.test.ts`.
+- **Silent catch blocks (P0, item 6)**: `npm run check:catches` (`scripts/check-silent-catch.mjs`)
+  fails CI on error-swallowing `catch {}` blocks; the script is wired into CI.
+- **Webhook delivery integrity (new)**: outbound webhook payloads are HMAC-SHA256 signed
+  with the configured secret, delivery history is stored, and failed deliveries enter a
+  retry queue with exponential backoff. Enforced by `webhookRetries.test.ts`.
+- **End-to-end smoke (new)**: a Playwright smoke (`packages/backend/src/tests/e2e/smoke.spec.ts`)
+  boots the real app, performs first-run PIN setup with a real session + CSRF token, runs
+  the Marketing Director, and exercises webhooks, approvals, and CSV export — 4/4 passing
+  in CI.
+
+Still open (unchanged): JWT/RBAC for team deployments, argon2id (bcrypt 10 accepted per
+audit's own recommendation threshold), strict Helmet CSP review, upload magic-byte
+validation, keychain-backed secret storage, and integration consent/sandboxing UX.
+A team **roster** with roles (owner/admin/editor/viewer) now exists but enforcement is a
+future auth layer.
 
 ---
 

@@ -9,6 +9,43 @@
 
 ---
 
+## Resolution Status (2026-08-09)
+
+This post-mortem is preserved as the historical baseline. Most of its P0/P1
+blockers have since been shipped, and every item below is locked in by an
+automated test:
+
+| Original item | Status (2026-08-09) |
+| --- | --- |
+| P0#1 reset-pin auth bypass | **Fixed** — `reset-pin/request` issues a machine-bound one-time code (terminal + next to DB); `reset-pin/reset` consumes it once (`authResetPin.test.ts`) |
+| P0#2 empty ENCRYPTION_KEY | **Fixed** — fail-closed startup validation, weak keys rejected (`encryptionKeyValidation.test.ts`) |
+| P0#3 no auth rate limits | **Fixed** — setup 5/min, verify 10/min, renew 20/min, reset request 3/min, per IP (`authRateLimit.test.ts`) |
+| P0#4 session-expiry NaN bypass | **Fixed** — `decryptSession` fails closed on unparseable expiry (`sessionExpiry.test.ts`) |
+| P0#5 Zod input validation | **Partially fixed** — shared Zod schemas for auth + tools; more routes to cover |
+| P0#6 silent catch blocks | **Fixed** — `npm run check:catches` fails CI (`scripts/check-silent-catch.mjs`) |
+| P0#7 demo/sandbox mode | **Shipped** — "Try the Demo" built-in |
+| P0#8 pre-seeded dashboard | **Shipped** — Demo brand with sample posts, analytics, and content plan |
+| P1#9 SHA-256 PIN hashing | **Fixed** — bcrypt (cost 10) + transparent legacy upgrade (`pinHashing.test.ts`) |
+| P1#13 auth route tests | **Fixed** — `authRateLimit`, `authResetPin`, `authRenew`, `sessionExpiry`, `sessionEncryption`, `pinHashing` |
+| P1#15 Ollama auto-config | **Shipped** — one-click "Use free local AI" on first launch |
+| P1#16 one-click OAuth | **Shipped** — managed providers (GitHub, Notion, Canva, LinkedIn, X) |
+| P2#23 / P3#35 run Director now | **Shipped** — autopilot "Run next week now" + Dashboard run control |
+| P3#31 Playwright E2E | **Shipped** — boots the app, runs the Director, checks webhooks/approvals/CSV (4/4 in CI) |
+| P3#36 in-app assistant | **Shipped** — Smart Assistant (`Cmd/Ctrl+K`) |
+| "More Ready connectors" | **Shipped** — YouTube, TikTok, Pinterest real publishing (see [ROADMAP.md](ROADMAP.md)) |
+
+Also new since the audit: webhook delivery with **HMAC-signed payloads + retry queue with
+exponential backoff** (`webhookRetries.test.ts`), **analytics CSV export**, **email
+notifications** (dependency-free SMTP client), **approval batching by campaign**, a **team
+roster** (roles: owner/admin/editor/viewer), and the **Plugin API**.
+
+Outstanding (unchanged): PostgreSQL migration, BullMQ extraction, strict Helmet CSP review,
+upload magic-byte validation, keychain-backed secrets, RBAC **enforcement** (roster exists),
+and code-splitting polish. Test suite grew from 5 files to **25 backend files (211 tests) +
+9 frontend tests + a 4-test E2E smoke**.
+
+---
+
 ## Table of Contents
 
 - [Part I: The Hard Truth (Executive Summary)](#part-i-the-hard-truth-executive-summary)

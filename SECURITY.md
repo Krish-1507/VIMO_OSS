@@ -18,6 +18,9 @@ issues for vulnerabilities** until a fix is released.
 - **Credential encryption at rest.** API keys, OAuth access tokens, and refresh tokens are
   encrypted with **AES-256-GCM** before they are written to disk. The key is `ENCRYPTION_KEY` in
   your `.env`. Decryption happens only in memory, only when a connector actually uses the secret.
+- **Webhook payloads are HMAC-signed.** Every outbound webhook carries a signature header
+  (HMAC-SHA256 over the body with your configured webhook secret), so any endpoint you wire up can
+  prove the payload came from VIMO and was not tampered with in transit.
 - **No telemetry.** VIMO does not collect or transmit usage data or analytics to external servers.
 - **Prompt sanitization.** User- and scraped-content inputs are sanitized before being sent to LLMs
   to reduce prompt-injection impact.
@@ -33,7 +36,7 @@ Honesty about the data model:
 | Connector metadata (id, name, provider, status, config) | `connectors` table                           | No (metadata only)                                    | Needed to route requests and show your connections. Contains no secrets.                                                                                                                                                                                               |
 | API keys / OAuth tokens / app passwords                 | `app_settings` as `cred:<connectorId>:<key>` | **Yes** (AES-256-GCM)                                 | Required to act on your behalf. Never stored in plaintext.                                                                                                                                                                                                             |
 | Session token (`<token>\|<expiry>`)                     | `app_settings` key `session_token`           | **Yes** (AES-256-GCM, same key/scheme as credentials) | VIMO is a local single-user app. The token is a random 256-bit value, returned only to the verifying client, encrypted at rest, and cleared on logout/reset. For multi-user or exposed deployments, front it with a reverse proxy + TLS and treat the host as trusted. |
-| PIN hash                                                | `app_settings` key `pin_hash`                | Yes (SHA-256)                                         | Local login gate; only the hash is stored.                                                                                                                                                                                                                             |
+| PIN hash                                                | `app_settings` key `pin_hash`                | Yes (bcrypt, cost 10)                              | Local login gate; only the hash is stored. Legacy installs with an unsalted SHA-256 digest are transparently upgraded to bcrypt on their next successful login. |
 | Brand data, posts, campaigns, memory                    | `SQLite` tables                              | No                                                    | Your actual marketing content. Local only.                                                                                                                                                                                                                             |
 | AI usage (tokens, model, cost)                          | local tables                                 | No                                                    | Cost transparency dashboard. Local only.                                                                                                                                                                                                                               |
 
@@ -64,7 +67,10 @@ instance, run VIMO behind authenticated TLS and never expose port 3000 directly.
 - **Localhost model.** VIMO is designed for a single user on `localhost`. Running it on a
   publicly accessible server requires a reverse proxy with TLS and, ideally, an authenticating
   layer in front.
-- **Rate limiting** is applied to auth and AI-calling routes out of the box.
+- **Rate limiting** is applied per route: `/api/auth/setup` 5/min, `/api/auth/verify` 10/min,
+  `/api/auth/renew` 20/min, `/api/auth/reset-pin/request` 3/min (all per IP), plus a global cap
+  on the rest of the API. The tightest limits sit on the endpoints that mint or change
+  credentials — see `packages/backend/src/routes/auth.ts`.
 - **Session expiry** is 24h and renewable; logout clears it.
 
 ## Cross-Site Request Forgery (CSRF)
@@ -85,16 +91,17 @@ think about it. Auth endpoints under `/api/auth/*` are exempt, as is standard.
 
 ## Reverse Proxy & Rate-Limit Gotchas
 
-The global rate limiter (`@fastify/rate-limit` in `packages/backend/src/index.ts`) exempts
-`/api/health` and `/api/auth*` from the global cap — sensible for local use so logins are never
-throttled. **Be aware of these proxy gotchas before exposing VIMO:**
+The global rate limiter (`@fastify/rate-limit` in `packages/backend/src/index.ts`) caps the API
+at 3000 req/min with only `/api/health` exempt; AI-calling prefixes (`/api/assistant`, `/api/mcp`)
+carry their own 30/min caps, and the auth routes carry the tightest per-route limits of all (see
+above). **Be aware of these proxy gotchas before exposing VIMO:**
 
 - **Client IP is the proxy's IP.** `@fastify/rate-limit` keys on `request.ip`. Behind a reverse
   proxy (nginx, Traefik, Cloudflare) every user appears to come from the proxy, so the limiter either
   throttles everyone at once or never triggers. Set `app.setTrustProxy(true)` (or configure
-  `trustProxy`) and forward `X-Forwarded-For` so rate limits are per real client. Do **not** rely on
-  the `/api/auth` allow-list as your only protection on a public host — it only lifts the global cap,
-  it does not authenticate.
+  `trustProxy`) and forward `X-Forwarded-For` so rate limits are per real client. The per-route
+  auth limits are still the backstop on a public host, but they are not authentication — front
+  any public deployment with an authenticating proxy.
 - **TLS termination.** Terminate TLS at the proxy and send `X-Forwarded-Proto: https`; otherwise
   secure-cookie/CSRF assumptions break.
 - **WebSocket/Socket.IO** also rides behind the proxy — forward upgrade headers.
@@ -128,6 +135,15 @@ external HTTP boundary, never VIMO's own code:
   Graph errors are mapped to friendly, token-free messages before they reach the client.
 - `authRenew.test.ts` — long-lived token exchange + generic OAuth refresh; missing or invalid
   credentials fail gracefully (return `false`, never throw).
+- `authRateLimit.test.ts` / `authResetPin.test.ts` — the per-route auth limits are enforced by
+  tests, and the one-time PIN-reset code (printed to the terminal + written next to the
+  database) is consumed once and cannot be reused.
+- `sessionEncryption.test.ts` / `sessionExpiry.test.ts` — the stored session is AES-256-GCM
+  encrypted, and `decryptSession` **fails closed** on a malformed expiry (`Number.isFinite`
+  guard) so a corrupted value can never produce an immortal token.
+- `pinHashing.test.ts` — bcrypt hashing of PINs plus the legacy SHA-256 upgrade path.
+- `webhookRetries.test.ts` — HMAC signature verification for outbound webhooks, delivery
+  attempts, and retry-queue behavior with exponential backoff.
 
 ## Supported Versions
 

@@ -1,5 +1,14 @@
 # VIMO Production Readiness Test Report
 
+> **Status update (2026-08-09):** this dated report (June 2026) is superseded by
+> the current automated suite. The infrastructure checks it marks PASS still hold;
+> the manual UI checks marked PENDING are now covered by automated tests:
+> **211 backend tests across 25 files, 9 frontend tests, and a 4-test Playwright
+> smoke** that boots the real app, performs first-run PIN setup, runs the Marketing
+> Director to completion, and exercises the webhook, approval-queue, and CSV-export
+> endpoints. `npm test` + `npm run test:e2e` are green in CI. "Production
+> Readiness" is verified, not UNKNOWN.
+
 **Test Date:** 2026-06-07  
 **Tester:** Automated Production Readiness Suite  
 **Version:** 2.0.0

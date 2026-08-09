@@ -103,10 +103,14 @@ Run them with:
 ```bash
 npm run test --workspace=packages/backend
 npm run test --workspace=packages/backend -- connection   # just the connection layer
+npm run test:e2e                                            # full-stack Playwright smoke
 ```
 
 The suite uses `src/tests/setup.ts` to spin up an isolated `:memory:` database and a test
-encryption key, so it never touches your real `./data/vimo.db`.
+encryption key, so it never touches your real `./data/vimo.db`. The Playwright smoke
+(`packages/backend/src/tests/e2e/smoke.spec.ts`) boots the real app via `npm run dev`,
+performs first-run PIN setup, runs the Marketing Director, and checks webhooks, approvals,
+and CSV export — run it after any change to the auth gate, route registration, or those APIs.
 
 ## Extending VIMO (the fun part)
 

@@ -87,7 +87,10 @@ manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_V
 - **The Marketing Director** — a 24/7 CMO that orchestrates four specialized workers
   (Research, Analytics, Content, Engagement) into a daily morning briefing with prioritized,
   explained actions.
-- **Approval Queue** — human-in-the-loop control. Approve, reject, or batch-approve by type.
+- **Approval Queue** — human-in-the-loop control. Approve, reject, or **batch-approve an entire
+  campaign in one click**; pending posts group by campaign in the Approvals UI.
+- **Webhooks** — event delivery (post published/failed, test fires) with **HMAC-signed payloads**,
+  delivery history, and a **retry queue with exponential backoff**.
 - **Brand Brain & Content DNA** — permanent memory of every post, campaign, lesson, and audience
   insight. VIMO evolves its voice automatically.
 - **VIMO Assistant** — a conversational system controller (`Cmd/Ctrl + K`). "Grow my Instagram,"
@@ -105,6 +108,19 @@ manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_V
   intelligence, design, commerce, and analytics. Every connector ships with an honest
   **readiness badge** (`Ready` · `Connect only` · `Coming soon`) so you always know what works
   today vs. what's still being wired (see [Coverage & honest status](#coverage--honest-status)).
+- **Real publishing for YouTube, TikTok & Pinterest** — resumable YouTube uploads, TikTok
+  Content Posting API, and Pinterest v5 pins, alongside Instagram/Facebook/LinkedIn/X/Threads/
+  Reddit/Medium/Bluesky.
+- **Multi-account per platform** — connect several Instagram/LinkedIn/X accounts and pick the
+  publishing account per post ("Publish as" in the Scheduler).
+- **Autopilot guardrails** — daily post cap + daily AI spend cap, enforced in content generation
+  and scheduling, plus "Run next week now."
+- **Analytics CSV export** — download post performance for any date range and brand.
+- **Email notifications** — dependency-free SMTP client (plain/STARTTLS/implicit TLS) with a
+  settings UI and test send.
+- **Team mode (roster)** — workspace member list with roles (owner/admin/editor/viewer).
+- **Plugin API** — register third-party connectors with actions and install them as real
+  connectors.
 
 ---
 
@@ -304,12 +320,14 @@ you can see in the Connector Hub:
 
 Current reality (no embellishment):
 
-- **Ready** — Instagram, Facebook, LinkedIn, X, Threads, Reddit, Medium, Bluesky (real, tested
-  publish paths); all LLM providers; Canva AI Designer; Higgsfield video generation.
-- **Connect only** — YouTube, TikTok, Pinterest (publish needs media upload we don't do yet);
-  WordPress, Shopify, Mailchimp, Google/Meta Ads, HubSpot, Google Analytics, Notion, Slack; and
-  the MCP intelligence sources (GitHub, Notion, Slack, Drive, Linear, Figma, Trello, Asana,
-  Dropbox) which feed VIMO context but don't publish on your behalf.
+- **Ready** — Instagram, Facebook, LinkedIn, X, Threads, Reddit, Medium, Bluesky, **YouTube**,
+  **TikTok**, **Pinterest** (real, tested publish paths); all LLM providers; Canva AI Designer;
+  Higgsfield video generation. YouTube uploads are private until you publish them in YouTube
+  Studio, and TikTok uploads are created private (SELF_ONLY) — the whitelist/approval flow is
+  managed by TikTok.
+- **Connect only** — WordPress, Shopify, Mailchimp, Google/Meta Ads, HubSpot, Google Analytics,
+  Notion, Slack; and the MCP intelligence sources (GitHub, Notion, Slack, Drive, Linear, Figma,
+  Trello, Asana, Dropbox) which feed VIMO context but don't publish on your behalf.
 
 If you want a platform moved from _Connect only_ → _Ready_, the publish handler is the place to
 contribute — see `packages/backend/src/services/vimoSocialPublishService.ts`.
@@ -320,6 +338,8 @@ contribute — see `packages/backend/src/services/vimoSocialPublishService.ts`.
 
 - **Credentials are encrypted at rest** (AES-256-GCM) with a key from your `.env`
   (`ENCRYPTION_KEY`). Decrypted only in memory, only when used.
+- **Webhook payloads are HMAC-signed** so any endpoint you wire up can verify VIMO is
+  the sender and the payload wasn't tampered with.
 - **Local-first.** Single-user, runs on `localhost`. The session token is a random 256-bit value;
   see [SECURITY.md → What we store and why](SECURITY.md) for the full, honest inventory.
 - **No telemetry.** VIMO does not phone home.
@@ -386,8 +406,15 @@ code end-to-end on every CI run.
 # Run the full test suite (backend + frontend)
 npm test
 
-# Backend only — 100+ tests across 13 files
+# Backend only — 211 tests across 25 files
 npm run test:backend
+
+# Frontend only — 9 tests across 3 files
+npm run test:frontend
+
+# End-to-end Playwright smoke (boots the app, runs the Director,
+# checks webhooks, approvals, and CSV export)
+npm run test:e2e
 
 # Just the connection-layer suite (Pack Marketplace + Social Accounts)
 npm run test:backend -- --reporter=verbose src/tests/connectorsMarketplaceRoutes.test.ts
@@ -403,7 +430,16 @@ What the suite covers:
   for Shopify, GitHub, Stripe, SEO, … with real DB and credential store.
 - `connectionSocialAccounts.test.ts` — Instagram account verification + publish path
   with axios mocked at the Meta Graph boundary.
-- `authRenew.test.ts` — long-lived token exchange + generic OAuth refresh.
+- `webhookRetries.test.ts` — HMAC signature verification, delivery attempts, and the
+  retry queue with exponential backoff.
+- `authRateLimit.test.ts` / `authResetPin.test.ts` / `sessionExpiry.test.ts` /
+  `sessionEncryption.test.ts` / `pinHashing.test.ts` — the auth gate: per-route rate
+  limits, one-time reset codes, encrypted sessions that fail closed on malformed
+  expiry, and bcrypt PIN hashing with a legacy upgrade path.
+- `e2e/smoke.spec.ts` — a Playwright smoke that boots the real app, performs first-run
+  PIN setup, creates a Demo brand, runs the Marketing Director to completion, and
+  checks the Phase 3 surface: webhook config round-trip + retry queue, the approval
+  queue + campaign batch approval, and the analytics CSV export.
 
 Manual smoke-tests (with copy-pasteable `fetch` snippets) live in
 **[docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_VERIFICATION.md)**.
