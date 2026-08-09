@@ -264,15 +264,25 @@ export class ProductionIntegrationEngine {
       // Platform-specific token refresh
       switch (platform) {
         case 'instagram':
-        case 'facebook':
-          // Handled by Facebook Graph API
-          return { success: true, message: 'Token refreshed via Facebook Graph API' };
+        case 'facebook': {
+          // Refresh via the Facebook Graph API long-lived token exchange.
+          const { refreshInstagramToken } = await import('../../services/connectorHealthService');
+          const ok = await refreshInstagramToken(connector.id);
+          return ok
+            ? { success: true, message: 'Token refreshed via Facebook Graph API' }
+            : { success: false, message: `Could not refresh the ${platform} token. Reconnect your ${platform} account in Social Accounts.` };
+        }
         case 'linkedin':
-          return { success: true, message: 'Token refreshed for LinkedIn' };
         case 'x':
-          return { success: true, message: 'Token refreshed for X' };
+        case 'tiktok':
+        case 'youtube':
+        case 'pinterest':
+          return {
+            success: false,
+            message: `${platform} tokens refresh automatically during connection and cannot be refreshed in place. Reconnect the account in Social Accounts if the token expired.`,
+          };
         default:
-          return { success: false, message: `Token refresh not implemented for ${platform}` };
+          return { success: false, message: `Token refresh not supported for ${platform}. Reconnect the account in Social Accounts.` };
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

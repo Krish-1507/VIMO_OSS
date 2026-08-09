@@ -25,6 +25,8 @@ import {
   Loader2,
   Check,
   Search,
+  Users,
+  Trash,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../lib/api';
@@ -214,7 +216,96 @@ export default function SettingsPage() {
      if (activeTab !== 'notifications') return;
      fetchWebhookConfig();
      fetchWebhookEvents();
+     fetchEmailConfig();
    }, [activeTab]);
+
+   const [emailConfig, setEmailConfig] = useState<{
+     enabled: boolean;
+     recipient: string;
+     smtpHost: string;
+     smtpPort: number;
+     smtpUser: string;
+     smtpPass: string;
+     smtpFrom: string;
+   }>({ enabled: false, recipient: '', smtpHost: '', smtpPort: 587, smtpUser: '', smtpPass: '', smtpFrom: '' });
+   const [emailTestStatus, setEmailTestStatus] = useState<{ ok: boolean; message: string } | null>(null);
+   const [emailSaving, setEmailSaving] = useState(false);
+   const [emailTesting, setEmailTesting] = useState(false);
+
+   async function fetchEmailConfig() {
+     try {
+       const res = await api.get('/api/settings/email');
+       setEmailConfig((prev) => ({ ...prev, ...res.data }));
+     } catch (err) {
+       console.warn('[vimo] best-effort operation failed:', err);
+     }
+   }
+
+   async function handleSaveEmailConfig() {
+     setEmailSaving(true);
+     setEmailTestStatus(null);
+     try {
+       await api.post('/api/settings/email', {
+         enabled: emailConfig.enabled,
+         recipient: emailConfig.recipient,
+         smtpHost: emailConfig.smtpHost,
+         smtpPort: Number(emailConfig.smtpPort) || 587,
+         smtpUser: emailConfig.smtpUser,
+         smtpPass: emailConfig.smtpPass,
+         smtpFrom: emailConfig.smtpFrom,
+       });
+       setEmailTestStatus({ ok: true, message: 'Email settings saved.' });
+     } catch (err) {
+       setEmailTestStatus({ ok: false, message: 'Failed to save email settings.' });
+     } finally {
+       setEmailSaving(false);
+     }
+   }
+
+   async function handleSendTestEmail() {
+     setEmailTesting(true);
+     setEmailTestStatus(null);
+     try {
+       const res = await api.post('/api/settings/email/test');
+       setEmailTestStatus({ ok: true, message: res.data?.message || 'Test email sent.' });
+     } catch (err: any) {
+       setEmailTestStatus({ ok: false, message: err?.response?.data?.error || 'Test email failed.' });
+     } finally {
+       setEmailTesting(false);
+     }
+   }
+
+   const [teamEnabled, setTeamEnabled] = useState(false);
+   const [teamMembers, setTeamMembers] = useState<{ name: string; email: string; role: string }[]>([]);
+   const [newMember, setNewMember] = useState({ name: '', email: '', role: 'viewer' });
+   const [teamStatus, setTeamStatus] = useState<{ ok: boolean; message: string } | null>(null);
+
+   useEffect(() => {
+     if (activeTab !== 'team') return;
+     api
+       .get('/api/settings/team')
+       .then((res) => {
+         setTeamEnabled(Boolean(res.data?.enabled));
+         setTeamMembers(res.data?.members || []);
+       })
+       .catch((err) => console.warn('[vimo] best-effort operation failed:', err));
+   }, [activeTab]);
+
+   async function saveTeam(nextEnabled: boolean, members: { name: string; email: string; role: string }[]) {
+     setTeamStatus(null);
+     try {
+       await api.post('/api/settings/team', { enabled: nextEnabled, members });
+       setTeamStatus({ ok: true, message: 'Team settings saved.' });
+     } catch (err) {
+       setTeamStatus({ ok: false, message: 'Failed to save team settings.' });
+     }
+   }
+
+   function handleAddMember() {
+     if (!newMember.email.trim()) return;
+     setTeamMembers((prev) => [...prev, { ...newMember, name: newMember.name.trim() || newMember.email }]);
+     setNewMember({ name: '', email: '', role: 'viewer' });
+   }
 
   async function fetchData() {
     try {
@@ -702,6 +793,7 @@ export default function SettingsPage() {
     { id: 'dna', label: 'DNA', icon: Dna },
     { id: 'ai', label: 'AI Models', icon: Bot },
     { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'team', label: 'Team', icon: Users },
     { id: 'privacy', label: 'Data & Privacy', icon: Database },
     { id: 'about', label: 'About', icon: Info },
   ];
@@ -1123,37 +1215,111 @@ export default function SettingsPage() {
                     Email Notifications
                   </h2>
                   <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-sm text-slate-700 dark:text-slate-300">Send email mirrors of notifications</span>
+                        <p className="text-xs text-slate-500">Delivered over SMTP to the address below.</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const next = !emailConfig.enabled;
+                          setEmailConfig((prev) => ({ ...prev, enabled: next }));
+                          api.post('/api/settings/email', { enabled: next }).catch((err) => {
+                            console.warn('[vimo] best-effort operation failed:', err);
+                          });
+                        }}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                          emailConfig.enabled ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
+                        }`}
+                      >
+                        <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${emailConfig.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Notification Email</label>
+                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Recipient Email</label>
                       <input
                         type="email"
                         placeholder="your@email.com"
-                        value={settings.notificationEmail || ''}
-                        onChange={(e) => handleSaveSetting('notificationEmail', e.target.value)}
+                        value={emailConfig.recipient}
+                        onChange={(e) => setEmailConfig((prev) => ({ ...prev, recipient: e.target.value }))}
                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
                       />
                     </div>
-                    <div className="space-y-3">
-                      {[
-                        { key: 'notify_campaign', label: 'Campaign completed' },
-                        { key: 'notify_post_failed', label: 'Post failed' },
-                        { key: 'notify_weekly_report', label: 'Weekly report' },
-                      ].map((item) => (
-                        <div key={item.key} className="flex items-center justify-between">
-                          <span className="text-sm text-slate-700 dark:text-slate-300">{item.label}</span>
-                          <button
-                            onClick={() => handleSaveSetting(item.key, (settings[item.key] !== 'true').toString())}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-                              settings[item.key] === 'true' ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                            }`}
-                          >
-                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${settings[item.key] === 'true' ? 'translate-x-5' : 'translate-x-1'}`} />
-                          </button>
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">SMTP Host</label>
+                        <input
+                          type="text"
+                          placeholder="smtp.gmail.com"
+                          value={emailConfig.smtpHost}
+                          onChange={(e) => setEmailConfig((prev) => ({ ...prev, smtpHost: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">SMTP Port</label>
+                        <input
+                          type="number"
+                          placeholder="587"
+                          value={emailConfig.smtpPort}
+                          onChange={(e) => setEmailConfig((prev) => ({ ...prev, smtpPort: Number(e.target.value) || 587 }))}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">SMTP User</label>
+                        <input
+                          type="text"
+                          placeholder="you@gmail.com"
+                          value={emailConfig.smtpUser}
+                          onChange={(e) => setEmailConfig((prev) => ({ ...prev, smtpUser: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">SMTP Password</label>
+                        <input
+                          type="password"
+                          placeholder="app password"
+                          value={emailConfig.smtpPass}
+                          onChange={(e) => setEmailConfig((prev) => ({ ...prev, smtpPass: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                        />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">From Address</label>
+                        <input
+                          type="text"
+                          placeholder="VIMO <no-reply@vimo.app>"
+                          value={emailConfig.smtpFrom}
+                          onChange={(e) => setEmailConfig((prev) => ({ ...prev, smtpFrom: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                        />
+                      </div>
                     </div>
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 italic text-xs text-slate-400">
-                      Note: Email notifications will be active in a future update.
+                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        onClick={handleSaveEmailConfig}
+                        disabled={emailSaving}
+                        className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                      >
+                        {emailSaving ? 'Saving…' : 'Save email settings'}
+                      </button>
+                      <button
+                        onClick={handleSendTestEmail}
+                        disabled={emailTesting}
+                        className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        {emailTesting ? 'Sending…' : 'Send test email'}
+                      </button>
+                      {emailTestStatus && (
+                        <span className={`text-xs ${emailTestStatus.ok ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {emailTestStatus.message}
+                        </span>
+                      )}
+                    </div>
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
+                      Email mirrors in-app notifications (post published, post failed, campaign complete, engagement spike). SMTP uses plain (587/25) or implicit TLS (465). No SMTP configured means emails are skipped silently.
                     </div>
                   </div>
                 </div>
@@ -1246,6 +1412,120 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'team' && (
+              <section className="space-y-6">
+                <div className="space-y-4">
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Users className="h-5 w-5 text-violet-500" />
+                    Team
+                  </h2>
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-sm text-slate-700 dark:text-slate-300">Team mode</span>
+                        <p className="text-xs text-slate-500">Share this workspace with collaborators. Roles: owner, admin, editor, viewer.</p>
+                      </div>
+                      <button
+                        onClick={() => saveTeam(!teamEnabled, teamMembers)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                          teamEnabled ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
+                        }`}
+                      >
+                        <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${teamEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {teamMembers.map((member, idx) => (
+                        <div key={idx} className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 p-2.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{member.name}</p>
+                            <p className="text-xs text-slate-500 truncate">{member.email}</p>
+                          </div>
+                          <select
+                            value={member.role}
+                            onChange={(e) => {
+                              const next = [...teamMembers];
+                              next[idx] = { ...member, role: e.target.value };
+                              setTeamMembers(next);
+                            }}
+                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                          >
+                            <option value="owner">Owner</option>
+                            <option value="admin">Admin</option>
+                            <option value="editor">Editor</option>
+                            <option value="viewer">Viewer</option>
+                          </select>
+                          <button
+                            onClick={() => setTeamMembers((prev) => prev.filter((_, i) => i !== idx))}
+                            className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                      {teamMembers.length === 0 && (
+                        <p className="text-sm text-slate-500">No team members yet. Add your first collaborator below.</p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        value={newMember.name}
+                        onChange={(e) => setNewMember((prev) => ({ ...prev, name: e.target.value }))}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={newMember.email}
+                        onChange={(e) => setNewMember((prev) => ({ ...prev, email: e.target.value }))}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                      />
+                      <div className="flex gap-2">
+                        <select
+                          value={newMember.role}
+                          onChange={(e) => setNewMember((prev) => ({ ...prev, role: e.target.value }))}
+                          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                        >
+                          <option value="viewer">Viewer</option>
+                          <option value="editor">Editor</option>
+                          <option value="admin">Admin</option>
+                          <option value="owner">Owner</option>
+                        </select>
+                        <button
+                          onClick={handleAddMember}
+                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700 transition-colors"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        onClick={() => saveTeam(teamEnabled, teamMembers)}
+                        className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700 transition-colors"
+                      >
+                        Save team settings
+                      </button>
+                      {teamStatus && (
+                        <span className={`text-xs ${teamStatus.ok ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {teamStatus.message}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      This is the team roster for your workspace. VIMO is a single-user app today — roles are stored so multi-user access can be enforced cleanly later.
+                    </p>
                   </div>
                 </div>
               </section>

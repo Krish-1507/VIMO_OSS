@@ -220,6 +220,7 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
           requestType: 'publish_post',
           payload: {
             postId: postId,
+            campaignId: row.campaignId || null,
             brandProfileId: row.brandProfileId,
             content: row.content,
             platform: post.platform,

@@ -19,12 +19,69 @@ export async function analyzeTopPerformingContent(brandProfileId: string): Promi
   topPostTopics: string[];
   summary: string;
 }> {
-  // TODO: Replace with real query-based analysis using scheduledPosts + historical performance.
-  return {
-    brandProfileId,
-    topPostTopics: [],
-    summary: 'Top-performing content analysis is not yet configured.',
-  };
+  try {
+    const posts = db
+      .select()
+      .from(scheduledPosts)
+      .where(eq(scheduledPosts.brandProfileId, brandProfileId))
+      .all();
+
+    interface ScoredPost {
+      content: string;
+      platform: string;
+      engagementRate: number;
+      topic: string;
+    }
+
+    const scored: ScoredPost[] = [];
+    for (const post of posts as any[]) {
+      if (post.status !== 'published') continue;
+      let meta: any = {};
+      try {
+        meta = post.metadataJson ? JSON.parse(post.metadataJson) : {};
+      } catch (err) {
+        console.warn('[GrowthLoop] Failed to parse post metadata:', (err as Error).message);
+      }
+      const engagementRate = Number(meta?.performance?.engagementRate) || 0;
+      if (engagementRate <= 0) continue;
+      scored.push({
+        content: String(post.content || ''),
+        platform: String(post.platform || ''),
+        engagementRate,
+        topic: String(
+          meta?.topic ||
+            meta?.campaignWeek ||
+            meta?.contentType ||
+            (post.content || '').split('\n').find((l: string) => l.trim().length > 0)?.slice(0, 80) ||
+            'Untitled post'
+        ),
+      });
+    }
+
+    if (scored.length === 0) {
+      return {
+        brandProfileId,
+        topPostTopics: [],
+        summary: 'No performance data yet. Once your posts start earning engagement, VIMO will rank your best-performing topics here.',
+      };
+    }
+
+    const ranked = scored.sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 5);
+    const avgRate = ranked.reduce((sum, p) => sum + p.engagementRate, 0) / ranked.length;
+
+    return {
+      brandProfileId,
+      topPostTopics: ranked.map((p) => p.topic),
+      summary: `Your top ${ranked.length} post${ranked.length > 1 ? 's' : ''} averaged ${avgRate.toFixed(1)}% engagement (best: "${ranked[0].topic}" on ${ranked[0].platform} at ${ranked[0].engagementRate.toFixed(1)}%). VIMO will lean toward these themes in future content.`,
+    };
+  } catch (err) {
+    console.warn('[GrowthLoop] analyzeTopPerformingContent failed:', (err as Error).message);
+    return {
+      brandProfileId,
+      topPostTopics: [],
+      summary: 'Could not analyze performance data right now. Please try again later.',
+    };
+  }
 }
 
 /**

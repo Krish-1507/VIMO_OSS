@@ -380,10 +380,12 @@ export function createCanvaIntegrationDeps(): IntegrationEngineDeps {
         const dimensions = (input as any).dimensions ?? { width: 1080, height: 1080 };
         const width = Number(dimensions.width ?? 1080);
         const height = Number(dimensions.height ?? 1080);
+        const url = await exportDesignPng(accessToken, designId);
         return {
           designId,
           dimensions: { width, height },
-          editUrl: `https://www.canva.com/design/${designId}/edit`,
+          exportUrl: url || '',
+          note: 'Canva exports at the design\u2019s native resolution; open the design in Canva to set exact target dimensions.',
         };
       }
 
@@ -430,7 +432,9 @@ export function createCanvaIntegrationDeps(): IntegrationEngineDeps {
         }
       }
 
-      throw new Error(`Action not implemented: ${toolName}`);
+      throw new Error(
+        `Unknown Canva action "${toolName}". Supported actions: ${TOOL_MANIFEST.map((t) => t.name).join(', ')}.`
+      );
     },
 
     async disconnect(_connectorId: string): Promise<void> {

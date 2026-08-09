@@ -486,6 +486,7 @@ export async function getApprovalQueue(): Promise<(ApprovalRequest & { humanRead
       id: row.id,
       requestType: row.requestType as ApprovalRequestType,
       payload,
+      campaignId: (payload as any)?.campaignId ? String((payload as any).campaignId) : null,
       brandProfileId: row.brandProfileId,
       requestedBy: row.requestedBy,
       urgency: row.urgency as ApprovalUrgency,
@@ -529,6 +530,38 @@ export async function approveAllByType(requestType: ApprovalRequestType): Promis
   }
 
   return pending.length;
+}
+
+/**
+ * Approve all pending publish_post requests belonging to a campaign.
+ * Batch operation — approves every pending post in one click, not just the
+ * first one on the queue (unlike approveAllByType, this is scoped to a
+ * single campaign).
+ */
+export async function approveAllByCampaign(campaignId: string): Promise<number> {
+  const pending = db
+    .select()
+    .from(approvalRequests)
+    .where(
+      sql`${approvalRequests.requestType} = 'publish_post' AND ${approvalRequests.status} = 'pending'`
+    )
+    .all();
+
+  let approved = 0;
+  for (const request of pending) {
+    try {
+      const payload = JSON.parse(request.payloadJson || '{}') as Record<string, unknown>;
+      if (String(payload?.campaignId || '') === campaignId) {
+        await approveRequest(request.id);
+        approved += 1;
+      }
+    } catch (err) {
+      // Skip rows with unparseable payloads — they cannot belong to a campaign.
+      console.warn('[Approval] Skipped unparseable approval payload during campaign batch:', (err as Error).message);
+    }
+  }
+
+  return approved;
 }
 
 /* ------------------------------------------------------------------ */

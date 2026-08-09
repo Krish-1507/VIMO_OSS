@@ -21,7 +21,8 @@ interface CreateNotificationParams {
 }
 
 /**
- * Create a notification and emit it via socket.
+ * Create a notification and emit it via socket. Also mirrors to email
+ * (best-effort) when the user enabled email notifications in Settings.
  */
 export async function createNotification(params: CreateNotificationParams): Promise<void> {
   const id = crypto.randomUUID();
@@ -42,6 +43,15 @@ export async function createNotification(params: CreateNotificationParams): Prom
     io.emit('notification:new', notification);
   } catch (err) {
     console.error('[Notification] Failed to create notification:', (err as Error).message);
+  }
+
+  // Best-effort email mirror — never blocks or throws into the caller.
+  try {
+    const { notifyByEmail } = await import('./emailService');
+    const cleanTitle = params.title.replace(/[✅❌🎉🔥💰🏆]/g, '').trim();
+    await notifyByEmail(cleanTitle, params.message);
+  } catch (err) {
+    console.warn('[Notification] Email mirror failed:', (err as Error).message);
   }
 }
 

@@ -139,4 +139,88 @@ export default async function pluginRoutes(app: FastifyInstance) {
       return reply.status(500).send(formatError(err));
     }
   });
+
+  // Execute one of a plugin's registered actions against the real API.
+  // Placeholders like {{apiKey}} or {{id}} in the URL and body template are
+  // filled from the connector's stored credentials + the params passed here.
+  app.post('/api/plugins/:id/run-action', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const body = request.body as { actionName: string; params?: Record<string, unknown> };
+      const plugins = await readPlugins();
+      const plugin = plugins.find((p) => p.id === id);
+      if (!plugin) return reply.status(404).send({ error: 'Plugin not found' });
+
+      const action = (plugin.actions || []).find((a: any) => a.name === body.actionName);
+      if (!action) {
+        return reply.status(400).send({ error: `Action "${body.actionName}" not found on plugin ${plugin.name}` });
+      }
+
+      const connectors = await registry.getAll();
+      const connector = connectors.find((c) => c.provider === plugin.provider);
+      if (!connector) {
+        return reply.status(400).send({ error: `Install ${plugin.name} first so it can be invoked.` });
+      }
+
+      // Collect substitution values: action params override credentials.
+      const params = (body.params as Record<string, unknown>) || {};
+      const values: Record<string, string> = {};
+      for (const [k, v] of Object.entries(params)) {
+        values[k] = String(v ?? '');
+      }
+      const credKeys = (plugin.requiredCredentials || []).map((c: any) => c.key);
+      for (const key of credKeys) {
+        if (values[key] !== undefined) continue;
+        const stored = await credentialStore.getCredential(connector.id, key);
+        if (stored) values[key] = stored;
+      }
+
+      const fill = (template: string): string =>
+        template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key] ?? '');
+
+      const method = String(action.method || 'GET').toUpperCase();
+      const url = fill(String(action.url || ''));
+      if (!/^https?:\/\//.test(url)) {
+        return reply.status(400).send({ error: 'Plugin action URL must be an absolute http(s) URL.' });
+      }
+
+      let bodyTemplate: unknown = null;
+      if (action.bodyTemplate) {
+        try {
+          const raw = fill(JSON.stringify(action.bodyTemplate));
+          bodyTemplate = JSON.parse(raw);
+        } catch {
+          return reply.status(400).send({ error: 'Action body template is not valid JSON.' });
+        }
+      }
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (plugin.authType === 'api_key' && values.apiKey) {
+        headers.Authorization = `Bearer ${values.apiKey}`;
+      } else if (plugin.authType === 'api_key' && values.accessToken) {
+        headers.Authorization = `Bearer ${values.accessToken}`;
+      }
+
+      const { default: axios } = await import('axios');
+      const res = await axios.request({
+        method,
+        url,
+        headers,
+        data: bodyTemplate,
+        timeout: 15000,
+      });
+
+      return {
+        success: true,
+        status: res.status,
+        data: res.data,
+      };
+    } catch (err: any) {
+      const status = err?.response?.status || 0;
+      return reply.status(400).send({
+        error: `Action failed (${status || 'network'}): ${err?.message || 'Unknown error'}`,
+        responseData: err?.response?.data ?? null,
+      });
+    }
+  });
 }

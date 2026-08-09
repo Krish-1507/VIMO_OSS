@@ -314,6 +314,7 @@ export default function ConnectorsPage() {
   const [pluginForm, setPluginForm] = useState({ name: '', provider: '', description: '', authType: 'api_key' });
   const [pluginActions, setPluginActions] = useState<{ name: string; description: string; method: string; url: string }[]>([]);
   const [pluginSaving, setPluginSaving] = useState(false);
+  const [actionRunState, setActionRunState] = useState<Record<string, { actionName: string; result: string | null; running?: boolean }>>({});
 
   async function fetchPlugins() {
     try {
@@ -1379,6 +1380,49 @@ export default function ConnectorsPage() {
                     </div>
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{p.description}</p>
                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{(p.actions || []).length} actions</p>
+                    {(p.actions || []).length > 0 && (
+                      <div className="mt-3 flex gap-2">
+                        <select
+                          value={actionRunState[p.id]?.actionName || ''}
+                          onChange={(e) => {
+                            const name = e.target.value;
+                            setActionRunState((prev) => ({
+                              ...prev,
+                              [p.id]: { ...(prev[p.id] || { actionName: '', result: null }), actionName: name },
+                            }));
+                          }}
+                          className="flex-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                        >
+                          <option value="">Run action…</option>
+                          {(p.actions || []).map((a: any) => (
+                            <option key={a.name} value={a.name}>{a.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          disabled={!actionRunState[p.id]?.actionName || actionRunState[p.id]?.running}
+                          onClick={async () => {
+                            const actionName = actionRunState[p.id]?.actionName;
+                            if (!actionName) return;
+                            setActionRunState((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] || { actionName }), actionName, running: true } }));
+                            try {
+                              const res = await api.post(`/api/plugins/${p.id}/run-action`, { actionName });
+                              setActionRunState((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] || { actionName }), actionName, result: `HTTP ${res.data?.status}: ${JSON.stringify(res.data?.data)}`, running: false } }));
+                            } catch (err: any) {
+                              const msg = err?.response?.data?.error || 'Action failed';
+                              setActionRunState((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] || { actionName }), actionName, result: msg, running: false } }));
+                            }
+                          }}
+                          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-700"
+                        >
+                          {actionRunState[p.id]?.running ? 'Running…' : 'Run'}
+                        </button>
+                      </div>
+                    )}
+                    {actionRunState[p.id]?.result && (
+                      <pre className="mt-2 max-h-24 overflow-y-auto rounded-md bg-slate-50 p-2 text-[10px] text-slate-600 dark:bg-slate-900 dark:text-slate-300 whitespace-pre-wrap break-all">
+                        {actionRunState[p.id]?.result}
+                      </pre>
+                    )}
                     <div className="mt-3 flex gap-2">
                       <button
                         onClick={async () => { await api.post(`/api/plugins/${p.id}/install`); fetchConnectors(); }}

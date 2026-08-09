@@ -458,6 +458,34 @@ await app.register(webhookRoutes);
   initConnectorHealthCron();
   await trackCronRun('cron_last_connector_health');
 
+  // Webhook delivery retry queue (best-effort background drain)
+  const { initWebhookRetryQueue } = await import('./services/webhookService');
+  initWebhookRetryQueue();
+
+  // Weekly autopilot cycle — kicks off next week's content for every
+  // active autopilot session (paused/failed sessions are skipped).
+  cron.schedule('0 5 * * 1', async () => {
+    console.log('[Cron] Running weekly autopilot cycles...');
+    try {
+      const { autopilotSessions: as } = await import('./db/schema');
+      const { runAutopilotCycle } = await import('./agents/autopilotAgent');
+      const sessions = db.select().from(as).all() as any[];
+      let ran = 0;
+      let created = 0;
+      for (const session of sessions) {
+        if (session.status === 'paused' || session.status === 'failed') continue;
+        const result = await runAutopilotCycle(session.id);
+        ran += 1;
+        created += result.postsCreated || 0;
+      }
+      console.log(`[Cron] Weekly autopilot cycles complete: ${ran} session(s), ${created} post(s) drafted`);
+    } catch (err) {
+      console.error('[Cron] Weekly autopilot cycles error:', err);
+    }
+    await trackCronRun('cron_last_autopilot_cycle');
+  });
+  console.log('[Cron] Weekly autopilot cycles scheduled: Monday 5am');
+
   // Daily pack discovery refresh — re-runs discovery for installed intelligence packs
   cron.schedule('0 6 * * *', async () => {
     console.log('[Cron] Running pack discovery refresh...');

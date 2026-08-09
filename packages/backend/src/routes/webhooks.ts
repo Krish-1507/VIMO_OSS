@@ -50,26 +50,22 @@ export default async function webhookRoutes(app: FastifyInstance) {
   // pipeline, then deliver the result to the configured webhook URL.
   app.post('/api/webhooks/fire-test', async (request, reply) => {
     try {
-      const body = request.body as {
-        content: string;
-        platforms: string[];
-        mediaUrls?: string[];
-        scheduledAt?: string;
-        metadata?: Record<string, unknown>;
-      };
+      const body = (request.body as Record<string, unknown>) || {};
+      const content = String(body.content || '');
+      const platforms = Array.isArray(body.platforms) ? body.platforms : [];
 
-      if (!body.content || !Array.isArray(body.platforms) || body.platforms.length === 0) {
+      if (!content || platforms.length === 0) {
         return reply.status(400).send({ error: 'content and platforms (non-empty array) are required' });
       }
 
       const { vimoSocialPublish } = await import('../services/vimoSocialPublishService');
       const result = await vimoSocialPublish.publish({
         postId: `test-${Date.now()}`,
-        content: body.content,
-        platforms: body.platforms,
-        mediaUrls: body.mediaUrls,
-        scheduledAt: body.scheduledAt,
-        metadata: body.metadata || {},
+        content,
+        platforms,
+        mediaUrls: Array.isArray(body.mediaUrls) ? body.mediaUrls : undefined,
+        scheduledAt: typeof body.scheduledAt === 'string' ? body.scheduledAt : undefined,
+        metadata: (body.metadata as Record<string, unknown>) || {},
       });
 
       const delivery = await fireWebhook('test', {

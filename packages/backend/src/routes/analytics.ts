@@ -172,4 +172,58 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       return reply.status(500).send(formatError(err));
     }
   });
+
+  // GET /api/analytics/export — download post performance as CSV
+  app.get('/api/analytics/export', async (request, reply) => {
+    try {
+      const { startDate, endDate, brandProfileId } = request.query as any;
+      const conditions = [];
+      if (startDate && endDate) {
+        conditions.push(
+          gte(scheduledPosts.scheduledAt, startDate),
+          lte(scheduledPosts.scheduledAt, endDate)
+        );
+      }
+      if (brandProfileId) {
+        conditions.push(eq(scheduledPosts.brandProfileId, brandProfileId));
+      }
+
+      const rows = conditions.length
+        ? await db.select().from(scheduledPosts).where(and(...conditions as any)).all()
+        : await db.select().from(scheduledPosts).all();
+
+      const csvEscape = (value: unknown): string => {
+        const str = value === null || value === undefined ? '' : String(value);
+        return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+      };
+
+      const header = ['date', 'platform', 'status', 'content', 'reach', 'likes', 'comments', 'saves', 'shares', 'engagement_rate', 'campaign_id', 'social_account_id'];
+      const lines = rows.map((post: any) => {
+        let meta: any = {};
+        try { meta = post.metadataJson ? JSON.parse(post.metadataJson) : {}; } catch (err) { console.warn('[Analytics] Failed to parse post metadata for CSV export:', (err as Error).message); }
+        const perf = meta.performance || {};
+        return [
+          post.scheduledAt || '',
+          post.platform || '',
+          post.status || '',
+          (post.content || '').slice(0, 200),
+          perf.reach ?? 0,
+          perf.likes ?? 0,
+          perf.comments ?? 0,
+          perf.saves ?? 0,
+          perf.shares ?? 0,
+          typeof perf.engagementRate === 'number' ? perf.engagementRate : 0,
+          post.campaignId || '',
+          post.socialAccountId || '',
+        ].map(csvEscape).join(',');
+      });
+
+      const csv = [header.join(','), ...lines].join('\n');
+      reply.header('Content-Type', 'text/csv; charset=utf-8');
+      reply.header('Content-Disposition', `attachment; filename="vimo-post-performance-${new Date().toISOString().slice(0, 10)}.csv"`);
+      return reply.send(csv);
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
 }

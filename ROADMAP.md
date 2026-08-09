@@ -8,37 +8,78 @@ everywhere else (`Ready` · `In progress` · `Planned` · `Idea`).
 > Want to shape the roadmap? Open a [Discussion](https://github.com/Krish-1507/VIMO_OSS/discussions)
 > or a feature request. The best contributions start there.
 
+## Shipped
+
+- **Real publishing for YouTube, TikTok, Pinterest.** Resumable YouTube uploads,
+  TikTok Content Posting API (polled, SELF_ONLY uploads), Pinterest v5 pins with
+  board resolution. Instagram/Facebook/LinkedIn/X were already live.
+- **Multi-account per platform.** Connect several Instagram/LinkedIn/X accounts
+  and pick the publishing account per post ("Publish as" in the Scheduler).
+- **Autopilot guardrails.** Daily post cap + daily AI spend cap, enforced in the
+  content-generation and scheduling phases, plus a "Run next week now" control.
+- **Webhooks.** Event delivery (post published/failed, test fires), HMAC-signed
+  payloads, delivery history, and a retry queue with exponential backoff.
+- **Approval Queue batching by campaign.** Approve every pending post of a
+  campaign in one click; posts group by campaign in the Approvals UI.
+- **Connector Hub search + filters.** Search by name/description and filter by
+  category and readiness (Ready / Connect only / Coming soon).
+- **Growth-loop analytics.** `analyzeTopPerformingContent` ranks published posts
+  by real engagement data and feeds growth insights.
+- **Tool router built-in dispatch.** All whitelisted tools route through the
+  platform handler registry — no more "not yet implemented" stubs.
+- **Analytics CSV export.** Download post performance for the selected range and
+  brand.
+- **Email notifications.** Dependency-free SMTP client (plain/STARTTLS/implicit
+  TLS), settings UI with test send, best-effort mirrors of in-app notifications.
+- **Team mode (roster MVP).** Workspace toggle + member list with roles
+  (owner/admin/editor/viewer). Enforcement is a future auth layer.
+- **Plugin API.** Register third-party connectors with actions, install them as
+  real connectors, and run their actions with credential/param templating.
+- **Automated releases.** Changesets drive versioning + changelog; CI verifies
+  (lint, build, banned words, silent catches), tests with coverage, and runs a
+  Playwright smoke that boots the app, runs the Director, and checks webhooks,
+  approvals, and CSV export.
+
 ## Now (next release)
 
-- **Automated releases.** Changesets now drive versioning + changelog, and CI
-  builds the app (not just type-checks). See [CONTRIBUTING.md](CONTRIBUTING.md).
-- **More `Ready` connectors.** Move publish handlers from _Connect only_ →
-  _Ready_ (YouTube, TikTok, Pinterest).
+- **More `Ready` connectors.** Move remaining publish handlers from _Connect
+  only_ → _Ready_.
 - **Connector test coverage.** Every connection path ships with an integration
   test.
 
 ## Next
 
-- **Multi-account per platform.** Manage several Instagram/LinkedIn/X accounts
-  from one VIMO brand.
 - **Local model parity.** First-class Ollama support for fully offline runs
-  (generation + embeddings).
+  (generation + embeddings) — embeddings are wired; surface them in Settings.
 - **Approval Queue batching by campaign.** Group pending actions into campaigns
-  you approve in one click.
-- **Connector Hub search + filters.** Find a pack by category, readiness, or
-  popularity.
+  you approve in one click — done; deepen with per-campaign schedules.
+- **Connector Hub polish.** Popularity sort, richer metadata.
 
 ## Later / Ideas
 
-- **Team mode.** Roles, shared brands, and a real auth layer (currently
-  single-user, localhost-first — see [SECURITY.md](SECURITY.md)).
+- **Team mode, enforced.** Real auth layer with per-role permissions, shared
+  brands, and invitations (currently a roster + roles, single-user app — see
+  [SECURITY.md](SECURITY.md)).
 - **Visual connector builder.** A UI to scaffold a `PackAdapter` without leaving
   VIMO.
-- **Plugin API.** Let third parties ship connectors as external packages.
-- **Analytics exports.** Scheduled PDF/CSV digests of brand performance.
+- **Plugin API, richer.** Auth flows beyond API keys, webhook-triggered actions,
+  and a plugin marketplace.
+- **Scheduled analytics digests.** Periodic PDF/CSV digests of brand
+  performance to email.
+- **Webhook retry observability.** Admin view of the retry queue with manual
+  re-fire.
 
 ## How this maps to "good first issues"
 
 The items above tagged **Ready to start** are great first contributions. Look
 for the [`good first issue`](https://github.com/Krish-1507/VIMO_OSS/labels/good%20first%20issue)
 label on GitHub for small, well-scoped tasks pulled from this roadmap.
+
+## Platform notes
+
+- **TikTok publishing** requires a TikTok **developer account** and an approved
+  app with the `video.publish` (Content Posting API) scope. Uploads are created
+  as **private (SELF_ONLY)** and must be made public in the TikTok app — the
+  whitelist/approval flow is managed by TikTok, not VIMO.
+- **YouTube** uses resumable uploads against the `youtube.upload` scope; videos
+  are private until you publish them in YouTube Studio.

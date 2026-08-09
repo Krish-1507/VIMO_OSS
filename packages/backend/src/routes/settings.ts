@@ -41,6 +41,136 @@ export default async function settingsRoutes(app: FastifyInstance) {
     }
   });
 
+  // Email notification config (SMTP + recipient + enable toggle)
+  app.get('/api/settings/email', async (_request, reply) => {
+    try {
+      const { getEmailConfig } = await import('../services/emailService');
+      const config = getEmailConfig();
+      return {
+        enabled: config.enabled,
+        recipient: config.recipient,
+        smtpHost: config.smtpHost,
+        smtpPort: config.smtpPort,
+        smtpUser: config.smtpUser,
+        smtpPass: config.smtpPass ? '********' : '',
+        smtpFrom: config.smtpFrom,
+      };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  app.post('/api/settings/email', async (request, reply) => {
+    try {
+      const body = request.body as {
+        enabled?: boolean;
+        recipient?: string;
+        smtpHost?: string;
+        smtpPort?: number;
+        smtpUser?: string;
+        smtpPass?: string;
+        smtpFrom?: string;
+      };
+      const { getEmailConfig, setEmailConfig } = await import('../services/emailService');
+      const current = getEmailConfig();
+      // Never overwrite the stored password with the masked placeholder.
+      if (body.smtpPass === '********') body.smtpPass = current.smtpPass;
+      setEmailConfig({
+        enabled: body.enabled,
+        recipient: body.recipient,
+        smtpHost: body.smtpHost,
+        smtpPort: body.smtpPort,
+        smtpUser: body.smtpUser,
+        smtpPass: body.smtpPass,
+        smtpFrom: body.smtpFrom,
+      });
+      return { success: true };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  // Send a test email using the current SMTP config
+  app.post('/api/settings/email/test', async (_request, reply) => {
+    try {
+      const { getEmailConfig, sendEmail } = await import('../services/emailService');
+      const config = getEmailConfig();
+      if (!config.recipient) {
+        return reply.status(400).send({ error: 'Set a recipient email address first.' });
+      }
+      const result = await sendEmail(
+        config.recipient,
+        'VIMO test email',
+        'This is a test email from VIMO. If you are reading this, your SMTP settings work.'
+      );
+      if (!result.ok) {
+        return reply.status(400).send({ error: result.message });
+      }
+      return { success: true, message: result.message };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  // Team mode settings — workspace toggle + member roster
+  app.get('/api/settings/team', async (_request, reply) => {
+    try {
+      const rows = await db.select().from(appSettings).where(
+        eq(appSettings.key, 'team_members')
+      ).get();
+      const enabledRow = await db.select().from(appSettings).where(
+        eq(appSettings.key, 'team_mode_enabled')
+      ).get();
+      let members: Array<{ name: string; email: string; role: string }> = [];
+      if (rows?.value) {
+        try {
+          members = JSON.parse(rows.value);
+        } catch {
+          members = [];
+        }
+      }
+      return {
+        enabled: enabledRow?.value === '1',
+        members: Array.isArray(members) ? members : [],
+      };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  app.post('/api/settings/team', async (request, reply) => {
+    try {
+      const body = request.body as {
+        enabled?: boolean;
+        members?: Array<{ name: string; email: string; role: string }>;
+      };
+      const now = new Date().toISOString();
+      const upsert = (key: string, value: string) => {
+        const existing = db.select().from(appSettings).where(eq(appSettings.key, key)).get();
+        if (existing) {
+          db.update(appSettings).set({ value, updatedAt: now }).where(eq(appSettings.key, key)).run();
+        } else {
+          db.insert(appSettings).values({ key, value, updatedAt: now }).run();
+        }
+      };
+      if (body.enabled !== undefined) upsert('team_mode_enabled', body.enabled ? '1' : '0');
+      if (body.members !== undefined) {
+        const validRoles = ['owner', 'admin', 'editor', 'viewer'];
+        const sanitized = body.members
+          .filter((m) => m && m.email)
+          .map((m) => ({
+            name: String(m.name || '').slice(0, 80),
+            email: String(m.email || '').slice(0, 160),
+            role: validRoles.includes(m.role) ? m.role : 'viewer',
+          }));
+        upsert('team_members', JSON.stringify(sanitized));
+      }
+      return { success: true };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
   // Export all data
   app.get('/api/settings/export', async (request, reply) => {
     try {

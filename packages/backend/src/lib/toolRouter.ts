@@ -35,7 +35,7 @@ const TOOL_WHITELIST = [
   'upload_video',
 ];
 
-class ToolRouter {
+export class ToolRouter {
   constructor(
     private connectorRegistry: ConnectorRegistry,
     private mcpClient: MCPClient,
@@ -96,11 +96,12 @@ class ToolRouter {
         // Remote MCP server
         result = await this.mcpClient.callTool(matchedConnector.id, toolName, params);
       } else {
-        // Built-in handler - dispatch to appropriate handler
-        // For now, throw as built-in handlers are not yet implemented
-        throw new Error(
-          `Built-in handler for ${toolName} on ${matchedConnector.provider} is not yet implemented`
-        );
+        // Built-in handler — dispatch through the platform handler registry
+        // (covers `provider_toolName` keys like `x_post_tweet`, plus generic
+        // tools like `llm_complete`/`llm_embed`). Unknown tools get a
+        // descriptive error listing what is actually available.
+        const { callPlatformHandler } = await import('../mcp/platform-handlers');
+        result = await callPlatformHandler(matchedConnector.provider, toolName, matchedConnector.id, params);
       }
     } catch (err) {
       error = err instanceof Error ? err : new Error(String(err));

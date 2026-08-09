@@ -5,6 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import { addEngagementFields } from './migrations/002_add_engagement_fields';
 import { addAutonomyFields } from './migrations/003_add_autonomy_fields';
+import { addWebhookRetries } from './migrations/004_add_webhook_retries';
+import { addTeamFields } from './migrations/005_add_team_fields';
 const dbPath = process.env.DB_PATH || './data/vimo.db';
 const dbDir = path.dirname(dbPath);
 
@@ -601,6 +603,12 @@ try {
 
 // Phase 2 autonomy fields (idempotent)
 addAutonomyFields(sqlite);
+
+// Phase 3 webhook retry queue (idempotent)
+addWebhookRetries(sqlite);
+
+// Phase 3 team fields (idempotent)
+addTeamFields(sqlite);
 
 // Ensure director_sessions has morning_briefing_json column
 try {

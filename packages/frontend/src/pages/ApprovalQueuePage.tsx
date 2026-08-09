@@ -33,6 +33,7 @@ interface ApprovalRequestItem {
   id: string;
   requestType: 'publish_post' | 'send_reply' | 'start_campaign' | 'execute_director_action';
   payload: Record<string, unknown>;
+  campaignId?: string | null;
   brandProfileId: string;
   requestedBy: string;
   urgency: string;
@@ -176,7 +177,16 @@ export default function ApprovalQueuePage() {
       await api.post('/api/approvals/approve-all', { requestType: 'publish_post' });
       fetchData();
     } catch (err) {
-      console.error('Failed to approve all', err);
+      console.error('Failed to approve all posts', err);
+    }
+  };
+
+  const handleApproveCampaign = async (campaignId: string) => {
+    try {
+      await api.post('/api/approvals/approve-campaign', { campaignId });
+      fetchData();
+    } catch (err) {
+      console.error('Failed to approve campaign posts', err);
     }
   };
 
@@ -208,6 +218,16 @@ export default function ApprovalQueuePage() {
     acc[item.requestType].push(item);
     return acc;
   }, {});
+
+  // Publish posts additionally group by campaign for batch approvals
+  const publishPosts = grouped['publish_post'] || [];
+  const postsByCampaign = publishPosts.reduce<Record<string, ApprovalRequestItem[]>>((acc, item) => {
+    const key = item.campaignId || 'ungrouped';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+  const otherTypes = Object.entries(grouped).filter(([type]) => type !== 'publish_post');
 
   const currentMode = settings?.mode || 'assisted';
 
@@ -289,29 +309,84 @@ export default function ApprovalQueuePage() {
             <p className="text-sm text-slate-500">No pending approval requests. Switch to a less restrictive mode to see more automation.</p>
           </div>
         ) : (
-          Object.entries(grouped).map(([type, items]) => (
-            <div key={type} className="space-y-3">
-              <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                {getSectionTitle(type, items.length)}
-              </h3>
+          <>
+            {/* Posts grouped by campaign with a one-click batch approve */}
+            {publishPosts.length > 0 && (
               <div className="space-y-3">
-                {items.map((item) => (
-                  <ApprovalItemCard
-                    key={item.id}
-                    item={item}
-                    onApprove={() => handleApprove(item.id)}
-                    onReject={() => handleReject(item.id)}
-                    onEdit={() => handleEdit(item)}
-                    isEditing={editingItemId === item.id}
-                    editText={editText}
-                    onEditTextChange={setEditText}
-                    onSaveEdit={() => handleSaveEdit(item.id)}
-                    onCancelEdit={() => setEditingItemId(null)}
-                  />
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    {getSectionTitle('publish_post', publishPosts.length)}
+                  </h3>
+                  <button
+                    onClick={handleApproveAll}
+                    className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700 transition-colors"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Approve all posts
+                  </button>
+                </div>
+                {Object.entries(postsByCampaign).map(([campaignId, items]) => (
+                  <div key={campaignId} className="rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/50">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 dark:border-slate-800">
+                      <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {campaignId === 'ungrouped' ? 'Posts without a campaign' : `Campaign: ${campaignId.slice(0, 12)}…`} ({items.length})
+                      </h4>
+                      {campaignId !== 'ungrouped' && (
+                        <button
+                          onClick={() => handleApproveCampaign(campaignId)}
+                          className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 transition-colors"
+                        >
+                          <Check className="h-3 w-3" />
+                          Approve campaign
+                        </button>
+                      )}
+                    </div>
+                    <div className="p-3 space-y-3">
+                      {items.map((item) => (
+                        <ApprovalItemCard
+                          key={item.id}
+                          item={item}
+                          onApprove={() => handleApprove(item.id)}
+                          onReject={() => handleReject(item.id)}
+                          onEdit={() => handleEdit(item)}
+                          isEditing={editingItemId === item.id}
+                          editText={editText}
+                          onEditTextChange={setEditText}
+                          onSaveEdit={() => handleSaveEdit(item.id)}
+                          onCancelEdit={() => setEditingItemId(null)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          ))
+            )}
+
+            {/* Non-post approvals grouped by type */}
+            {otherTypes.map(([type, items]) => (
+              <div key={type} className="space-y-3">
+                <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  {getSectionTitle(type, items.length)}
+                </h3>
+                <div className="space-y-3">
+                  {items.map((item) => (
+                    <ApprovalItemCard
+                      key={item.id}
+                      item={item}
+                      onApprove={() => handleApprove(item.id)}
+                      onReject={() => handleReject(item.id)}
+                      onEdit={() => handleEdit(item)}
+                      isEditing={editingItemId === item.id}
+                      editText={editText}
+                      onEditTextChange={setEditText}
+                      onSaveEdit={() => handleSaveEdit(item.id)}
+                      onCancelEdit={() => setEditingItemId(null)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>
         )}
       </div>
 

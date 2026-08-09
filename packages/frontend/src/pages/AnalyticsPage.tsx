@@ -13,6 +13,7 @@ import {
   ArrowDownRight,
   RefreshCw,
   X,
+  Download,
 } from 'lucide-react';
 import {
   BarChart,
@@ -302,6 +303,13 @@ export default function AnalyticsPage() {
           >
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Weekly Report</span>
+          </button>
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Export CSV</span>
           </button>
         </div>
       </header>
@@ -740,6 +748,34 @@ export default function AnalyticsPage() {
       )}
     </div>
   );
+
+  async function handleExportCsv() {
+    try {
+      const token = localStorage.getItem('session_token') || '';
+      const end = new Date();
+      const start = subDays(end, parseInt(dateRange, 10));
+      const res = await axios.get(`${API_BASE}/api/analytics/export`, {
+        params: {
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
+          brandProfileId: selectedBrandId || undefined,
+        },
+        headers: { 'x-session-token': token },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vimo-post-performance-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.warn('[vimo] best-effort operation failed:', err);
+      alert('Failed to export CSV. Please try again.');
+    }
+  }
 
   async function loadReport() {
     if (!selectedBrandId) return;

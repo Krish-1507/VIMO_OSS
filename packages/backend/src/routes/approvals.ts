@@ -6,6 +6,7 @@ import {
   getApprovalQueue,
   getApprovalQueueCount,
   approveAllByType,
+  approveAllByCampaign,
   getApprovalSettings,
   updateApprovalSettings,
   type ApprovalRequestType,
@@ -64,6 +65,20 @@ export default async function approvalRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: 'requestType is required' });
       }
       const count = await approveAllByType(body.requestType);
+      return { success: true, approvedCount: count };
+    } catch (err: any) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  // POST /api/approvals/approve-campaign — approve all pending posts of a campaign
+  app.post('/api/approvals/approve-campaign', async (request, reply) => {
+    try {
+      const body = request.body as { campaignId?: string };
+      if (!body.campaignId) {
+        return reply.status(400).send({ error: 'campaignId is required' });
+      }
+      const count = await approveAllByCampaign(body.campaignId);
       return { success: true, approvedCount: count };
     } catch (err: any) {
       return reply.status(500).send(formatError(err));

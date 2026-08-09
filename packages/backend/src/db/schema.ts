@@ -142,6 +142,8 @@ export const userProfiles = sqliteTable('user_profiles', {
   id: text('id').primaryKey(),
   name: text('name'),
   email: text('email'),
+  // Workspace role: 'owner' | 'admin' | 'editor' | 'viewer'
+  role: text('role').notNull().default('owner'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
@@ -476,4 +478,21 @@ export const webhookEvents = sqliteTable('webhook_events', {
 }, (table) => ({
   webhookEventsEventIdx: index('idx_webhook_events_event').on(table.event),
   webhookEventsCreatedAtIdx: index('idx_webhook_events_created_at').on(table.createdAt),
+}));
+
+export const webhookRetries = sqliteTable('webhook_retries', {
+  id: text('id').primaryKey(),
+  // Link back to the delivery attempt recorded in webhook_events
+  eventId: text('event_id').notNull(),
+  url: text('url').notNull(),
+  bodyJson: text('body_json').notNull(),
+  signature: text('signature'),
+  // Failed attempts so far (0 = waiting on first retry)
+  attempts: integer('attempts').notNull().default(0),
+  nextRetryAt: text('next_retry_at').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  webhookRetriesNextRetryAtIdx: index('idx_webhook_retries_next_retry_at').on(table.nextRetryAt),
+  webhookRetriesEventIdIdx: index('idx_webhook_retries_event_id').on(table.eventId),
 }));
