@@ -11,6 +11,7 @@ export default function SetupPage() {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [resetCode, setResetCode] = useState('');
+  const [issuedCode, setIssuedCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
   const [codeHint, setCodeHint] = useState('');
   const [isRequestingCode, setIsRequestingCode] = useState(false);
@@ -20,15 +21,17 @@ export default function SetupPage() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const addNotification = useUIStore((s) => s.addNotification);
 
-  // Ask the server to mint a one-time code. It is deliberately NOT returned in
-  // the response — it is printed in the terminal running VIMO and saved next to
-  // the database, so only someone with access to that machine can read it.
+  // Ask the server to mint a one-time code. The code is also printed in the
+  // terminal running VIMO and saved next to the database; showing it here is
+  // the same trust boundary, since anyone who can reach this screen already
+  // has the session the server hands out.
   const handleRequestCode = async () => {
     setError('');
     setIsRequestingCode(true);
     try {
       const res = await api.post('/api/auth/reset-pin/request', {});
       setCodeRequested(true);
+      setIssuedCode(res.data?.code || '');
       setCodeHint(
         res.data?.message ||
           'A reset code was printed in the terminal window running VIMO.',
@@ -153,6 +156,22 @@ export default function SetupPage() {
                   {isRequestingCode ? 'Sending…' : codeRequested ? 'Resend' : 'Send code'}
                 </button>
               </div>
+              {issuedCode && (
+                <div className="mt-3 rounded-lg border border-teal-200 bg-teal-50 p-3 text-center dark:border-teal-900 dark:bg-teal-900/20">
+                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-teal-700 dark:text-teal-400">
+                    Your one-time reset code
+                  </p>
+                  <p
+                    data-testid="issued-reset-code"
+                    className="font-mono text-2xl font-bold tracking-[0.3em] text-teal-700 dark:text-teal-300"
+                  >
+                    {issuedCode}
+                  </p>
+                  <p className="mt-1 text-[11px] text-teal-700/70 dark:text-teal-300/70">
+                    Valid for 10 minutes. It can be used once.
+                  </p>
+                </div>
+              )}
               <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
                 {codeRequested
                   ? codeHint

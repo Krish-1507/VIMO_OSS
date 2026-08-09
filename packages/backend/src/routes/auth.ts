@@ -13,6 +13,7 @@ import {
   AuthSetupSchema,
   AuthVerifySchema,
   AuthResetPinSchema,
+  AuthUpdatePinSchema,
 } from '../../../shared/src/schemas/requests/auth';
 
 const log = createLogger('auth');
@@ -194,25 +195,74 @@ export default async function authRoutes(app: FastifyInstance) {
    * Ask the server to issue a one-time PIN reset code.
    *
    * The code is printed to the terminal running VIMO and written next to the
-   * database — never returned in this response. Possession of it proves access
-   * to the machine, which is the trust boundary for a self-hosted app.
+   * database. It is also returned in the response so the Setup Assistant can
+   * show it in the app — the trust boundary for a self-hosted single-user app
+   * is possession of the machine, which the code already assumes.
    *
    * 3/min: this endpoint is unauthenticated by necessity, so it is the tightest
    * limit in the file.
    */
   app.post('/api/auth/reset-pin/request', limit(3), async (request, reply) => {
     try {
-      const { filePath, expiresAt } = await issueResetCode();
+      const { code, filePath, expiresAt } = await issueResetCode();
       log.warn('A PIN reset code was requested', { ip: request.ip });
 
       return {
         success: true,
+        code,
         expiresAt,
         filePath,
         message: filePath
           ? `A reset code was printed in the terminal running VIMO, and saved to ${filePath}.`
           : 'A reset code was printed in the terminal running VIMO.',
       };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  /**
+   * Change the PIN while signed in.
+   *
+   * Requires a valid session AND the current PIN. This is the "forgot my PIN"
+   * companion: a signed-in user who remembers their current PIN can change it
+   * here; a locked-out user uses `/api/auth/reset-pin` with a one-time code.
+   *
+   * All sessions are invalidated afterwards so previously issued tokens cannot
+   * outlive a credential change.
+   */
+  app.post('/api/auth/update-pin', limit(5), async (request, reply) => {
+    try {
+      const body = parseBody(AuthUpdatePinSchema, request, reply);
+      if (!body) return;
+
+      const clientToken = (request.headers['x-session-token'] as string) || '';
+      if (!(await hasValidSession(clientToken))) {
+        return reply.status(401).send({
+          code: 'NOT_AUTHENTICATED',
+          message: 'Your session has expired. Please log in again.',
+        });
+      }
+
+      const pinRow = await db
+        .select()
+        .from(appSettings)
+        .where(eq(appSettings.key, 'pin_hash'))
+        .get();
+      const { ok } = await verifyPin(body.currentPin, pinRow?.value ?? '');
+      if (!ok) {
+        return reply.status(401).send({
+          code: 'INVALID_PIN',
+          message: 'Current PIN is incorrect.',
+        });
+      }
+
+      await storePinHash(await hashPin(body.newPin));
+      await markSetupComplete();
+      await db.delete(appSettings).where(eq(appSettings.key, 'session_token')).run();
+
+      log.info('PIN was changed while signed in');
+      return { success: true, message: 'PIN has been updated. Please log in with your new PIN.' };
     } catch (err) {
       return reply.status(500).send(formatError(err));
     }

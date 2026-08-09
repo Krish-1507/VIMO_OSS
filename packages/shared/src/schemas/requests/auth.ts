@@ -52,6 +52,19 @@ export type AuthResetPinRequest = z.infer<typeof AuthResetPinSchema>;
 export const AuthResetPinRequestSchema = z.object({}).passthrough();
 export type AuthResetPinRequestRequest = z.infer<typeof AuthResetPinRequestSchema>;
 
+/**
+ * `POST /api/auth/update-pin` — change the PIN while signed in.
+ *
+ * Unlike `reset-pin` (which is authorised by a session OR a one-time code),
+ * this endpoint always requires a valid session and additionally verifies the
+ * current PIN, so a session alone cannot be used to change credentials.
+ */
+export const AuthUpdatePinSchema = z.object({
+  currentPin: PinSchema,
+  newPin: PinSchema,
+});
+export type AuthUpdatePinRequest = z.infer<typeof AuthUpdatePinSchema>;
+
 /** `POST /api/auth/renew` — extend the current session. Body is empty; the token is a header. */
 export const AuthRenewSchema = z.object({}).passthrough();
 export type AuthRenewRequest = z.infer<typeof AuthRenewSchema>;

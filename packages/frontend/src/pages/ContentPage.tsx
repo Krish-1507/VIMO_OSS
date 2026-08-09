@@ -102,6 +102,9 @@ export default function ContentPage() {
   const [generatedVariants, setGeneratedVariants] = useState<VariantPost[] | null>(null);
   const [editingContent, setEditingContent] = useState(false);
   const [editedContent, setEditedContent] = useState('');
+  const [helperTone, setHelperTone] = useState('');
+  const [helperLanguage, setHelperLanguage] = useState('');
+  const [isHelperBusy, setIsHelperBusy] = useState<'rewrite' | 'translate' | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleAccounts, setScheduleAccounts] = useState<Array<{ id: string; platform: string; name: string; handle?: string }>>([]);
   const [selectedScheduleAccount, setSelectedScheduleAccount] = useState('');
@@ -416,6 +419,69 @@ export default function ContentPage() {
       console.warn('[vimo] best-effort operation failed:', err);
     } finally {
       setIsRegeneratingHashtags(false);
+    }
+  }
+
+  async function handleRewriteCaption() {
+    if (!generatedPost) return;
+    const tone = helperTone.trim();
+    if (!tone) {
+      addNotification('error', 'Missing tone', 'Describe a tone first, e.g. "more playful".');
+      return;
+    }
+    setIsHelperBusy('rewrite');
+    try {
+      const token = localStorage.getItem('session_token') || '';
+      const res = await axios.post(
+        `${API_BASE}/api/scheduled-posts/caption-helper`,
+        {
+          content: editingContent ? editedContent : generatedPost.content,
+          tone,
+          platform: selectedPlatform,
+          brandProfileId: selectedBrand,
+        },
+        { headers: { 'x-session-token': token } }
+      );
+      const updated = res.data.content as string;
+      setGeneratedPost({ ...generatedPost, content: updated });
+      setEditedContent(updated);
+      addNotification('success', 'Caption rewritten', 'Your caption was rewritten with the new tone.');
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
+      addNotification('error', 'Rewrite failed', serverMsg || 'Could not rewrite the caption. Check that an AI provider is connected.');
+    } finally {
+      setIsHelperBusy(null);
+    }
+  }
+
+  async function handleTranslateCaption() {
+    if (!generatedPost) return;
+    const language = helperLanguage.trim();
+    if (!language) {
+      addNotification('error', 'Missing language', 'Pick a target language first.');
+      return;
+    }
+    setIsHelperBusy('translate');
+    try {
+      const token = localStorage.getItem('session_token') || '';
+      const res = await axios.post(
+        `${API_BASE}/api/scheduled-posts/translate`,
+        {
+          content: editingContent ? editedContent : generatedPost.content,
+          targetLanguage: language,
+          platform: selectedPlatform,
+        },
+        { headers: { 'x-session-token': token } }
+      );
+      const updated = res.data.content as string;
+      setGeneratedPost({ ...generatedPost, content: updated });
+      setEditedContent(updated);
+      addNotification('success', 'Caption translated', `Your caption is now in ${language}.`);
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
+      addNotification('error', 'Translation failed', serverMsg || 'Could not translate the caption. Check that an AI provider is connected.');
+    } finally {
+      setIsHelperBusy(null);
     }
   }
 
@@ -1187,6 +1253,52 @@ export default function ContentPage() {
             editing={editingContent}
             editedContent={editedContent}
             onEditedContentChange={setEditedContent}
+            helperActions={
+              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  AI caption helpers
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    value={helperTone}
+                    onChange={(e) => setHelperTone(e.target.value)}
+                    placeholder="Tone: e.g. more playful"
+                    className="min-w-40 flex-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                  />
+                  <button
+                    onClick={handleRewriteCaption}
+                    disabled={isHelperBusy !== null}
+                    className="inline-flex items-center gap-1 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {isHelperBusy === 'rewrite' ? <Loader2 className="h-3 w-3 animate-spin" /> : <PenTool className="h-3 w-3" />}
+                    Rewrite
+                  </button>
+                  <select
+                    value={helperLanguage}
+                    onChange={(e) => setHelperLanguage(e.target.value)}
+                    className="min-w-32 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                  >
+                    <option value="">Translate to…</option>
+                    <option value="Spanish">Spanish</option>
+                    <option value="French">French</option>
+                    <option value="German">German</option>
+                    <option value="Portuguese">Portuguese</option>
+                    <option value="Hindi">Hindi</option>
+                    <option value="Arabic">Arabic</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Korean">Korean</option>
+                  </select>
+                  <button
+                    onClick={handleTranslateCaption}
+                    disabled={isHelperBusy !== null}
+                    className="inline-flex items-center gap-1 rounded-md border border-teal-300 px-3 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-50 disabled:opacity-50 dark:border-teal-700 dark:text-teal-300 dark:hover:bg-teal-900/30"
+                  >
+                    {isHelperBusy === 'translate' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
+                    Translate
+                  </button>
+                </div>
+              </div>
+            }
           />
         )}
 
@@ -1730,6 +1842,7 @@ function PostPreviewCard({
   editing,
   editedContent,
   onEditedContentChange,
+  helperActions,
 }: {
   post: GeneratedPost;
   platform: string;
@@ -1742,6 +1855,7 @@ function PostPreviewCard({
   editing: boolean;
   editedContent: string;
   onEditedContentChange: (val: string) => void;
+  helperActions?: React.ReactNode;
 }) {
   const p = platforms.find((x) => x.key === platform);
   const Icon = p?.Icon || Globe;
@@ -1843,6 +1957,8 @@ function PostPreviewCard({
           </button>
         </div>
       )}
+
+      {helperActions && <div className="mb-3">{helperActions}</div>}
 
       <div className="flex gap-2 flex-wrap">
         <button

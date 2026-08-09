@@ -49,9 +49,11 @@ export type LaunchStatus = 'ready' | 'connect-only' | 'coming-soon';
  *                        Higgsfield video generation).
  *  - 'connect-only' : the connector can be connected and read data/context, but
  *                        end-to-end automated publishing is not implemented yet
- *                        (YouTube/TikTok/Pinterest need media uploads; the
- *                        MCP/intelligence and native data sources feed context
- *                        but don't publish on your behalf).
+ *                        (ad platforms — Google/Facebook — spend money, so they
+ *                        deliberately stay connect-only until the action paths
+ *                        are verified end-to-end; the MCP/intelligence and
+ *                        native data sources feed context but don't publish on
+ *                        your behalf).
  */
 export const PRESET_LAUNCH_STATUS: Record<string, LaunchStatus> = {
   // ── LLM providers — content generation works today ──
@@ -83,16 +85,16 @@ export const PRESET_LAUNCH_STATUS: Record<string, LaunchStatus> = {
   canva: 'ready',
   higgsfield: 'ready',
 
-  // ── Native data / commerce / analytics — connect + feed context only ──
-  wordpress: 'connect-only',
-  shopify: 'connect-only',
+  // ── Native data / commerce / analytics ──
+  wordpress: 'ready',
+  shopify: 'ready',
   mailchimp: 'connect-only',
   'google-ads': 'connect-only',
   'facebook-ads': 'connect-only',
   'hubspot-native': 'connect-only',
   'google-analytics': 'connect-only',
   notion: 'connect-only',
-  slack: 'connect-only',
+  slack: 'ready',
 
   // ── MCP intelligence sources — connect + enrich context only ──
   github: 'connect-only',

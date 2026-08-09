@@ -12,6 +12,7 @@ import {
 import * as schedulerService from '../services/schedulerService';
 import { suggestPostingTime } from '../services/postingTimeService';
 import { generateHashtagSet, getPostHashtagCount } from '../services/hashtagService';
+import { rewriteCaption, translateCaption } from '../services/captionHelperService';
 import { brandProfiles } from '../db/schema';
 import { formatError } from '../lib/errorFormatter';
 
@@ -282,6 +283,62 @@ export default async function scheduledPostsRoutes(app: FastifyInstance) {
 
       const result = await suggestPostingTime(platform, brandProfileId, connectorId);
       return result;
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  // POST /api/scheduled-posts/caption-helper
+  app.post('/api/scheduled-posts/caption-helper', async (request, reply) => {
+    try {
+      const { content, tone, platform, brandProfileId } = request.body as {
+        content: string;
+        tone: string;
+        platform?: string;
+        brandProfileId?: string;
+      };
+
+      if (!content || !content.trim()) {
+        return reply.status(400).send({ error: 'content is required' });
+      }
+      if (!tone || !tone.trim()) {
+        return reply.status(400).send({ error: 'tone is required' });
+      }
+
+      const rewritten = await rewriteCaption({
+        content,
+        tone,
+        platform,
+        brandProfileId,
+      });
+      return { content: rewritten };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  // POST /api/scheduled-posts/translate
+  app.post('/api/scheduled-posts/translate', async (request, reply) => {
+    try {
+      const { content, targetLanguage, platform } = request.body as {
+        content: string;
+        targetLanguage: string;
+        platform?: string;
+      };
+
+      if (!content || !content.trim()) {
+        return reply.status(400).send({ error: 'content is required' });
+      }
+      if (!targetLanguage || !targetLanguage.trim()) {
+        return reply.status(400).send({ error: 'targetLanguage is required' });
+      }
+
+      const translated = await translateCaption({
+        content,
+        targetLanguage,
+        platform,
+      });
+      return { content: translated };
     } catch (err) {
       return reply.status(500).send(formatError(err));
     }

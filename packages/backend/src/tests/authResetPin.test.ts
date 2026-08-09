@@ -252,7 +252,7 @@ describe('POST /api/auth/reset-pin', () => {
     await app.close();
   });
 
-  it('never returns the code in the request response', async () => {
+  it('returns the code in the response so the Setup Assistant can show it', async () => {
     const app = makeApp();
     const capture = captureCode();
     const res = await app.inject({
@@ -265,7 +265,9 @@ describe('POST /api/auth/reset-pin', () => {
 
     expect(res.statusCode).toBe(200);
     expect(code).toBeTruthy();
-    expect(res.body).not.toContain(code!);
+    // The code is still delivered out-of-band (console + file); the response
+    // mirrors it for the in-app reset screen on the same machine.
+    expect(res.json().code).toBe(code);
     await app.close();
   });
 

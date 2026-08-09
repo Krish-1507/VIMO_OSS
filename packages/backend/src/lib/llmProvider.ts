@@ -34,6 +34,33 @@ export function resolveModelName(provider: string, config: Record<string, unknow
   return DEFAULT_MODELS[provider] || 'gpt-4o';
 }
 
+/**
+ * Read a raw app_settings value (single key), or null when unset.
+ */
+async function getSetting(key: string): Promise<string | null> {
+  const row = await db.select().from(appSettings).where(eq(appSettings.key, key)).get();
+  return row?.value ?? null;
+}
+
+/**
+ * Local-only AI mode ("Never send content to cloud AI").
+ *
+ * When enabled, only local Ollama connectors may be used for generation and
+ * embeddings, and the built-in Pollinations.ai fallback (a cloud service) is
+ * disabled entirely.
+ */
+export async function isLocalOnlyMode(): Promise<boolean> {
+  return (await getSetting('ai_privacy_local_only')) === 'true';
+}
+
+/**
+ * Desired embedding provider, from Settings → AI. Empty means "first active
+ * LLM provider" (the historical behavior).
+ */
+export async function getEmbeddingProviderPreference(): Promise<string> {
+  return (await getSetting('embedding_provider'))?.trim() || '';
+}
+
 function buildProviderInstance(providerName: string, apiKey: string, config: Record<string, unknown>) {
   switch (providerName) {
     case 'openai':
@@ -68,8 +95,13 @@ function buildProviderInstance(providerName: string, apiKey: string, config: Rec
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getActiveLLMProvider(task?: string): Promise<{ provider: any; modelId: string }> {
   const registry = new ConnectorRegistry(db);
-  const allConnectors = await registry.getAll();
-  
+  let allConnectors = await registry.getAll();
+
+  // Local-only mode: never touch cloud providers.
+  if (await isLocalOnlyMode()) {
+    allConnectors = allConnectors.filter((c) => c.provider === 'ollama');
+  }
+
   let llmConnector;
   if (task) {
     const taskKey = `model_${task.toLowerCase().replace(/\s+/g, '_')}`;
@@ -85,6 +117,11 @@ export async function getActiveLLMProvider(task?: string): Promise<{ provider: a
   }
 
   if (!llmConnector) {
+    if (await isLocalOnlyMode()) {
+      throw new Error(
+        'Local-only AI mode is on, but no local Ollama model is connected. Open Connector Hub, add your Ollama server, and mark it active.',
+      );
+    }
     // Built-in fallback: use Pollinations.ai (free, no API key needed)
     log.info('No active LLM provider — falling back to built-in Pollinations.ai (free, no key required)');
     return {
@@ -110,7 +147,12 @@ export async function getAllActiveLLMProviders(
   task?: string
 ): Promise<Array<{ provider: any; modelId: string; connectorId: string; name: string }>> {
   const registry = new ConnectorRegistry(db);
-  const allConnectors = await registry.getAll();
+  let allConnectors = await registry.getAll();
+
+  // Local-only mode: never touch cloud providers.
+  if (await isLocalOnlyMode()) {
+    allConnectors = allConnectors.filter((c) => c.provider === 'ollama');
+  }
 
   let prioritized: Array<{ connector: typeof allConnectors[0]; isTaskSpecific: boolean }> = [];
 
@@ -170,8 +212,14 @@ export async function callWithProviderChain<T>(
   // If a specific model assignment is provided, try it first
   if (modelRoute) {
     try {
+      const localOnly = await isLocalOnlyMode();
       const connRow = await db.select().from(connectors).where(eq(connectors.id, modelRoute.connectorId)).get();
-      if (connRow && connRow.type === 'llm' && connRow.status === 'active') {
+      if (
+        connRow &&
+        connRow.type === 'llm' &&
+        connRow.status === 'active' &&
+        (!localOnly || connRow.provider === 'ollama')
+      ) {
         const apiKey = (await credentialStore.getCredential(connRow.id, 'apiKey')) || '';
         const config = JSON.parse(connRow.configJson || '{}');
         const provider = buildProviderInstance(connRow.provider, apiKey, config);
@@ -194,6 +242,14 @@ export async function callWithProviderChain<T>(
   const providers = await getAllActiveLLMProviders(task);
 
   if (providers.length === 0) {
+    // Local-only mode has no built-in fallback: the user explicitly asked for
+    // nothing to leave this machine, and Pollinations.ai is a cloud service.
+    if (await isLocalOnlyMode()) {
+      if (templateFallback) return templateFallback();
+      throw new Error(
+        'Local-only AI mode is on, but no local Ollama model is connected. Open Connector Hub, add your Ollama server, and mark it active.',
+      );
+    }
     // Built-in fallback: use Pollinations.ai (free, no API key needed)
     log.info('No active providers for chain — falling back to built-in Pollinations.ai');
     try {
@@ -223,6 +279,7 @@ export async function callWithProviderChain<T>(
   // using a known-compatible model.
   const maybeRetryWithOpenRouter = async (): Promise<T | null> => {
     if (task !== 'assistant_classification') return null;
+    if (await isLocalOnlyMode()) return null;
 
     try {
       const openrouterModelId = DEFAULT_MODELS.openrouter;
@@ -269,24 +326,38 @@ export async function callWithProviderChain<T>(
     }
   }
 
-  // All providers failed — try built-in Pollinations.ai as last resort
-  log.info('All providers failed — falling back to built-in Pollinations.ai');
-  try {
-    const fallbackProvider = createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' });
-    return await callLLMWithFallback(
-      async () => fn(fallbackProvider, 'openai'),
-      () => { throw new Error('Built-in Pollinations.ai also failed'); },
-      'pollinations (built-in free)'
-    );
-  } catch {
-    // Pollinations also failed — use template fallback as last resort
-    log.error('All providers AND built-in Pollinations.ai failed — using template fallback', {
+  // All providers failed — try built-in Pollinations.ai as last resort.
+  // Skipped entirely in local-only mode.
+  if (!(await isLocalOnlyMode())) {
+    log.info('All providers failed — falling back to built-in Pollinations.ai');
+    try {
+      const fallbackProvider = createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' });
+      return await callLLMWithFallback(
+        async () => fn(fallbackProvider, 'openai'),
+        () => { throw new Error('Built-in Pollinations.ai also failed'); },
+        'pollinations (built-in free)'
+      );
+    } catch {
+      // Pollinations also failed — use template fallback as last resort
+      log.error('All providers AND built-in Pollinations.ai failed — using template fallback', {
+        task,
+        err: lastError?.message,
+      });
+    }
+  } else {
+    log.error('All local providers failed — using template fallback', {
       task,
       err: lastError?.message,
     });
-    if (templateFallback) return templateFallback();
-    throw new Error(`All providers (including built-in free Pollinations.ai) failed for task "${task}".`);
   }
+
+  if (templateFallback) return templateFallback();
+  throw new Error(
+    `All providers failed for task "${task}".` +
+      ((await isLocalOnlyMode())
+        ? ' Local-only AI mode is on; make sure your Ollama server is reachable.'
+        : ' Including the built-in free Pollinations.ai fallback.'),
+  );
 }
 
 /**
@@ -304,17 +375,54 @@ export async function embedText(
   modelOverride?: string
 ): Promise<{ embedding: number[]; model: string; provider: string }> {
   const registry = new ConnectorRegistry(db);
-  const allConnectors = await registry.getAll();
+  let allConnectors = await registry.getAll();
+  const localOnly = await isLocalOnlyMode();
+  const preference = await getEmbeddingProviderPreference();
+
+  if (!input || !input.trim()) {
+    throw new Error('embedText requires a non-empty input string');
+  }
+
+  // Privacy mode and/or an explicit "use Ollama for embeddings" setting both
+  // restrict embeddings to a local Ollama server.
+  const wantOllama = localOnly || preference === 'ollama';
+  if (wantOllama) {
+    const ollamaConnector = allConnectors.find(
+      (c) => c.type === 'llm' && c.status === 'active' && c.provider === 'ollama'
+    );
+    if (!ollamaConnector) {
+      throw new Error(
+        'Embeddings are set to run on your local Ollama server, but none is connected. Open Connector Hub, add your Ollama server, and mark it active.',
+      );
+    }
+    const apiKey = (await credentialStore.getCredential(ollamaConnector.id, 'apiKey')) || '';
+    const config = await registry.getConfig(ollamaConnector.id);
+    const modelId = modelOverride || resolveModelName('ollama', config);
+    const baseUrl = (config.baseUrl as string) || 'http://localhost:11434';
+    const res = await axios.post(`${baseUrl}/api/embeddings`, {
+      model: modelId,
+      prompt: input,
+    });
+    const embedding = res.data?.embedding;
+    if (!Array.isArray(embedding)) {
+      throw new Error('Ollama returned no embedding for the input.');
+    }
+    return { embedding: embedding as number[], model: modelId, provider: 'ollama' };
+  }
+
+  if (localOnly) {
+    // Covered by the branch above; keep the guard explicit for safety.
+    throw new Error('Local-only AI mode is on, but no local Ollama model is connected.');
+  }
+
+  // Default path: first active LLM connector, falling back to built-in
+  // Pollinations.ai when none is configured.
   const llmConnector = allConnectors.find((c) => c.type === 'llm' && c.status === 'active');
 
   const providerName = llmConnector?.provider || 'pollinations';
   const apiKey = llmConnector ? (await credentialStore.getCredential(llmConnector.id, 'apiKey')) || '' : 'pollinations';
   const config = llmConnector ? await registry.getConfig(llmConnector.id) : {};
   const modelId = modelOverride || resolveModelName(providerName, config);
-
-  if (!input || !input.trim()) {
-    throw new Error('embedText requires a non-empty input string');
-  }
 
   // Ollama native embeddings endpoint
   if (providerName === 'ollama') {

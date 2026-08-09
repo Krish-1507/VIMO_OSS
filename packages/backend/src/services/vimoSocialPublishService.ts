@@ -90,7 +90,9 @@ class VimoSocialPublishIntegration {
         const accessToken = await credentialStore.getCredential(platformConnector.id, 'accessToken');
         // Bluesky authenticates with an app password (handle + appPassword)
         // rather than an OAuth access token, so it is exempt from this check.
-        if (!accessToken && platform !== 'bluesky') {
+        // WordPress authenticates with an application password (apiKey), and
+        // Slack with a bot token stored as accessToken on the connector.
+        if (!accessToken && platform !== 'bluesky' && platform !== 'wordpress') {
           platformResults[platform] = {
             success: false,
             error: `${platform} token expired. Please reconnect.`,
@@ -158,6 +160,10 @@ class VimoSocialPublishIntegration {
         return publishToYouTube(opts);
       case 'pinterest':
         return publishToPinterest(opts);
+      case 'wordpress':
+        return this.publishToWordPress(opts);
+      case 'slack':
+        return this.publishToSlack(opts);
       default:
         return { success: false, error: `Unsupported platform: ${platform}` };
     }
@@ -297,6 +303,103 @@ class VimoSocialPublishIntegration {
       return {
         success: false,
         error: `Failed to publish to Bluesky: ${err?.response?.data?.message || err?.message || 'unknown error'}`,
+      };
+    }
+  }
+
+  /**
+   * WordPress: create a post via the WP REST API using an application password.
+   *
+   * Credentials: `apiKey` (application password), plus `siteUrl` and `username`
+   * from the connector config. Posts are created as drafts unless
+   * `metadata.status === 'publish'`.
+   */
+  private async publishToWordPress(opts: {
+    connectorId: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ success: boolean; platformPostId?: string; error?: string }> {
+    const apiKey = await credentialStore.getCredential(opts.connectorId, 'apiKey');
+    if (!apiKey) {
+      return { success: false, error: 'WordPress application password missing. Please reconnect.' };
+    }
+    const config = await registry.getConfig(opts.connectorId);
+    const siteUrl = String((config as any)?.siteUrl || '').trim().replace(/\/+$/, '');
+    const username = String((config as any)?.username || '').trim();
+    if (!siteUrl || !username) {
+      return { success: false, error: 'WordPress site URL and username are required. Edit the connector to add them.' };
+    }
+
+    const status = (opts.metadata?.status as string) === 'publish' ? 'publish' : 'draft';
+    const title = (opts.content.split('\n')[0] || 'VIMO post').slice(0, 200);
+
+    try {
+      const res = await axios.post(
+        `${siteUrl}/wp-json/wp/v2/posts`,
+        { title, content: opts.content, status },
+        {
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${username}:${apiKey}`).toString('base64')}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      const postId = String(res.data?.id || '');
+      return postId
+        ? { success: true, platformPostId: postId }
+        : { success: false, error: 'WordPress did not return a post ID.' };
+    } catch (err: any) {
+      return {
+        success: false,
+        error:
+          err?.response?.data?.message ||
+          err?.response?.data?.code ||
+          err?.message ||
+          'Failed to publish to WordPress.',
+      };
+    }
+  }
+
+  /**
+   * Slack: post a message to a channel with the connector's bot token.
+   *
+   * The target channel comes from `metadata.channel` (e.g. "#marketing") and
+   * defaults to the workspace's general channel when omitted.
+   */
+  private async publishToSlack(opts: {
+    accessToken: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ success: boolean; platformPostId?: string; error?: string }> {
+    if (!opts.accessToken) {
+      return { success: false, error: 'Slack bot token missing. Please reconnect.' };
+    }
+    const channel = String(opts.metadata?.channel || '#general');
+    try {
+      const res = await axios.post(
+        'https://slack.com/api/chat.postMessage',
+        { channel, text: opts.content, unfurl_links: true },
+        {
+          headers: {
+            Authorization: `Bearer ${opts.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      if (res.data?.ok !== true) {
+        return {
+          success: false,
+          error: res.data?.error ? `Slack: ${res.data.error}` : 'Slack did not accept the message.',
+        };
+      }
+      const ts = String(res.data?.ts || '');
+      return ts
+        ? { success: true, platformPostId: ts }
+        : { success: false, error: 'Slack did not return a message timestamp.' };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.response?.data?.error || err?.message || 'Failed to send to Slack.',
       };
     }
   }

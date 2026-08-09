@@ -383,15 +383,23 @@ export default function SettingsPage() {
       alert('New PINs do not match');
       return;
     }
-    // In a real app, we'd have a specific endpoint for this
+    if (!currentPin) {
+      alert('Enter your current PIN');
+      return;
+    }
     try {
       await api.post('/api/auth/update-pin', { currentPin, newPin });
-      alert('PIN updated successfully');
+      alert('PIN updated successfully. You will need to log in again.');
       setCurrentPin('');
       setNewPin('');
       setConfirmPin('');
-    } catch (err) {
-      alert('Failed to update PIN');
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
+      alert(
+        serverMsg
+          ? `Failed to update PIN: ${serverMsg}`
+          : 'Failed to update PIN. Check your current PIN and try again.',
+      );
     }
   }
 
@@ -1202,6 +1210,81 @@ export default function SettingsPage() {
                         }`}
                       />
                     </button>
+                  </div>
+                </div>
+
+                {/* Local AI & Privacy */}
+                <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-teal-500" />
+                    Local AI & Privacy
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Keep your content on this computer. Anything you enable here applies to every AI feature in VIMO.
+                  </p>
+
+                  <div className="mt-4 space-y-4">
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Never send content to cloud AI
+                          </span>
+                          <p className="text-xs text-slate-500">
+                            Use only your local Ollama server for AI. Cloud providers and the built-in free fallback
+                            are blocked, and any feature that cannot run locally shows a clear error.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const next = settings['ai_privacy_local_only'] !== 'true';
+                            handleSaveSetting('ai_privacy_local_only', next ? 'true' : '');
+                          }}
+                          aria-pressed={settings['ai_privacy_local_only'] === 'true'}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                            settings['ai_privacy_local_only'] === 'true'
+                              ? 'bg-teal-600'
+                              : 'bg-slate-200 dark:bg-slate-700'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              settings['ai_privacy_local_only'] === 'true' ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      {settings['ai_privacy_local_only'] === 'true' && !llmConnectors.some((c) => c.provider === 'ollama' && c.status === 'active') && (
+                        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                          No active Ollama connector found. Connect one in the Connector Hub above, otherwise AI
+                          features will show an error instead of falling back to the cloud.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Embeddings provider
+                      </label>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        Brand memory and content DNA compare posts with embeddings. Keep them on your computer by
+                        choosing your local Ollama server.
+                      </p>
+                      <select
+                        value={settings['embedding_provider'] || ''}
+                        onChange={(e) => handleSaveSetting('embedding_provider', e.target.value)}
+                        className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                      >
+                        <option value="">Auto (first active provider)</option>
+                        <option value="ollama">Local Ollama only (stays on this computer)</option>
+                      </select>
+                      {settings['embedding_provider'] === 'ollama' && !llmConnectors.some((c) => c.provider === 'ollama' && c.status === 'active') && (
+                        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                          No active Ollama connector found. Connect one, otherwise embedding-based features will show
+                          an error.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </section>

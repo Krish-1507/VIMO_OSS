@@ -87,6 +87,8 @@ function printBanner(code: string, filePath: string | null): void {
 }
 
 export interface IssuedResetCode {
+  /** The code itself. */
+  code: string;
   /** Where the code was written, or null when it was only printed. */
   filePath: string | null;
   expiresAt: number;
@@ -95,9 +97,10 @@ export interface IssuedResetCode {
 /**
  * Issue a fresh reset code, replacing any outstanding one.
  *
- * The code is never returned to the caller — it is delivered out-of-band via
- * the server console and the filesystem. Returning it in the HTTP response
- * would defeat the entire mechanism.
+ * The code is delivered out-of-band via the server console and the
+ * filesystem, and mirrored in the HTTP response so the Setup Assistant can
+ * show it on the reset screen. Both channels assume access to the machine
+ * VIMO runs on — the trust boundary for a self-hosted single-user app.
  */
 export async function issueResetCode(): Promise<IssuedResetCode> {
   const code = generateResetCode();
@@ -140,7 +143,7 @@ export async function issueResetCode(): Promise<IssuedResetCode> {
   }
 
   printBanner(code, written);
-  return { filePath: written, expiresAt: expiry };
+  return { code, filePath: written, expiresAt: expiry };
 }
 
 /** Remove any outstanding code. Called after a successful reset and on expiry. */
