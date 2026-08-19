@@ -16,6 +16,16 @@ if (!fs.existsSync(dbDir)) {
 
 const sqlite = new Database(dbPath);
 
+// Allowlist validator for SQL identifiers used in DDL string interpolation.
+// Schema object names can never be parameterized, so we strictly validate them
+// instead of interpolating arbitrary input.
+function safeIdentifier(name: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Unsafe SQL identifier rejected: ${name}`);
+  }
+  return name;
+}
+
 // Run schema sync to create tables if they don't exist
 const existing = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='app_settings'").get();
 if (!existing) {
@@ -569,7 +579,7 @@ try {
     if (!bpExisting.has(col)) {
       console.log(`🔄 Adding brand_profiles.${col} column...`);
       const type = col === 'total_posts_generated' || col === 'total_campaigns_run' || col === 'memory_version' ? 'INTEGER' : 'TEXT';
-      sqlite.exec(`ALTER TABLE brand_profiles ADD COLUMN ${col} ${type} DEFAULT ${col.includes('total_') || col === 'memory_version' ? '0' : 'NULL'}`);
+      sqlite.exec(`ALTER TABLE brand_profiles ADD COLUMN ${safeIdentifier(col)} ${safeIdentifier(type)} DEFAULT ${col.includes('total_') || col === 'memory_version' ? '0' : 'NULL'}`);
     }
   }
 } catch (err) {
@@ -580,10 +590,10 @@ try {
 // workspace seeds (brand, connectors, analytics snapshots).
 for (const table of ['brand_profiles', 'connectors', 'account_snapshots'] as const) {
   try {
-    const cols = sqlite.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>;
+    const cols = sqlite.prepare(`PRAGMA table_info('${safeIdentifier(table)}')`).all() as Array<{ name: string }>;
     if (!cols.map((c) => c.name).includes('is_demo')) {
-      console.log(`🔄 Adding ${table}.is_demo column...`);
-      sqlite.exec(`ALTER TABLE ${table} ADD COLUMN is_demo INTEGER DEFAULT 0`);
+      console.log(`🔄 Adding ${safeIdentifier(table)}.is_demo column...`);
+      sqlite.exec(`ALTER TABLE ${safeIdentifier(table)} ADD COLUMN is_demo INTEGER DEFAULT 0`);
     }
   } catch (err) {
     console.warn(`⚠ Failed to ensure ${table}.is_demo column:`, err);
