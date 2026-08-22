@@ -69,7 +69,6 @@ export default function LoginPage() {
             >
               Forgot PIN?
             </button>
-            <TryDemoButton />
           </div>
           <div className="mt-2 flex items-center gap-2 justify-center">
             <span className="text-xs text-slate-400">No setup needed —</span>

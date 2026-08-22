@@ -19,6 +19,7 @@
     "@fastify/helmet": "^11.1.1",
     "@fastify/multipart": "^8.3.0",
     "@fastify/rate-limit": "^9.1.0",
+    "@fastify/static": "^7.0.4",
     "@google/generative-ai": "^0.21.0",
     "@keyv/sqlite": "^4.0.8",
     "@langchain/core": "^0.3.0",

@@ -111,6 +111,30 @@ export default async function authRoutes(app: FastifyInstance) {
       const body = parseBody(AuthSetupSchema, request, reply);
       if (!body) return;
 
+      // Setup creates the FIRST PIN. Once a PIN exists this endpoint must not
+      // overwrite it: over the LAN (or from any local process) an unauthenticated
+      // call would otherwise replace the owner's PIN with the attacker's and hand
+      // over every stored credential. Changing an existing PIN requires either a
+      // signed-in session (update-pin / reset-pin) or a one-time reset code.
+      const existingPin = await db
+        .select()
+        .from(appSettings)
+        .where(eq(appSettings.key, 'pin_hash'))
+        .get();
+      if (existingPin) {
+        const clientToken = (request.headers['x-session-token'] as string) || '';
+        if (!(await hasValidSession(clientToken))) {
+          log.warn('Rejected a second setup attempt while a PIN already exists', {
+            ip: request.ip,
+          });
+          return reply.status(409).send({
+            code: 'ALREADY_SET_UP',
+            message:
+              'A PIN is already set up. Please log in, or use Forgot PIN on the login screen.',
+          });
+        }
+      }
+
       await storePinHash(await hashPin(body.pin));
       await markSetupComplete();
 
@@ -207,9 +231,16 @@ export default async function authRoutes(app: FastifyInstance) {
       const { code, filePath, expiresAt } = await issueResetCode();
       log.warn('A PIN reset code was requested', { ip: request.ip });
 
+      // The in-response copy is a convenience for the person sitting at the
+      // machine (the Setup Assistant shows it in-app). Requests arriving over
+      // the network get the terminal/file instructions only — they must be able
+      // to read those anyway, but shouldn't get a shortcut.
+      const loopback = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+      const isLocal = loopback.has(request.ip);
+
       return {
         success: true,
-        code,
+        ...(isLocal ? { code } : {}),
         expiresAt,
         filePath,
         message: filePath

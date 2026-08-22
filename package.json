@@ -12,6 +12,8 @@
   "scripts": {
     "vimo": "node packages/cli/bin/vimo.mjs",
     "dev": "concurrently --names FE,BE,SHARED --prefix-colors cyan,green,yellow \"npm run dev --workspace=packages/frontend\" \"npm run dev --workspace=packages/backend\"",
+    "build:app": "npm run build --workspace=packages/frontend && npm run build --workspace=packages/backend",
+    "start:app": "node packages/backend/dist/backend/src/index.js",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
     "test": "npm run test --workspaces",

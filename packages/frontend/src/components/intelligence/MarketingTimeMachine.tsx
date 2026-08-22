@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 import { Clock, Loader2, Play, AlertTriangle, Lightbulb, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
 
 interface TimelineEvent {
   weekLabel: string;
@@ -36,10 +34,7 @@ export default function MarketingTimeMachine() {
 
   const fetchBrands = useCallback(async () => {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/brand-profiles`, {
-        headers: { 'x-session-token': token },
-      });
+      const res = await api.get('/api/brand-profiles');
       const data = res.data.map((p: BrandProfile) => ({ id: p.id, name: p.name }));
       setBrandProfiles(data);
       if (data.length > 0) setSelectedBrandId(data[0].id);
@@ -57,11 +52,9 @@ export default function MarketingTimeMachine() {
     setError('');
     setTimeline(null);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.post(
-        `${API_BASE}/api/intelligence/time-machine`,
-        { brandProfileId: selectedBrandId, question },
-        { headers: { 'x-session-token': token } }
+      const res = await api.post(
+        '/api/intelligence/time-machine',
+        { brandProfileId: selectedBrandId, question }
       );
       setTimeline(res.data);
     } catch (err) {

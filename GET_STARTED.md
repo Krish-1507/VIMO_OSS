@@ -20,16 +20,20 @@ You stay in control the whole time. VIMO only does what you approve.
 ### One-command start (no technical knowledge needed)
 
 ```bash
-npm i -g vimo
+npm i -g @vimo-oss/cli
 vimo
 ```
 
-That's it. VIMO downloads, starts, and opens in your browser. If your computer
-has **Ollama** installed, onboarding detects it and offers **"Use free local
-AI"** with one click — no account, no key, nothing leaves your machine. Don't
-have Ollama? The onboarding card links you to the free installer and checks
-again automatically after you've installed it. First run takes a couple of
-minutes; later starts are fast. Press `Ctrl+C` to stop.
+That's it. VIMO downloads, builds, starts, and opens in your browser. No git,
+no Docker, no keys. On Windows type `VIMO` or `vimo`; on macOS and Linux both
+work too. If your computer has **Ollama** installed, onboarding detects it and
+offers **"Use free local AI"** with one click — no account, no key, nothing
+leaves your machine. Don't have Ollama? The onboarding card links you to the
+free installer and checks again automatically after you've installed it.
+First run takes a few minutes; later starts are fast. Press `Ctrl+C` to stop.
+
+Handy extras: `vimo doctor` checks your computer is ready; `vimo --update`
+gets the latest version while keeping all your data.
 
 ### Running from the source code (developers)
 

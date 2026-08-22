@@ -36,7 +36,13 @@ function AppRoutes() {
   const { isSetupComplete, isAuthenticated, isLoading, checkAuthStatus } = useAuthStore();
   const demoActive = useDemoMode((s) => s.active);
   const [checked, setChecked] = useState(false);
-  const [hasPassedCheck] = useState(!!localStorage.getItem('hasPassedSystemCheck'));
+  const [hasPassedCheck] = useState(() => {
+    try {
+      return !!localStorage.getItem('hasPassedSystemCheck');
+    } catch {
+      return false;
+    }
+  });
   const navigate = useNavigate();
   const location = useLocation();
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 
 const INDUSTRIES = ['Technology', 'E-commerce', 'Health & Wellness', 'Food & Beverage', 'Finance', 'Education', 'Creative/Agency', 'Other'];
 const TONE_CHIPS = ['Professional', 'Casual', 'Bold', 'Playful', 'Authoritative', 'Friendly', 'Inspirational', 'Humorous'];
@@ -49,7 +49,7 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
     setError('');
     setDnaResult(null);
     try {
-      const res = await axios.post('/api/brand-profiles/analyze-dna', { url });
+      const res = await api.post('/api/brand-profiles/analyze-dna', { url });
       setDnaResult(res.data);
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Analysis failed. Please check the URL and try again.');
@@ -62,7 +62,7 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
     if (!dnaResult?.dna) return;
     setLoading(true);
     try {
-      await axios.post('/api/brand-profiles', {
+      await api.post('/api/brand-profiles', {
         name: dnaResult.dna.brandName || 'New Brand',
         industry: dnaResult.dna.industry || '',
         audience: dnaResult.dna.targetAudience || '',
@@ -82,7 +82,7 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
     if (!name || !industry || !audience) return;
     setLoading(true);
     try {
-      await axios.post('/api/brand-profiles', {
+      await api.post('/api/brand-profiles', {
         name,
         industry,
         audience,

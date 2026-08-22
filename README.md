@@ -131,14 +131,21 @@ You don't need a single API key to see VIMO work.
 ### Easiest: one command
 
 ```bash
-npm i -g vimo
+npm i -g @vimo-oss/cli
 vimo
 ```
 
-VIMO installs itself, starts, and opens in your browser. Onboarding auto-detects
-a local Ollama install and offers **"Use free local AI"** with one click — no
-account, no key, nothing leaves your machine. Press `Ctrl+C` to stop. First run
-takes a couple of minutes; later starts are fast.
+That's it — no git, no Docker, no API keys. The launcher downloads VIMO,
+installs it, builds it, starts it on a free port, and opens your browser.
+On Windows you can type `VIMO` or `vimo` in cmd or PowerShell; on macOS and
+Linux both spellings work after install. Onboarding auto-detects a local
+Ollama install and offers **"Use free local AI"** with one click — no account,
+no key, nothing leaves your machine. Press `Ctrl+C` to stop. First run takes a
+few minutes (it's building the app for you); later starts are fast.
+
+Useful launcher commands: `vimo doctor` (check your machine is ready),
+`vimo --update` (get the latest version, keeps your data), `vimo --reset`
+(reinstall from scratch).
 
 ### Option A — Try the Demo (zero setup)
 
@@ -182,6 +189,19 @@ npm run dev
 Then open **http://localhost:5173**. Prefer one-click launchers? Use `Start VIMO.bat`
 (Windows), `Start VIMO.command` (macOS), or `start-vimo.sh` / `docker-compose.yml` (Linux).
 No Docker required — everything runs natively with SQLite.
+
+#### Production mode (what the `vimo` command runs)
+
+The launcher never uses dev servers. It builds once and serves everything from a
+single port:
+
+```bash
+npm run build:app     # build frontend + backend
+npm run start:app     # serve app + API on one port (default 3000)
+```
+
+The backend serves the built frontend itself (same origin — no CORS, no proxy)
+and binds to `127.0.0.1` unless you set `HOST`.
 
 ---
 

@@ -1,10 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { Zap, Play, Pause, CheckCircle, Loader2, ExternalLink } from 'lucide-react';
 import { io as socketIO, Socket } from 'socket.io-client';
 import AutopilotTimeline, { AutopilotTimelineEntry } from '../components/dashboard/AutopilotTimeline';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
 
 /* ------------------------------------------------------------------ */
@@ -79,10 +78,7 @@ export default function AutopilotPage() {
   // Fetch brand profiles
   const fetchBrandProfiles = useCallback(async () => {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/brand-profiles`, {
-        headers: { 'x-session-token': token },
-      });
+      const res = await api.get('/api/brand-profiles');
       const data = res.data.map((p: BrandProfile) => ({ id: p.id, name: p.name }));
       setBrandProfiles(data);
       if (data.length > 0 && !selectedBrandId) {
@@ -101,10 +97,7 @@ export default function AutopilotPage() {
     if (!selectedBrandId) return;
     const fetchChannels = async () => {
       try {
-        const token = localStorage.getItem('session_token') || '';
-        const res = await axios.get(`${API_BASE}/api/connectors`, {
-          headers: { 'x-session-token': token },
-        });
+        const res = await api.get('/api/connectors');
         const active = (res.data || [])
           .filter((c: any) => c.status === 'active' && c.type === 'social')
           .map((c: any) => c.provider);
@@ -122,10 +115,8 @@ export default function AutopilotPage() {
     if (!selectedBrandId) return;
     const checkActive = async () => {
       try {
-        const token = localStorage.getItem('session_token') || '';
-        const res = await axios.get(`${API_BASE}/api/autopilot/active`, {
+        const res = await api.get('/api/autopilot/active', {
           params: { brandProfileId: selectedBrandId },
-          headers: { 'x-session-token': token },
         });
         if (res.data) {
           setActiveSession(res.data);
@@ -179,9 +170,8 @@ export default function AutopilotPage() {
     if (!selectedBrandId || !selectedGoal || !audienceDescription || selectedChannels.length === 0) return;
     setIsStarting(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.post(
-        `${API_BASE}/api/autopilot/start`,
+      const res = await api.post(
+        '/api/autopilot/start',
         {
           brandProfileId: selectedBrandId,
           audienceDescription,
@@ -191,8 +181,7 @@ export default function AutopilotPage() {
           channels: selectedChannels,
           maxPostsPerDay: maxPostsPerDay ? Number(maxPostsPerDay) : undefined,
           spendCapPerDay: spendCapPerDay ? Number(spendCapPerDay) : undefined,
-        },
-        { headers: { 'x-session-token': token } }
+        }
       );
       // Immediately set active session with the returned ID
       const session: AutopilotSession = {
@@ -230,11 +219,9 @@ export default function AutopilotPage() {
   // Pause autopilot
   const handlePause = async () => {    if (!activeSession) return;
     try {
-      const token = localStorage.getItem('session_token') || '';
-      await axios.post(
-        `${API_BASE}/api/autopilot/${activeSession.id}/pause`,
-        {},
-        { headers: { 'x-session-token': token } }
+      await api.post(
+        `/api/autopilot/${activeSession.id}/pause`,
+        {}
       );
       setStatus('paused');
       setLog([...log, 'Autopilot paused by user.']);
@@ -248,11 +235,9 @@ export default function AutopilotPage() {
     if (!activeSession) return;
     setIsRunningNow(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.post(
-        `${API_BASE}/api/autopilot/${activeSession.id}/run-now`,
-        {},
-        { headers: { 'x-session-token': token } }
+      const res = await api.post(
+        `/api/autopilot/${activeSession.id}/run-now`,
+        {}
       );
       setLog([...log, res.data?.message || 'Run-now cycle complete.']);
     } catch (err: any) {

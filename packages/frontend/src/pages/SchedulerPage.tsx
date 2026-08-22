@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft,
@@ -32,9 +31,7 @@ import {
   subMonths,
 } from 'date-fns';
 import InfoTooltip from '../components/ui/InfoTooltip';
-import { BACKEND_URL } from '../config/backendPort';
-
-const API_BASE = import.meta.env.VITE_API_URL || BACKEND_URL;
+import api from '../lib/api';
 
 interface ScheduledPost {
   id: string;
@@ -99,10 +96,8 @@ export default function SchedulerPage() {
     try {
       const start = startOfMonth(currentDate).toISOString();
       const end = endOfMonth(currentDate).toISOString();
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/scheduled-posts`, {
+      const res = await api.get('/api/scheduled-posts', {
         params: { startDate: start, endDate: end },
-        headers: { 'x-session-token': token },
       });
       setPosts(res.data);
     } catch (err) {
@@ -115,10 +110,7 @@ export default function SchedulerPage() {
 
   async function handleCancel(postId: string) {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      await axios.delete(`${API_BASE}/api/scheduled-posts/${postId}`, {
-        headers: { 'x-session-token': token },
-      });
+      await api.delete(`/api/scheduled-posts/${postId}`);
       fetchPosts();
     } catch (err) {
       // ignore
@@ -143,7 +135,6 @@ export default function SchedulerPage() {
     if (!editingPost) return;
     setEditSaving(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
       const payload: Record<string, any> = {
         content: editContent,
         platform: editPlatform,
@@ -151,9 +142,7 @@ export default function SchedulerPage() {
       if (editScheduledAt !== editingPost.scheduledAt) {
         payload.scheduledAt = editScheduledAt;
       }
-      await axios.put(`${API_BASE}/api/scheduled-posts/${editingPost.id}`, payload, {
-        headers: { 'x-session-token': token },
-      });
+      await api.put(`/api/scheduled-posts/${editingPost.id}`, payload);
       closeEditModal();
       fetchPosts();
     } catch {

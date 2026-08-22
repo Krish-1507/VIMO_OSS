@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { useSearchParams } from 'react-router-dom';
 import {
   Instagram,
@@ -34,13 +34,10 @@ import {
 import InfoTooltip from '../components/ui/InfoTooltip';
 import ExplainabilityTooltip from '../components/ui/ExplainabilityTooltip';
 import FirstTimeCallout from '../components/ui/FirstTimeCallout';
-import { BACKEND_URL } from '../config/backendPort';
 import { useUIStore } from '../stores/uiStore';
 import { useBrandStore } from '../stores/brandStore';
 import HiggsfieldStudio, { prefillHiggsfieldPrompt } from '../components/content/HiggsfieldStudio';
 import PollinationsImageStudio from '../components/content/PollinationsImageStudio';
-
-const API_BASE = import.meta.env.VITE_API_URL || BACKEND_URL;
 
 const platforms = [
   { key: 'instagram', label: 'Instagram', Icon: Instagram, color: 'bg-pink-500' },
@@ -141,12 +138,11 @@ export default function ContentPage() {
   const aiDesignerConnectionId = 'ai-designer-default';
 
   const loadAiDesignerContext = async () => {
-    const token = localStorage.getItem('session_token') || '';
     try {
       const [perms, kits, recent] = await Promise.all([
-        axios.get(`${API_BASE}/api/integrations/${aiDesignerConnectionId}/permissions`, { headers: { 'x-session-token': token } }).catch(() => null),
-        axios.get(`${API_BASE}/api/integrations/${aiDesignerConnectionId}/brand-kits`, { headers: { 'x-session-token': token } }).catch(() => null),
-        axios.get(`${API_BASE}/api/integrations/${aiDesignerConnectionId}/recent-designs`, { headers: { 'x-session-token': token } }).catch(() => null),
+        api.get(`/api/integrations/${aiDesignerConnectionId}/permissions`).catch(() => null),
+        api.get(`/api/integrations/${aiDesignerConnectionId}/brand-kits`).catch(() => null),
+        api.get(`/api/integrations/${aiDesignerConnectionId}/recent-designs`).catch(() => null),
       ]);
       if (perms?.data?.permissions) setAiDesignerPermissions(perms.data.permissions);
       if (kits?.data?.kits) setAiDesignerBrandKits(kits.data.kits);
@@ -214,11 +210,8 @@ export default function ContentPage() {
   useEffect(() => {
     if (!showScheduleModal) return;
     setSelectedScheduleAccount('');
-    const token = localStorage.getItem('session_token') || '';
-    axios
-      .get(`${API_BASE}/api/social-accounts/connected`, {
-        headers: { 'x-session-token': token },
-      })
+    api
+      .get('/api/social-accounts/connected')
       .then((res) => {
         const accounts = (res.data?.accounts || []) as Array<{ id: string; platform: string; name: string; handle?: string }>;
         setScheduleAccounts(accounts);
@@ -281,15 +274,10 @@ export default function ContentPage() {
     setUploadingMedia(true);
     setUploadedMediaName('');
     try {
-      const token = localStorage.getItem('session_token') || '';
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await axios.post(`${API_BASE}/api/media/upload`, formData, {
-        headers: {
-          'x-session-token': token,
-        },
-      });
+      const res = await api.post('/api/media/upload', formData);
 
       setAttachedMediaUrl(res.data.url);
       setUploadedMediaName(file.name);
@@ -316,16 +304,14 @@ export default function ContentPage() {
     setGeneratedPost(null);
     setGeneratedVariants(null);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.post(
-        `${API_BASE}/api/scheduled-posts/generate`,
+      const res = await api.post(
+        '/api/scheduled-posts/generate',
         {
           brandProfileId,
           platform,
           topic: topicValue,
           additionalContext: contextValue,
-        },
-        { headers: { 'x-session-token': token } }
+        }
       );
       setGeneratedPost(res.data);
       setEditedContent(res.data.content);
@@ -339,14 +325,13 @@ export default function ContentPage() {
     setGeneratedPost(null);
     setGeneratedVariants(null);
     try {
-      const res = await axios.post(
-        `${API_BASE}/api/scheduled-posts/variants`,
+      const res = await api.post(
+        '/api/scheduled-posts/variants',
         {
           brandProfileId: selectedBrand,
           platform: selectedPlatform,
           topic,
-        },
-        { headers: { 'x-session-token': localStorage.getItem('session_token') || '' } }
+        }
       );
       setGeneratedVariants([res.data]);
     } finally {
@@ -358,15 +343,14 @@ export default function ContentPage() {
     setIsGenerating(true);
     setRepurposedPosts(null);
     try {
-      const res = await axios.post(
-        `${API_BASE}/api/scheduled-posts/repurpose`,
+      const res = await api.post(
+        '/api/scheduled-posts/repurpose',
         {
           brandProfileId: selectedBrand,
           sourceContent,
           sourcePlatform,
           targetPlatforms,
-        },
-        { headers: { 'x-session-token': localStorage.getItem('session_token') || '' } }
+        }
       );
       setRepurposedPosts(res.data);
     } finally {
@@ -377,14 +361,13 @@ export default function ContentPage() {
   async function handleGenerateAB() {
     setIsGenerating(true);
     try {
-      const res = await axios.post(
-        `${API_BASE}/api/scheduled-posts/variants`,
+      const res = await api.post(
+        '/api/scheduled-posts/variants',
         {
           brandProfileId: selectedBrand,
           platform: selectedPlatform,
           topic,
-        },
-        { headers: { 'x-session-token': localStorage.getItem('session_token') || '' } }
+        }
       );
       setAbVariantA(res.data.variantA || '');
       setAbVariantB(res.data.variantB || '');
@@ -398,15 +381,13 @@ export default function ContentPage() {
     if (!generatedPost || !topic) return;
     setIsRegeneratingHashtags(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.post(
-        `${API_BASE}/api/scheduled-posts/regenerate-hashtags`,
+      const res = await api.post(
+        '/api/scheduled-posts/regenerate-hashtags',
         {
           topic,
           brandProfileId: selectedBrand,
           platform: selectedPlatform,
-        },
-        { headers: { 'x-session-token': token } }
+        }
       );
       const newTiers = res.data;
       setGeneratedPost({
@@ -431,16 +412,14 @@ export default function ContentPage() {
     }
     setIsHelperBusy('rewrite');
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.post(
-        `${API_BASE}/api/scheduled-posts/caption-helper`,
+      const res = await api.post(
+        '/api/scheduled-posts/caption-helper',
         {
           content: editingContent ? editedContent : generatedPost.content,
           tone,
           platform: selectedPlatform,
           brandProfileId: selectedBrand,
-        },
-        { headers: { 'x-session-token': token } }
+        }
       );
       const updated = res.data.content as string;
       setGeneratedPost({ ...generatedPost, content: updated });
@@ -463,15 +442,13 @@ export default function ContentPage() {
     }
     setIsHelperBusy('translate');
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.post(
-        `${API_BASE}/api/scheduled-posts/translate`,
+      const res = await api.post(
+        '/api/scheduled-posts/translate',
         {
           content: editingContent ? editedContent : generatedPost.content,
           targetLanguage: language,
           platform: selectedPlatform,
-        },
-        { headers: { 'x-session-token': token } }
+        }
       );
       const updated = res.data.content as string;
       setGeneratedPost({ ...generatedPost, content: updated });
@@ -486,9 +463,8 @@ export default function ContentPage() {
   }
 
   async function handleSchedule(postContent: string, hashtags: string[], extraMetadata?: Record<string, unknown>) {
-    const token = localStorage.getItem('session_token') || '';
-    await axios.post(
-      `${API_BASE}/api/scheduled-posts`,
+    await api.post(
+      '/api/scheduled-posts',
       {
         brandProfileId: selectedBrand,
         platform: selectedPlatform,
@@ -498,8 +474,7 @@ export default function ContentPage() {
         socialAccountId: selectedScheduleAccount || undefined,
         mediaUrls: attachedMediaUrl ? [attachedMediaUrl] : undefined,
         scheduledAt: new Date(scheduledAt).toISOString(),
-      },
-      { headers: { 'x-session-token': token } }
+      }
     );
     setShowScheduleModal(false);
     setSchedulingVariant(null);
@@ -516,13 +491,10 @@ export default function ContentPage() {
     setIsSuggestingTime(true);
     setSuggestedTime(null);
     try {
-      const token = localStorage.getItem('session_token') || '';
       // Get connectors to find the Instagram connector ID
       let connectorId = '';
       try {
-        const connRes = await axios.get(`${API_BASE}/api/connectors`, {
-          headers: { 'x-session-token': token },
-        });
+        const connRes = await api.get('/api/connectors');
         const instagramConn = (connRes.data as any[]).find(
           (c: any) => c.provider === 'instagram' && c.status === 'active'
         );
@@ -534,14 +506,13 @@ export default function ContentPage() {
         console.warn('[vimo] best-effort operation failed:', err);
       }
 
-      const res = await axios.post(
-        `${API_BASE}/api/scheduled-posts/suggest-time`,
+      const res = await api.post(
+        '/api/scheduled-posts/suggest-time',
         {
           platform: selectedPlatform,
           brandProfileId: selectedBrand,
           connectorId: connectorId || 'unknown',
-        },
-        { headers: { 'x-session-token': token } }
+        }
       );
       setSuggestedTime(res.data);
     } catch (err) {
@@ -959,13 +930,12 @@ export default function ContentPage() {
                 setIsGeneratingReelsScript(true);
                 setReelsScript(null);
                 try {
-                  const token = localStorage.getItem('session_token') || '';
-                  const res = await axios.post(`${API_BASE}/api/content/reels-script`, {
+                  const res = await api.post('/api/content/reels-script', {
                     brandProfileId: selectedBrand,
                     topic: reelsTopic,
                     targetDuration: reelsDuration,
                     reelsStyle,
-                  }, { headers: { 'x-session-token': token } });
+                  });
                   setReelsScript(res.data);
                 } finally {
                   setIsGeneratingReelsScript(false);
@@ -1557,24 +1527,21 @@ export default function ContentPage() {
                     setAiDesignerIsConnecting(true);
                     setAiDesignerIsDesigning(true);
                     try {
-                      const token = localStorage.getItem('session_token') || '';
-
                       const connectionId = 'ai-designer-default';
                       // Connect this brand's AI Designer via the real integration endpoint
-                      await axios.post(
-                        `${API_BASE}/api/integrations/connect`,
+                      await api.post(
+                        '/api/integrations/connect',
                         {
                           connectionId,
                           catalogId: 'canva_ai_designer',
                           displayName: 'AI Designer',
                           connectorId: 'canva_ai_designer_connector',
                           serverUrl: 'internal',
-                        },
-                        { headers: { 'x-session-token': token } }
+                        }
                       );
 
-                      const res = await axios.post(
-                        `${API_BASE}/api/integrations/${connectionId}/invoke`,
+                      const res = await api.post(
+                        `/api/integrations/${connectionId}/invoke`,
                         {
                           connectorId: 'canva_ai_designer_connector',
                           action: 'create_design_from_prompt',
@@ -1584,8 +1551,7 @@ export default function ContentPage() {
                             platforms: aiDesignerPlatformKeys,
                             brand_kit_id: aiDesignerSelectedBrandKit,
                           },
-                        },
-                        { headers: { 'x-session-token': token } }
+                        }
                       );
 
                       const data = res.data?.data ?? {};
@@ -1942,10 +1908,7 @@ function PostPreviewCard({
           <button
             onClick={async () => {
               try {
-                const token = localStorage.getItem('session_token') || '';
-                const res = await axios.get(`${API_BASE}/api/connectors/canva/design-url?postContent=${encodeURIComponent(post.content)}&platform=${platform}`, {
-                  headers: { 'x-session-token': token },
-                });
+                const res = await api.get(`/api/connectors/canva/design-url?postContent=${encodeURIComponent(post.content)}&platform=${platform}`);
                 window.open(res.data.canvaUrl, '_blank');
               } catch {
                 window.open('https://www.canva.com/create/instagram-post/', '_blank');

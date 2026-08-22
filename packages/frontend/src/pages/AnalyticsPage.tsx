@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import {
   ChevronDown,
   ChevronRight,
@@ -31,8 +31,6 @@ import { useNavigate } from 'react-router-dom';
 import MarketingTimeMachine from '../components/intelligence/MarketingTimeMachine';
 import MarketingHistoryTimeline from '../components/intelligence/MarketingHistoryTimeline';
 import { useBrandStore } from '../stores/brandStore';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
 
 interface PostPerformanceData {
   totalPostsPublished: number;
@@ -109,22 +107,18 @@ export default function AnalyticsPage() {
     if (!selectedBrandId) return;
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
       const end = new Date();
       const start = subDays(end, parseInt(dateRange, 10));
 
       const [perfRes, upcomingRes, summaryRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/analytics/performance`, {
+        api.get('/api/analytics/performance', {
           params: { startDate: start.toISOString(), endDate: end.toISOString(), brandProfileId: selectedBrandId },
-          headers: { 'x-session-token': token },
         }),
-        axios.get(`${API_BASE}/api/analytics/upcoming`, {
+        api.get('/api/analytics/upcoming', {
           params: { brandProfileId: selectedBrandId },
-          headers: { 'x-session-token': token },
         }),
-        axios.get(`${API_BASE}/api/analytics/summary`, {
+        api.get('/api/analytics/summary', {
           params: { brandProfileId: selectedBrandId },
-          headers: { 'x-session-token': token },
         }).catch(() => null),
       ]);
 
@@ -136,17 +130,15 @@ export default function AnalyticsPage() {
       const periodLength = end.getTime() - start.getTime();
       const prevEnd = new Date(start.getTime() - 1);
       const prevStart = new Date(prevEnd.getTime() - periodLength);
-      const prevPerfRes = await axios.get(`${API_BASE}/api/analytics/performance`, {
+      const prevPerfRes = await api.get('/api/analytics/performance', {
         params: { startDate: prevStart.toISOString(), endDate: prevEnd.toISOString(), brandProfileId: selectedBrandId },
-        headers: { 'x-session-token': token },
       });
       setPrevPerformance(prevPerfRes.data);
 
       // Build postsWithMetrics from scheduled posts
       try {
-        const postsRes = await axios.get(`${API_BASE}/api/scheduled-posts`, {
+        const postsRes = await api.get('/api/scheduled-posts', {
           params: { brandProfileId: selectedBrandId, status: 'published' },
-          headers: { 'x-session-token': token },
         });
         const allPosts = Array.isArray(postsRes.data) ? postsRes.data : [];
         const recentPosts = allPosts.filter((p: UpcomingPost) => {
@@ -200,7 +192,6 @@ export default function AnalyticsPage() {
     if (!selectedBrandId) return;
     setIsGeneratingBrief(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
       const brandName = brandProfiles.find((b) => b.id === selectedBrandId)?.name || 'Your brand';
       const industry = brandProfiles.find((b) => b.id === selectedBrandId)?.industry || 'your industry';
       const reachChange = prevPerf.totalReach > 0
@@ -211,13 +202,12 @@ export default function AnalyticsPage() {
       const rateComparison = perf.avgEngagementRate > industryAvg ? 'above' : 'below';
       const bestPost = perf.byPlatform ? Object.entries(perf.byPlatform).sort((a, b) => b[1].engagements - a[1].engagements)[0] : null;
 
-      const res = await axios.get(`${API_BASE}/api/analytics/insights`, {
+      const res = await api.get('/api/analytics/insights', {
         params: {
           startDate: subDays(new Date(), parseInt(dateRange, 10)).toISOString(),
           endDate: new Date().toISOString(),
           brandProfileId: selectedBrandId,
         },
-        headers: { 'x-session-token': token },
       });
       const insightText = res.data.summary;
       const brief = `${brandName} had a ${sentiment} week on Instagram. You published ${perf.totalPostsPublished} posts and reached ${perf.totalReach.toLocaleString()} people. Your engagement rate was ${perf.avgEngagementRate.toFixed(1)}%, which is ${rateComparison} the industry average of ${industryAvg}% for ${industry}.${bestPost ? ` Your best performing platform was ${bestPost[0]} with ${bestPost[1].engagements} engagements.` : ''} ${insightText ? `Key insight: ${insightText.split('.')[0]}.` : ''}`;
@@ -751,16 +741,14 @@ export default function AnalyticsPage() {
 
   async function handleExportCsv() {
     try {
-      const token = localStorage.getItem('session_token') || '';
       const end = new Date();
       const start = subDays(end, parseInt(dateRange, 10));
-      const res = await axios.get(`${API_BASE}/api/analytics/export`, {
+      const res = await api.get('/api/analytics/export', {
         params: {
           startDate: start.toISOString(),
           endDate: end.toISOString(),
           brandProfileId: selectedBrandId || undefined,
         },
-        headers: { 'x-session-token': token },
         responseType: 'blob',
       });
       const url = window.URL.createObjectURL(new Blob([res.data]));
@@ -782,10 +770,8 @@ export default function AnalyticsPage() {
     setIsGeneratingReport(true);
     setShowReportModal(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/analytics/weekly-report`, {
+      const res = await api.get('/api/analytics/weekly-report', {
         params: { brandProfileId: selectedBrandId },
-        headers: { 'x-session-token': token },
       });
       setWeeklyReport(res.data);
     } catch (err) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 import {
   ArrowRight,
   Instagram,
@@ -62,7 +62,7 @@ export default function OnboardingConnectSocial({ onComplete }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    axios
+    api
       .get('/api/connectors/presets')
       .then((res) => setPresets(res.data.filter((p: Preset) => p.type === 'social')))
       .catch(() => setPresets([]));
@@ -72,7 +72,7 @@ export default function OnboardingConnectSocial({ onComplete }: Props) {
     setConnecting(preset.provider);
     setError(null);
     try {
-      const res = await axios.get('/api/auth/oauth/start', {
+      const res = await api.get('/api/auth/oauth/start', {
         params: { provider: preset.provider, connectorId: `${preset.provider}-${Date.now()}` },
       });
 

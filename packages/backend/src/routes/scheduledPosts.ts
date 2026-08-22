@@ -16,6 +16,21 @@ import { rewriteCaption, translateCaption } from '../services/captionHelperServi
 import { brandProfiles } from '../db/schema';
 import { formatError } from '../lib/errorFormatter';
 
+/**
+ * Normalize any client-supplied date to ISO-8601 UTC.
+ *
+ * The scheduler compares stored timestamps, so the column must hold one format.
+ * Naive strings from `<input type="datetime-local">` ("2026-08-22T14:30") are
+ * parsed as the user's local wall-clock time (per the JS Date spec) and stored
+ * as UTC — exactly what the user picked. Returns null when unparseable so the
+ * caller can reject the request instead of writing garbage.
+ */
+function toISODate(value: string): string | null {
+  const ms = new Date(value).getTime();
+  if (Number.isNaN(ms)) return null;
+  return new Date(ms).toISOString();
+}
+
 export default async function scheduledPostsRoutes(app: FastifyInstance) {
   // GET /api/scheduled-posts
   app.get('/api/scheduled-posts', async (request, reply) => {
@@ -98,6 +113,12 @@ export default async function scheduledPostsRoutes(app: FastifyInstance) {
 
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
+      const scheduledAtISO = toISODate(body.scheduledAt);
+      if (!scheduledAtISO) {
+        return reply.status(400).send({
+          error: 'scheduledAt must be a valid date (for example 2026-08-22T14:30)',
+        });
+      }
 
       // Build metadata including hashtag tiers and content type if provided
       const metadata: Record<string, unknown> = {};
@@ -117,7 +138,7 @@ export default async function scheduledPostsRoutes(app: FastifyInstance) {
         brandProfileId: body.brandProfileId,
         content: body.content,
         platform: body.platform,
-        scheduledAt: body.scheduledAt,
+        scheduledAt: scheduledAtISO,
         status: 'pending' as const,
         socialAccountId: body.socialAccountId || null,
         mediaUrlsJson: body.mediaUrls ? JSON.stringify(body.mediaUrls) : null,
@@ -157,9 +178,15 @@ export default async function scheduledPostsRoutes(app: FastifyInstance) {
     }
 
     const now = new Date().toISOString();
+    const scheduledAtISO = body.scheduledAt ? toISODate(body.scheduledAt) : undefined;
+    if (body.scheduledAt && !scheduledAtISO) {
+      return reply.status(400).send({
+        error: 'scheduledAt must be a valid date (for example 2026-08-22T14:30)',
+      });
+    }
 
-    if (body.scheduledAt && body.scheduledAt !== existing.scheduledAt) {
-      await schedulerService.reschedulePost(id, body.scheduledAt);
+    if (scheduledAtISO && scheduledAtISO !== existing.scheduledAt) {
+      await schedulerService.reschedulePost(id, scheduledAtISO);
     }
 
     await db

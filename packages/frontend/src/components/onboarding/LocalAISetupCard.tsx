@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 import { Cpu, Check, Loader2, RefreshCw, ExternalLink, XCircle } from 'lucide-react';
 
 interface OllamaStatus {
@@ -25,8 +25,8 @@ export default function LocalAISetupCard({ onComplete }: Props) {
     setError('');
     try {
       const [statusRes, existingRes] = await Promise.all([
-        axios.get('/api/connectors/ollama/status'),
-        axios.get('/api/connectors').catch(() => ({ data: [] as any[] })),
+        api.get('/api/connectors/ollama/status'),
+        api.get('/api/connectors').catch(() => ({ data: [] as any[] })),
       ]);
       const data: OllamaStatus = statusRes.data;
       const existing = (existingRes.data || []).some(
@@ -52,10 +52,10 @@ export default function LocalAISetupCard({ onComplete }: Props) {
     try {
       let connectorId: string | null = null;
       if (alreadyConnected) {
-        const res = await axios.get('/api/connectors');
+        const res = await api.get('/api/connectors');
         connectorId = (res.data || []).find((c: any) => c.provider === 'ollama')?.id || null;
       } else {
-        const createRes = await axios.post('/api/connectors', {
+        const createRes = await api.post('/api/connectors', {
           name: 'Ollama',
           type: 'llm',
           provider: 'ollama',
@@ -72,7 +72,7 @@ export default function LocalAISetupCard({ onComplete }: Props) {
         setError('Could not set up the local AI. Please try again.');
         return;
       }
-      const testRes = await axios.post(`/api/connectors/${connectorId}/test`);
+      const testRes = await api.post(`/api/connectors/${connectorId}/test`);
       if (testRes.data.success) {
         setTimeout(() => onComplete(), 600);
       } else {

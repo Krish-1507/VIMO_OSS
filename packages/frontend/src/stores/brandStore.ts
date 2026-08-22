@@ -44,7 +44,11 @@ export const useBrandStore = create<BrandState>((set, get) => ({
   },
 
   setSelectedId: (id: string) => {
-    localStorage.setItem('selectedBrandId', id);
+    try {
+      localStorage.setItem('selectedBrandId', id);
+    } catch {
+      // storage unavailable (private browsing) — in-memory only
+    }
     set({ selectedId: id });
   },
 

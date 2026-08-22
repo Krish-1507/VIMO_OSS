@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 import { Check, ExternalLink, HelpCircle, Sparkles, ChevronDown, Search, RefreshCw } from 'lucide-react';
 import HowToGetKeyModal from './HowToGetKeyModal';
 import LocalAISetupCard from './LocalAISetupCard';
@@ -33,7 +33,7 @@ export default function OnboardingLLMSetup({ onComplete }: Props) {
   const [modelSearch, setModelSearch] = useState('');
 
   useEffect(() => {
-    axios
+    api
       .get('/api/connectors/presets')
       .then((res) => setPresets(res.data.filter((p: Preset) => p.type === 'llm')))
       .catch(() => setPresets([]));
@@ -50,7 +50,7 @@ export default function OnboardingLLMSetup({ onComplete }: Props) {
     async function loadModels() {
       try {
         setModelsLoading(true);
-        const res = await axios.get('/api/connectors/llm-models', {
+        const res = await api.get('/api/connectors/llm-models', {
           params: { provider, apiKey: credentials.apiKey },
         });
         if (cancelled) return;
@@ -86,7 +86,7 @@ export default function OnboardingLLMSetup({ onComplete }: Props) {
       if (isDynamicProvider && selectedModel) {
         config.modelName = selectedModel;
       }
-      const createRes = await axios.post('/api/connectors', {
+      const createRes = await api.post('/api/connectors', {
         name: selected.name,
         type: 'llm',
         provider: selected.id.replace('preset-', ''),
@@ -94,7 +94,7 @@ export default function OnboardingLLMSetup({ onComplete }: Props) {
         config,
         credentials,
       });
-      const testRes = await axios.post(`/api/connectors/${createRes.data.id}/test`);
+      const testRes = await api.post(`/api/connectors/${createRes.data.id}/test`);
       if (testRes.data.success) {
         setTestResult('success');
         setTimeout(() => onComplete(), 600);

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import {
   Loader2,
   Music,
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react';
 import { socket } from '../../lib/socket';
 import { BACKEND_URL } from '../../config/backendPort';
+import api from '../../lib/api';
 import { useUIStore } from '../../stores/uiStore';
 
 const API_BASE = import.meta.env.VITE_API_URL || BACKEND_URL;
@@ -167,10 +167,7 @@ export default function HiggsfieldStudio() {
 
   const fetchBrandProfiles = async (): Promise<string> => {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/brand-profiles`, {
-        headers: { 'x-session-token': token },
-      });
+      const res = await api.get('/api/brand-profiles');
       const profiles = res.data.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }));
       return profiles[0]?.id ?? '';
     } catch {
@@ -180,10 +177,7 @@ export default function HiggsfieldStudio() {
 
   const fetchConnectorId = async (): Promise<string | null> => {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/connectors`, {
-        headers: { 'x-session-token': token },
-      });
+      const res = await api.get('/api/connectors');
       const hf = (res.data as any[]).find(
         (c: any) => c.provider === 'higgsfield' && c.status === 'active',
       );
@@ -196,10 +190,8 @@ export default function HiggsfieldStudio() {
   const fetchStylesForConnector = async (cId: string) => {
     setIsLoadingStyles(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/higgsfield/styles`, {
+      const res = await api.get('/api/higgsfield/styles', {
         params: { connectorId: cId },
-        headers: { 'x-session-token': token },
       });
       setStyles(Array.isArray(res.data) ? res.data : []);
     } catch {
@@ -213,10 +205,8 @@ export default function HiggsfieldStudio() {
     if (!bId) return;
     setIsLoadingJobs(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/higgsfield/jobs`, {
+      const res = await api.get('/api/higgsfield/jobs', {
         params: { brandProfileId: bId },
-        headers: { 'x-session-token': token },
       });
       setJobs(Array.isArray(res.data) ? res.data : []);
     } catch {
@@ -239,12 +229,9 @@ export default function HiggsfieldStudio() {
     }
     setUploadingRef(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
       const formData = new FormData();
       formData.append('file', file);
-      const res = await axios.post(`${API_BASE}/api/media/upload`, formData, {
-        headers: { 'x-session-token': token },
-      });
+      const res = await api.post('/api/media/upload', formData);
       setReferenceImageUrl(res.data.url);
       addNotification('success', 'Image uploaded', 'Reference image attached to generation.');
     } catch {
@@ -266,9 +253,8 @@ export default function HiggsfieldStudio() {
 
     setIsGenerating(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.post(
-        `${API_BASE}/api/higgsfield/generate`,
+      const res = await api.post(
+        '/api/higgsfield/generate',
         {
           prompt: prompt.trim(),
           aspectRatio,
@@ -278,7 +264,6 @@ export default function HiggsfieldStudio() {
           connectorId: connectorIdRef.current,
           brandProfileId: brandIdRef.current,
         },
-        { headers: { 'x-session-token': token } },
       );
       if (res.data?.jobId) {
         addNotification('info', 'Video queued', 'Your video is in the queue — you\'ll get a notification when it\'s ready.');

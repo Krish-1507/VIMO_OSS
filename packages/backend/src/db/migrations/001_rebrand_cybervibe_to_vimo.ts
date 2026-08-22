@@ -9,6 +9,16 @@
 
 import Database from 'better-sqlite3';
 
+// Allowlist validator for SQL identifiers used in DDL string interpolation.
+// Schema object names can never be parameterized, so we strictly validate them
+// instead of interpolating arbitrary input.
+function safeIdentifier(name: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Unsafe SQL identifier rejected: ${name}`);
+  }
+  return name;
+}
+
 export function migrateVibebranding(db: Database.Database): void {
   console.log('🔄 Running VIMO rebrand migration...');
   
@@ -33,7 +43,7 @@ export function migrateVibebranding(db: Database.Database): void {
       const newName = oldName.replace(/^cybervibe_/, 'vimo_');
       
       try {
-        db.exec(`ALTER TABLE "${oldName}" RENAME TO "${newName}"`);
+        db.exec(`ALTER TABLE "${safeIdentifier(oldName)}" RENAME TO "${safeIdentifier(newName)}"`);
         console.log(`  ✓ ${oldName} → ${newName}`);
       } catch (error) {
         console.warn(`  ⚠ Failed to rename ${oldName}: ${error}`);
@@ -108,7 +118,7 @@ export function rollbackVibebranding(db: Database.Database): void {
       const newName = oldName.replace(/^vimo_/, 'cybervibe_');
       
       try {
-        db.exec(`ALTER TABLE "${oldName}" RENAME TO "${newName}"`);
+        db.exec(`ALTER TABLE "${safeIdentifier(oldName)}" RENAME TO "${safeIdentifier(newName)}"`);
         console.log(`  ✓ ${oldName} → ${newName}`);
       } catch (error) {
         console.warn(`  ⚠ Failed to rename ${oldName}: ${error}`);

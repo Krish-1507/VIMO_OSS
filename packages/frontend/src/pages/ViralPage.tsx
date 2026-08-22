@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Loader2, Sparkles, Download, Calendar, Film } from 'lucide-react';
 import { socket } from '../lib/socket';
 import { useUIStore } from '../stores/uiStore';
 import { BACKEND_URL } from '../config/backendPort';
+import api from '../lib/api';
 import { useBrandStore } from '../stores/brandStore';
 
 const API_BASE = import.meta.env.VITE_API_URL || BACKEND_URL;
@@ -140,10 +140,7 @@ export default function ViralPage() {
 
   async function fetchJobs() {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const response = await axios.get(`${API_BASE}/api/viral/jobs`, {
-        headers: { 'x-session-token': token },
-      });
+      const response = await api.get('/api/viral/jobs');
       setJobs(response.data);
     } catch (err) {
       // ignore background refresh failures
@@ -174,12 +171,7 @@ export default function ViralPage() {
 
     setUploading(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const response = await axios.post(`${API_BASE}/api/viral/upload`, formData, {
-        headers: {
-          'x-session-token': token,
-        },
-      });
+      const response = await api.post('/api/viral/upload', formData);
       const jobId = response.data.jobId as string;
       setProgressByJob((current) => ({ ...current, [jobId]: 5 }));
       addNotification('success', 'Upload started', 'Viral Studio is transcribing and clipping your video.');

@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { BACKEND_URL } from '../config/backendPort';
 import { useUIStore } from '../stores/uiStore';
 import { useBrandStore } from '../stores/brandStore';
+import api from '../lib/api';
 import {
   MessageCircle,
   RefreshCw,
@@ -42,8 +41,6 @@ interface EngagementStats {
   purchaseEnquiries: number;
   autoReplied: number;
 }
-
-const API_BASE = import.meta.env.VITE_API_URL || BACKEND_URL;
 
 function getIntentInfo(metadataJson: string | null): { intent: string; label: string; color: string } | null {
   if (!metadataJson) return null;
@@ -117,10 +114,8 @@ export default function EngagementPage() {
   const fetchQueue = useCallback(async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/engagement/queue`, {
+      const res = await api.get('/api/engagement/queue', {
         params: { brandProfileId: selectedBrandId },
-        headers: { 'x-session-token': token },
       });
       setItems(res.data);
     } catch (err) {
@@ -132,10 +127,7 @@ export default function EngagementPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/engagement/stats`, {
-        headers: { 'x-session-token': token },
-      });
+      const res = await api.get('/api/engagement/stats');
       setStats(res.data);
     } catch (err) {
       console.error(err);
@@ -145,10 +137,7 @@ export default function EngagementPage() {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      await axios.post(`${API_BASE}/api/engagement/sync`, {}, {
-        headers: { 'x-session-token': token },
-      });
+      await api.post('/api/engagement/sync', {});
       fetchQueue();
       fetchStats();
       addNotification('success', 'Sync complete', 'Comments refreshed from Instagram.');
@@ -163,10 +152,7 @@ export default function EngagementPage() {
   const handleGenerateReply = async (id: string) => {
     setIsGeneratingReply(id);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      await axios.post(`${API_BASE}/api/engagement/${id}/generate-reply`, {}, {
-        headers: { 'x-session-token': token },
-      });
+      await api.post(`/api/engagement/${id}/generate-reply`, {});
       fetchQueue();
     } catch (err) {
       console.error(err);
@@ -177,10 +163,7 @@ export default function EngagementPage() {
 
   const handleApprove = async (id: string) => {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      await axios.post(`${API_BASE}/api/engagement/${id}/approve`, {}, {
-        headers: { 'x-session-token': token },
-      });
+      await api.post(`/api/engagement/${id}/approve`, {});
       fetchQueue();
       fetchStats();
       addNotification('success', 'Reply posted', 'Reply sent to Instagram.');
@@ -193,10 +176,7 @@ export default function EngagementPage() {
   const handleEditAndReply = async (id: string) => {
     if (!editText.trim()) return;
     try {
-      const token = localStorage.getItem('session_token') || '';
-      await axios.post(`${API_BASE}/api/engagement/${id}/edit-reply`, { replyText: editText }, {
-        headers: { 'x-session-token': token },
-      });
+      await api.post(`/api/engagement/${id}/edit-reply`, { replyText: editText });
       setEditingItemId(null);
       setEditText('');
       fetchQueue();
@@ -207,10 +187,7 @@ export default function EngagementPage() {
 
   const handleHide = async (id: string) => {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      await axios.post(`${API_BASE}/api/engagement/${id}/hide`, {}, {
-        headers: { 'x-session-token': token },
-      });
+      await api.post(`/api/engagement/${id}/hide`, {});
       fetchQueue();
       fetchStats();
     } catch (err) {
@@ -220,10 +197,7 @@ export default function EngagementPage() {
 
   const handleSkip = async (id: string) => {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      await axios.post(`${API_BASE}/api/engagement/${id}/skip`, {}, {
-        headers: { 'x-session-token': token },
-      });
+      await api.post(`/api/engagement/${id}/skip`, {});
       fetchQueue();
       fetchStats();
     } catch (err) {
@@ -234,10 +208,7 @@ export default function EngagementPage() {
   const handleUseTemplateReply = async (id: string) => {
     const templateReply = "Thanks for your interest! We'd love to help — send us a DM with your requirements and we'll get back to you with pricing and availability.";
     try {
-      const token = localStorage.getItem('session_token') || '';
-      await axios.post(`${API_BASE}/api/engagement/${id}/edit-reply`, { replyText: templateReply }, {
-        headers: { 'x-session-token': token },
-      });
+      await api.post(`/api/engagement/${id}/edit-reply`, { replyText: templateReply });
       fetchQueue();
     } catch (err) {
       console.error(err);

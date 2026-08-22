@@ -102,17 +102,10 @@ export default function SystemCheckPage() {
              return;
           }
 
-          // Auto-setup session so user lands on dashboard with onboarding overlay
-          try {
-            const autoPin = String(Math.floor(1000 + Math.random() * 9000));
-            await api.post('/api/auth/setup', { pin: autoPin });
-            const verifyRes = await api.post('/api/auth/verify', { pin: autoPin });
-            localStorage.setItem('session_token', verifyRes.data.token);
-            authState.setAuth(verifyRes.data.token);
-            window.location.href = '/dashboard';
-          } catch {
-            window.location.href = '/setup';
-          }
+          // First run: let the person choose their own PIN on the setup
+          // screen. Silently generating a random one they never see would lock
+          // them out of the app on the next launch.
+          window.location.href = '/setup';
         } else {
           setChecks(prev => ({ ...prev, encryption: { ...prev.encryption, status: 'fail', error: 'Your encryption key is not set. Open the .env file and change ENCRYPTION_KEY to any random 32-character string, then restart the app.' } }));
         }

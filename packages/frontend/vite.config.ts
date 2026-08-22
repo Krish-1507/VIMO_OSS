@@ -19,6 +19,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      // The frontend connects to the socket same-origin; forward the upgrade.
+      '/socket.io': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });

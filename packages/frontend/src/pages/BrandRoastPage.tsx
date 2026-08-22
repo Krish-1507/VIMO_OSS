@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import {
   Flame,
   ChevronDown,
@@ -15,8 +15,6 @@ import {
   TrendingUp,
   Sparkles,
 } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
 
 interface RoastItem {
   problem: string;
@@ -89,10 +87,7 @@ export default function BrandRoastPage() {
 
   const fetchBrandProfiles = useCallback(async () => {
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.get(`${API_BASE}/api/brand-profiles`, {
-        headers: { 'x-session-token': token },
-      });
+      const res = await api.get('/api/brand-profiles');
       const data = res.data.map((p: BrandProfile) => ({ id: p.id, name: p.name }));
       setBrandProfiles(data);
       if (data.length > 0 && !selectedBrandId) {
@@ -111,10 +106,8 @@ export default function BrandRoastPage() {
     if (!selectedBrandId) return;
     const checkRoast = async () => {
       try {
-        const token = localStorage.getItem('session_token') || '';
-        const res = await axios.get(`${API_BASE}/api/roast/latest`, {
+        const res = await api.get('/api/roast/latest', {
           params: { brandProfileId: selectedBrandId },
-          headers: { 'x-session-token': token },
         });
         if (res.data) {
           setRoast(res.data);
@@ -153,15 +146,14 @@ export default function BrandRoastPage() {
     setHasRoast(false);
     setRoastError('');
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await axios.post(
-        `${API_BASE}/api/roast/generate`,
+      const res = await api.post(
+        '/api/roast/generate',
         {
           brandProfileId: selectedBrandId,
           websiteUrl: websiteUrl || undefined,
           instagramHandle: instagramHandle || undefined,
         },
-        { headers: { 'x-session-token': token }, timeout: 90000 }
+        { timeout: 90000 }
       );
       setRoast(res.data);
       setHasRoast(true);

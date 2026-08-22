@@ -79,7 +79,7 @@ export default function Toast() {
   const removeNotification = useUIStore((s) => s.removeNotification);
 
   return (
-    <div className="fixed bottom-0 right-0 z-50 flex flex-col gap-2 pb-4 pr-4">
+    <div className="fixed bottom-0 right-0 z-50 flex flex-col gap-2 pb-4 pr-4" role="status" aria-live="polite">
       {notifications.map((n) => (
         <ToastItem key={n.id} notification={n} onDismiss={removeNotification} />
       ))}

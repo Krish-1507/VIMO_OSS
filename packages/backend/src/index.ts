@@ -7,6 +7,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import { Server } from 'socket.io';
 import { count as sqlCount, like } from 'drizzle-orm';
 import { db } from './db';
@@ -45,6 +46,7 @@ import webhookRoutes from './routes/webhooks';
 import knowledgeGraphRoutes from './routes/knowledgeGraph';
 import { requireAuth } from './middleware/auth';
 import { formatError } from './lib/errorFormatter';
+import { findFrontendDist, findRepoRoot } from './lib/staticFrontend';
 import { appSettings } from './db/schema';
 import { initScheduler } from './services/schedulerService';
 import { initViralStudioProcessing } from './services/viralStudioService';
@@ -74,8 +76,12 @@ let io: Server;
  * how every fresh clone ended up sharing one hardcoded key.
  */
 async function ensureEnvFile() {
-  const envPath = path.resolve(process.cwd(), '../../.env');
-  const examplePath = path.resolve(process.cwd(), '../../.env.example');
+  // Resolve relative to the repo root (found by walking up) so this works
+  // whether the server is started by `npm run dev` (cwd = packages/backend),
+  // by the built dist from an arbitrary cwd, or by the VIMO CLI.
+  const root = findRepoRoot() || path.resolve(process.cwd(), '../..');
+  const envPath = path.join(root, '.env');
+  const examplePath = path.join(root, '.env.example');
 
   if (!fs.existsSync(envPath) && fs.existsSync(examplePath)) {
     fs.copyFileSync(examplePath, envPath);
@@ -184,7 +190,14 @@ async function main() {
   // Only the pathname is logged; the query string is intentionally dropped because
   // provider callbacks (OAuth `code`, `access_token`, etc.) can carry secrets that
   // must never reach the logs.
+  // In production mode (the VIMO launcher) this stays quiet so end users see a
+  // clean terminal; developers get it automatically via NODE_ENV=development.
+  const verboseRequests = NODE_ENV === 'development' || process.env.LOG_LEVEL === 'debug';
   app.addHook('onResponse', (request, reply, done) => {
+    if (!verboseRequests) {
+      done();
+      return;
+    }
     const responseTime = reply.elapsedTime;
     const method = request.method;
     let pathname = '/';
@@ -200,6 +213,11 @@ async function main() {
 
   app.addHook('onRequest', async (request, reply) => {
     const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
+    // Static frontend assets and the SPA fallback carry no user data, so they
+    // are public. Authentication applies to API routes only.
+    if (!pathname.startsWith('/api')) {
+      return;
+    }
     if (
       pathname.startsWith('/api/auth') ||
       pathname.startsWith('/api/connectors/presets') ||
@@ -520,7 +538,38 @@ await app.register(webhookRoutes);
   // Set the app instance for shutdown handlers
   setAppInstance(app);
 
-  await app.listen({ port: finalPort, host: '0.0.0.0' });
+  // ── Single-port production mode ────────────────────────────────────────────
+  // When a built frontend exists (packages/frontend/dist), serve it from this
+  // same server. One port, one origin: no CORS, no proxy, no second process.
+  // The VIMO CLI uses this mode; `npm run dev` keeps the Vite dev server.
+  const frontendDist = findFrontendDist();
+  if (frontendDist) {
+    await app.register(fastifyStatic, {
+      root: frontendDist,
+      prefix: '/',
+      index: false,
+    });
+    // SPA fallback: any GET that isn't an API/socket route gets index.html so
+    // client-side routes like /dashboard survive a hard refresh.
+    app.setNotFoundHandler((request, reply) => {
+      const pathname = request.raw.url || '/';
+      if (
+        request.method === 'GET' &&
+        !pathname.startsWith('/api') &&
+        !pathname.startsWith('/socket.io')
+      ) {
+        return reply.sendFile('index.html');
+      }
+      return reply.status(404).send({ error: 'Not found' });
+    });
+    console.log(`[vimo] Frontend served from ${frontendDist}`);
+  }
+
+  // Local-first: bind to loopback unless HOST is set explicitly (e.g. Docker
+  // or a deliberate LAN deployment). VIMO holds encrypted credentials, so it
+  // should not be reachable from the network by accident.
+  const host = process.env.HOST || '127.0.0.1';
+  await app.listen({ port: finalPort, host });
   console.log(`VIMO backend running on port ${finalPort}`);
 }
 

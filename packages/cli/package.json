@@ -1,10 +1,11 @@
 {
-  "name": "vimo",
+  "name": "@vimo-oss/cli",
   "version": "2.0.0",
-  "description": "VIMO — one-command start for the VIMO marketing operations platform (runs the monorepo locally, no technical setup needed)",
+  "description": "VIMO — one-command start for the VIBE Marketing Operations platform. Installs, builds and launches VIMO locally; type `vimo` (or `VIMO`) anywhere to open it in your browser.",
   "license": "MIT",
   "bin": {
-    "vimo": "./bin/vimo.mjs"
+    "vimo": "./bin/vimo.mjs",
+    "VIMO": "./bin/vimo.mjs"
   },
   "files": [
     "bin"
@@ -22,6 +23,7 @@
     "marketing",
     "ai",
     "local",
-    "self-hosted"
+    "self-hosted",
+    "launcher"
   ]
 }

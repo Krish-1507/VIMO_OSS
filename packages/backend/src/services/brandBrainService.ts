@@ -4,10 +4,25 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { eq } from 'drizzle-orm';
 import { sanitizeUserInput } from '../lib/promptSanitizer';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const vectordb = require('vectordb');
 import { db } from '../db';
 import { brandProfiles, appSettings } from '../db/schema';
+
+/**
+ * LanceDB (`vectordb`) is a large native module. Loading it at import time
+ * slowed every server start and made the whole app fail if the native binary
+ * was unavailable — even though the vector store is only needed when brand
+ * examples are actually indexed or searched. Load it on first use instead.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let vectordbModule: any = null;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+function getVectorDb(): any {
+  if (!vectordbModule) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    vectordbModule = require('vectordb');
+  }
+  return vectordbModule;
+}
 
 const VECTOR_DB_DIR = path.resolve(process.cwd(), './data/vectors');
 
@@ -104,7 +119,7 @@ function getTableName(brandProfileId: string) {
 
 export async function initVectorStore(brandProfileId: string): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sqliteVec: any = await (vectordb as unknown as { connect: (dir: string) => Promise<unknown> }).connect(VECTOR_DB_DIR);
+  const sqliteVec: any = await (getVectorDb() as unknown as { connect: (dir: string) => Promise<unknown> }).connect(VECTOR_DB_DIR);
   const tableName = getTableName(brandProfileId);
   try {
     await sqliteVec.table(tableName);
@@ -154,7 +169,7 @@ Text: "${escapeDoubleQuotes(text)}"`;
 export async function addExampleToVectorStore(brandProfileId: string, examplePost: string): Promise<void> {
   const vector = await createEmbedding(examplePost);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sqliteVec: any = await (vectordb as unknown as { connect: (dir: string) => Promise<unknown> }).connect(VECTOR_DB_DIR);
+  const sqliteVec: any = await (getVectorDb() as unknown as { connect: (dir: string) => Promise<unknown> }).connect(VECTOR_DB_DIR);
   const tableName = getTableName(brandProfileId);
   let tbl;
   try {
@@ -169,7 +184,7 @@ export async function addExampleToVectorStore(brandProfileId: string, examplePos
 
 export async function getRelevantExamples(brandProfileId: string, topic: string, limit = 3): Promise<string[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sqliteVec: any = await (vectordb as unknown as { connect: (dir: string) => Promise<unknown> }).connect(VECTOR_DB_DIR);
+  const sqliteVec: any = await (getVectorDb() as unknown as { connect: (dir: string) => Promise<unknown> }).connect(VECTOR_DB_DIR);
   const tableName = getTableName(brandProfileId);
   let tbl;
   try {

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { Queue, Worker, Job } from 'bullmq';
-import { eq } from 'drizzle-orm';
+import { eq, and, lt } from 'drizzle-orm';
 import { db } from '../db';
 import { scheduledPosts, appSettings, connectors } from '../db/schema';
 import { publishToPlatform } from './publishService';
@@ -163,7 +163,6 @@ export async function initScheduler(): Promise<void> {
 
     if (!fallbackInterval) {
       fallbackInterval = setInterval(async () => {
-        const now = new Date().toISOString();
         const pending = await db
           .select()
           .from(scheduledPosts)
@@ -171,7 +170,10 @@ export async function initScheduler(): Promise<void> {
           .all();
 
         for (const post of pending) {
-          if (post.scheduledAt <= now) {
+          // Compare parsed timestamps (not strings) so naive legacy values
+          // like "2026-08-22T14:30" are handled correctly.
+          const dueMs = new Date(post.scheduledAt).getTime();
+          if (!Number.isNaN(dueMs) && dueMs <= Date.now()) {
             await processPost({
               id: post.id,
               brandProfileId: post.brandProfileId,
@@ -210,6 +212,36 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
 
     if (row.status !== 'pending') {
       return;
+    }
+
+    // Never publish early. If a rescue pass or duplicate queue job reaches a
+    // post whose time is still in the future, re-arm it for the right moment
+    // and stop. This is the last line of defense after the rescue query filter.
+    const dueMs = new Date(row.scheduledAt).getTime();
+    if (!Number.isNaN(dueMs)) {
+      const untilDue = dueMs - Date.now();
+      if (untilDue > 90_000) {
+        if (!isFallbackMode && queue) {
+          await queue.add(
+            'publish',
+            {
+              id: postId,
+              brandProfileId: row.brandProfileId,
+              content: row.content,
+              platform: post.platform,
+              scheduledAt: row.scheduledAt,
+              campaignId: row.campaignId,
+              mediaUrls: row.mediaUrlsJson ? JSON.parse(row.mediaUrlsJson) : [],
+              metadata: row.metadataJson ? JSON.parse(row.metadataJson) : {},
+            },
+            { delay: untilDue },
+          );
+        }
+        console.log(
+          `[Scheduler] Post ${postId} is scheduled for ${row.scheduledAt}; not publishing early.`,
+        );
+        return;
+      }
     }
 
     // First, check approval before publishing
@@ -659,14 +691,20 @@ export function getSchedulerStatus(): { mode: string } {
 export async function rescueMissedPosts(): Promise<void> {
   try {
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    // Only posts whose time has actually passed are rescued. Filtering here
+    // (not just in JS) matters: without it, every restart re-enqueued ALL
+    // pending posts — including ones scheduled days in the future — and
+    // published them early.
     const toRescue = await db
       .select()
       .from(scheduledPosts)
       .where(
-        eq(scheduledPosts.status, 'pending')
+        and(
+          eq(scheduledPosts.status, 'pending'),
+          lt(scheduledPosts.scheduledAt, fiveMinAgo),
+        ),
       )
       .all();
-    // Filter in JS since we only need scheduledAt < fiveMinAgo
 
     if (toRescue.length === 0) return;
 
