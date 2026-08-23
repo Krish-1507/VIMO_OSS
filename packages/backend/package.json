@@ -1,6 +1,6 @@
 {
   "name": "@vimo/backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
