@@ -1,6 +1,5 @@
 ---
 "@vimo-oss/cli": patch
-"vimo": minor
 ---
 
 Production launch path + installer hardening.

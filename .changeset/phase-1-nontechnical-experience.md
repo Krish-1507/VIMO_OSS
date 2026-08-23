@@ -1,5 +1,5 @@
 ---
-"vimo": minor
+"@vimo-oss/cli": minor
 "@vimo/backend": minor
 "@vimo/frontend": minor
 ---
