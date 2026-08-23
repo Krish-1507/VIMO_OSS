@@ -210,9 +210,16 @@ function findTar() {
 
 function runLive(cmd, cmdArgs, opts, label) {
   log(label);
-  const res = spawnSync(cmd, cmdArgs, { stdio: 'inherit', ...opts });
+  // shell:true is REQUIRED on Windows for .cmd shims like npm.cmd: since
+  // Node 18.20/20.12 (CVE-2024-27980) spawning a .cmd/.bat without a shell
+  // throws EINVAL, which used to abort the first-run installer instantly.
+  const res = spawnSync(cmd, cmdArgs, { stdio: 'inherit', shell: isWindows(), ...opts });
+  if (res.error) {
+    console.error(`[vimo] Could not start ${cmd}: ${res.error.message}`);
+  }
   if (res.status !== 0 || res.error) {
-    fail(`${label.replace(/\.\.\.$/, '')} didn't finish. Check the messages above, then run \`vimo\` again.`);
+    const step = label.replace(/…$/, '').replace(/\.\.\.$/, '');
+    fail(`${step} didn't finish. Check the messages above, then run \`vimo\` again.`);
   }
 }
 

@@ -54,13 +54,13 @@ export function findRepoRoot(): string | null {
   const starts = [__dirname, process.cwd()];
   for (const start of starts) {
     for (const dir of walkUp(start)) {
+      const pkgPath = path.join(dir, 'package.json');
+      if (!fs.existsSync(pkgPath)) continue;
       try {
-        const pkg = JSON.parse(
-          fs.readFileSync(path.join(dir, 'package.json'), 'utf8'),
-        );
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
         if (pkg.name === 'vimo') return dir;
       } catch (err) {
-        // No package.json here, or not valid JSON — keep walking up.
+        // Malformed package.json above the app — not ours to fix, keep walking.
         console.warn('[vimo] skipping unreadable package.json during root search:', err);
       }
     }
