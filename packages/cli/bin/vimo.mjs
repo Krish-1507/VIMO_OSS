@@ -66,35 +66,64 @@ const CYAN = '\x1b[36m';
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
 const RED = '\x1b[31m';
+const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
 const RESET = '\x1b[0m';
 
+// Colors are for humans looking at a terminal. When output is piped to a file
+// or the user asked for no color, fall back to clean plain text.
+const colorEnabled =
+  !process.env.NO_COLOR && (process.stdout.isTTY || process.stderr.isTTY);
+function paint(code, text) {
+  return colorEnabled ? `${code}${text}${RESET}` : text;
+}
+
 function log(msg) {
-  console.log(`${CYAN}[vimo]${RESET} ${msg}`);
+  console.log(`${paint(CYAN, '[vimo]')} ${msg}`);
 }
 function ok(msg) {
-  console.log(`${GREEN}[vimo]${RESET} ${msg}`);
+  console.log(`${paint(GREEN, '[vimo]')} ${msg}`);
 }
 function warn(msg) {
-  console.warn(`${YELLOW}[vimo]${RESET} ${msg}`);
+  console.warn(`${paint(YELLOW, '[vimo]')} ${msg}`);
 }
 function fail(msg) {
-  console.error(`\n${RED}[vimo] ${msg}${RESET}`);
+  console.error(`\n${paint(RED, '[vimo] ' + msg)}`);
   process.exit(1);
 }
 
+/**
+ * Startup banner.
+ *
+ * "ANSI Shadow" block letterforms spelling V I M O with a per-line
+ * aqua → deep-blue gradient. Block/box glyphs (█ ╗ ║ ╚ ─ …) render correctly
+ * in Windows Terminal, VS Code, iTerm2 and classic conhost (Node writes them
+ * through WriteConsoleW), so they are safe everywhere this CLI runs.
+ */
 function printBanner() {
-  // Hand-set block letters spelling V I M O (verified in monospace).
+  const LOGO = [
+    '██╗   ██╗ ██╗ ███╗   ███╗  ██████╗ ',
+    '██║   ██║ ██║████╗ ████║ ██╔═══██╗',
+    '██║   ██║ ██║██╔████╔██║ ██║   ██║',
+    '╚██╗ ██╔╝ ██║██║╚██╔╝██║ ██║   ██║',
+    ' ╚████╔╝  ██║██║ ╚═╝ ██║ ╚██████╔╝',
+    '  ╚═══╝   ╚═╝╚═╝     ╚═╝  ╚═════╝ ',
+  ];
+  // 256-color ramp: bright aqua fading into deep blue, top to bottom.
+  const GRADIENT = [87, 81, 75, 69, 62, 56];
+
+  console.log('');
+  LOGO.forEach((line, i) => {
+    console.log(' ' + paint(`\x1b[38;5;${GRADIENT[i]}m`, line));
+  });
+  console.log('');
   console.log(
-    `\n${CYAN}` +
-      '__   __   _    __  __   ___  \n' +
-      '\\ \\ / /  | |  |  \\/  | / _ \\ \n' +
-      ' \\ V /   | |  | |\\/| | | (_) |\n' +
-      '  \\_/   |_|  |_|  |_|  \\___/ \n' +
-      `${RESET}`,
+    `  ${paint(BOLD + GREEN, 'VIMO OSS')}  ${paint(DIM, '·  Vibe Marketing Operations  ·  v' + pkgVersion)}${colorEnabled ? RESET : ''}`,
   );
-  console.log(`  ${GREEN}VIMO OSS${RESET} ${DIM}- Vibe Marketing Operations - v${pkgVersion}${RESET}\n`);
-  console.log('  Your marketing operations app is starting up.\n');
+  console.log(
+    `  ${paint(DIM, 'Your brand, on autopilot — local-first, open-source.')}`,
+  );
+  console.log('');
 }
 
 /* -------------------------------------------------------------------------- */
@@ -546,16 +575,16 @@ function doctor() {
   }
   push('Security key configured', keyOk, keyOk ? '' : 'created automatically on first start');
 
-  console.log(`\n${CYAN}[vimo]${RESET} Environment check:\n`);
+  console.log(`\n${paint(CYAN, '[vimo]')} Environment check:`);
   for (const r of results) {
-    const mark = r.good ? `${GREEN}OK${RESET}` : `${YELLOW}--${RESET}`;
+    const mark = r.good ? paint(GREEN, 'OK') : paint(YELLOW, '--');
     console.log(`  ${mark}  ${r.name.padEnd(24)} ${r.note || ''}`);
   }
   const blockers = results.filter((r) => !r.good);
   if (blockers.length) {
-    console.log(`\nItems marked "${YELLOW}--${RESET}" are fixed automatically the first time you run \`vimo\`.`);
+    console.log(`\nItems marked "${paint(YELLOW, '--')}" are fixed automatically the first time you run \`vimo\`.`);
   } else {
-    console.log(`\n${GREEN}Everything looks good — just type \`vimo\` to start.${RESET}`);
+    console.log(`\n${paint(GREEN, 'Everything looks good — just type `vimo` to start.')}`);
   }
   process.exit(0);
 }
@@ -618,8 +647,8 @@ async function main() {
     if (!exiting) {
       exiting = true;
       if (code && code !== 0) {
-        console.error(`\n${RED}[vimo] VIMO stopped unexpectedly (code ${code}).${RESET}`);
-        console.error(`${RED}[vimo] Try \`vimo --reset\`, or run \`vimo doctor\` for a health check.${RESET}`);
+        console.error(`\n${paint(RED, '[vimo] VIMO stopped unexpectedly (code ' + code + ').')}`);
+        console.error(paint(RED, '[vimo] Try `vimo --reset`, or run `vimo doctor` for a health check.'));
       }
       process.exit(code ?? 0);
     }
@@ -635,17 +664,18 @@ async function main() {
     process.exit(1);
   }
 
+  const line = paint(DIM, '─'.repeat(52));
   console.log(`
-──────────────────────────────────────────────
-  ${GREEN}VIMO is ready! (${seconds}s)${RESET}
+${line}
+  ${paint(BOLD + GREEN, `VIMO is ready! (${seconds}s)`)}
 
-  Open:   ${url}
-  Stop:   press Ctrl+C in this window
-  Data:   ${managedHome ? path.join(repo, 'data') : path.join(repo, 'data')}
-  Update: run \`vimo --update\`
+  ${paint(DIM, 'Open:  ')} ${url}
+  ${paint(DIM, 'Stop:  ')} press Ctrl+C in this window
+  ${paint(DIM, 'Data:  ')} ${path.join(repo, 'data')}
+  ${paint(DIM, 'Update:')} run \`vimo --update\`
 
-  Next time, just type ${CYAN}vimo${RESET}.
-──────────────────────────────────────────────
+  Next time, just type ${paint(BOLD + CYAN, 'vimo')}.
+${line}
 `);
 
   if (!noOpen) openBrowser(url);
