@@ -1,5 +1,11 @@
 # @vimo-oss/cli
 
+## 2.2.2
+
+### Patch Changes
+
+- da69a72: Fix the first-run installer failing instantly on Windows ("Installing components didn't finish"): spawning npm.cmd now uses a shell as required by Node >= 18.20. Also quiets harmless startup warnings and clarifies installer error text.
+
 ## 2.2.1
 
 ### Patch Changes
