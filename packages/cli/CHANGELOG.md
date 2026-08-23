@@ -1,5 +1,11 @@
 # @vimo-oss/cli
 
+## 2.2.0
+
+### Minor Changes
+
+- 8f2ceec: Rename the npm package from `@vimo-oss/cli` to **`vimo-oss`** (unscoped) so it can be installed with `npm i -g vimo-oss`. Commands stay `vimo` / `VIMO`.
+
 ## 2.1.0
 
 ### Minor Changes
