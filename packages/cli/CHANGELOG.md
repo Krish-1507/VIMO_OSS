@@ -1,0 +1,36 @@
+# @vimo-oss/cli
+
+## 2.1.0
+
+### Minor Changes
+
+- eb99a07: Phase 1 — make VIMO usable by a non-technical person.
+
+  - **One-command start** — new `packages/cli` package with a `vimo` binary. `npm i -g vimo` then
+    `vimo` clones/installs/starts the app and opens the browser (no technical setup). First run
+    downloads VIMO to `~/.vimo`; `--repo`, `--port`, `--no-open`, `--reset`, `--version`, `--help`
+    supported. Root `npm run vimo` runs it from a checkout too.
+  - **Local AI auto-detect + one-click setup** — new `GET /api/connectors/ollama/status` pings a
+    local Ollama install (1.5s timeout, auth-free for onboarding) and returns its model list with a
+    sensible default model. Onboarding now shows a "Found a free AI on this computer" card:
+    one click connects, tests, and moves on — or links to the Ollama installer and re-checks when
+    offline. The connector test endpoint now verifies Ollama honestly (pings the server instead of
+    requiring a key) and fails with a plain-English message when it's not running.
+  - **Working getting-started checklist** — the first step pointed at a `/brand` route that didn't
+    exist (404). New `BrandPage` reuses the brand-setup form and the route is registered, so all
+    three checklist steps now land on working pages.
+  - **Plain-English sweep** — onboarding AI copy ("AI provider" → "uses AI to write your content",
+    "Enter your API key below" → "Paste your key below"), the key-getting modal title, and a
+    technical toast in Video Studio ("Job <id>... queued" → plain wording) rewritten for
+    non-technical users.
+
+### Patch Changes
+
+- d0d4d14: Production launch path + installer hardening.
+
+  - Single-port production mode: the backend serves the built frontend (same origin), so `npm run build:app` + `npm run start:app` (and the launcher) need only one process and one port.
+  - CLI renamed to `@vimo-oss/cli` (the `vimo` npm name belongs to an unrelated package); installs now provide both `vimo` and `VIMO` commands; downloads a tarball instead of requiring git; probes free ports; `--update`, `--doctor` flags.
+  - Scheduler: restart no longer publishes future-dated posts early (rescue query filters by time, plus a not-due guard in processPost).
+  - Auth: `/api/auth/setup` can no longer overwrite an existing PIN unauthenticated; reset codes are returned inline only to loopback requests; server binds to `127.0.0.1` unless `HOST` is set.
+  - First run: the system check sends new users to the PIN setup screen instead of silently generating a PIN they never see.
+  - Frontend: all API calls go through the shared client (session + CSRF headers everywhere); automatic session renewal with transparent retry on 401; demo mode immune to login redirects.
