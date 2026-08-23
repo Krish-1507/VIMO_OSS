@@ -1,4 +1,4 @@
-# @vimo-oss/cli — one-command VIMO
+# vimo-oss — one-command VIMO
 
 VIMO is a marketing-operations platform with its own AI. This package is a thin
 launcher that installs and runs VIMO locally so anyone can start it without
@@ -7,7 +7,7 @@ knowing how the pieces fit together. No git, no build tools, no API keys.
 ## Quick start
 
 ```bash
-npm i -g @vimo-oss/cli
+npm i -g vimo-oss
 vimo
 ```
 

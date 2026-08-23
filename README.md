@@ -131,7 +131,7 @@ You don't need a single API key to see VIMO work.
 ### Easiest: one command
 
 ```bash
-npm i -g @vimo-oss/cli
+npm i -g vimo-oss
 vimo
 ```
 

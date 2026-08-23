@@ -20,7 +20,7 @@ You stay in control the whole time. VIMO only does what you approve.
 ### One-command start (no technical knowledge needed)
 
 ```bash
-npm i -g @vimo-oss/cli
+npm i -g vimo-oss
 vimo
 ```
 
