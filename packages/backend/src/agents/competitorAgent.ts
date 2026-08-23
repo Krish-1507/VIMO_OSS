@@ -13,7 +13,7 @@ import { db } from '../db';
 import { competitorProfiles, competitorSnapshots, trendSignals, brandProfiles, agentLogs } from '../db/schema';
 import { getActiveLLMProvider } from '../lib/llmProvider';
 import { callLLMWithFallback } from '../lib/llmErrorHandler';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -250,7 +250,7 @@ Return JSON:
     }
 
     // Emit socket event
-    io.emit('competitors:analyzed', {
+    emitToClients('competitors:analyzed', {
       brandProfileId,
       analyzedCount,
     });

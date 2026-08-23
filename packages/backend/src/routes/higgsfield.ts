@@ -9,7 +9,7 @@ import * as credentialStore from '../lib/credentialStore';
 import { listStylesWithCache } from '../services/higgsfieldService';
 import { createHiggsfieldJob, getHiggsfieldJobStatus } from '../connectors/native/higgsfieldNative';
 import { higgsfieldJobs } from '../db/schema';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 const JOB_DIR = path.resolve(process.cwd(), './data/higgsfield');
 
@@ -80,7 +80,7 @@ export default async function higgsfieldRoutes(app: FastifyInstance) {
           completedAt: undefined,
         });
 
-      io.emit('higgsfield:job_started', { jobId: localRowId });
+      emitToClients('higgsfield:job_started', { jobId: localRowId });
 
       setImmediate(async () => {
         try {
@@ -97,7 +97,7 @@ export default async function higgsfieldRoutes(app: FastifyInstance) {
             .where(eq(higgsfieldJobs.id, localRowId))
             .run();
 
-          io.emit('higgsfield:complete', { jobId: localRowId, error: message });
+          emitToClients('higgsfield:complete', { jobId: localRowId, error: message });
         }
       });
 
@@ -206,7 +206,7 @@ async function processHiggsfieldJob(params: { jobId: string; apiKey: string }) {
   while (true) {
     const status = await getHiggsfieldJobStatus({ apiKey, jobId: remoteJobId });
 
-    io.emit('higgsfield:progress', {
+    emitToClients('higgsfield:progress', {
       jobId: localRowId,
       status: status.status,
       progressPercent: (status as any).progressPercent ?? undefined,
@@ -236,7 +236,7 @@ async function processHiggsfieldJob(params: { jobId: string; apiKey: string }) {
         .where(eq(higgsfieldJobs.id, localRowId))
         .run();
 
-      io.emit('higgsfield:complete', {
+      emitToClients('higgsfield:complete', {
         jobId: localRowId,
         localVideoPath,
         thumbnailUrl: status.thumbnailUrl ?? undefined,
@@ -258,7 +258,7 @@ async function processHiggsfieldJob(params: { jobId: string; apiKey: string }) {
         .where(eq(higgsfieldJobs.id, localRowId))
         .run();
 
-      io.emit('higgsfield:complete', { jobId: localRowId, error: message });
+      emitToClients('higgsfield:complete', { jobId: localRowId, error: message });
       return;
     }
 
@@ -274,7 +274,7 @@ async function processHiggsfieldJob(params: { jobId: string; apiKey: string }) {
         .where(eq(higgsfieldJobs.id, localRowId))
         .run();
 
-      io.emit('higgsfield:complete', { jobId: localRowId, error: message });
+      emitToClients('higgsfield:complete', { jobId: localRowId, error: message });
       return;
     }
 

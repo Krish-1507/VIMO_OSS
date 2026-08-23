@@ -14,7 +14,7 @@ import { db } from '../db';
 import { trendSignals, brandProfiles, agentLogs } from '../db/schema';
 import { getActiveLLMProvider } from '../lib/llmProvider';
 import { callLLMWithFallback } from '../lib/llmErrorHandler';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -250,7 +250,7 @@ Return JSON array with:
     }
 
     // Emit socket event
-    io.emit('opportunities:found', { count: insertedCount });
+    emitToClients('opportunities:found', { count: insertedCount });
 
     console.log(`[OpportunityAgent] Inserted ${insertedCount} new opportunity signals.`);
 

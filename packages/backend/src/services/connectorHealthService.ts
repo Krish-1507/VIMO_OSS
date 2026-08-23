@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
 import * as credentialStore from '../lib/credentialStore';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 import cron from 'node-cron';
 import axios from 'axios';
 import { refreshAccessToken, isOAuthProvider, MANAGED_PROVIDERS } from '../lib/oauthManager';
@@ -64,8 +64,7 @@ async function tryRefreshOAuthToken(connectorId: string, provider: string): Prom
       if (expiresAt <= notificationDays && !isManaged) {
         // Guided provider within 30 days — emit notification
         try {
-          const { io } = await import('../index');
-          io.emit('connector:needs_attention', {
+          emitToClients('connector:needs_attention', {
             connectorId,
             reason: `Token expires in ${Math.ceil((expiresAt - Date.now()) / (1000 * 60 * 60 * 24))} days. Please reconnect.`,
             type: 'token_expiring',
@@ -139,7 +138,7 @@ async function checkInstagramConnector(connectorId: string): Promise<void> {
     const accessToken = await credentialStore.getCredential(connectorId, 'accessToken');
     if (!accessToken) {
       await updateConnectorStatus(connectorId, 'inactive', 'No access token');
-      io.emit('connector:needs_attention', { connectorId, reason: 'No access token configured' });
+      emitToClients('connector:needs_attention', { connectorId, reason: 'No access token configured' });
       return;
     }
 
@@ -152,10 +151,10 @@ async function checkInstagramConnector(connectorId: string): Promise<void> {
     // Error 190 = invalid/expired token
     if (msg.includes('190') || msg.includes('expired') || msg.includes('invalid')) {
       await updateConnectorStatus(connectorId, 'inactive', msg);
-      io.emit('connector:needs_attention', { connectorId, reason: 'Instagram token has expired. Please reconnect.' });
+      emitToClients('connector:needs_attention', { connectorId, reason: 'Instagram token has expired. Please reconnect.' });
     } else {
       await updateConnectorStatus(connectorId, 'error', msg);
-      io.emit('connector:needs_attention', { connectorId, reason: msg });
+      emitToClients('connector:needs_attention', { connectorId, reason: msg });
     }
   }
 }

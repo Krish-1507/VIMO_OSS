@@ -4,6 +4,7 @@ import { db } from '../db';
 import { opportunities } from '../db/schema';
 import { getEffectiveBrandProfileId } from '../services/brandBrainService';
 import { formatError } from '../lib/errorFormatter';
+import { emitToClients } from '../lib/realtime';
 
 export default async function opportunityRoutes(app: FastifyInstance) {
   // GET /api/opportunities — all non-acted-on opportunities for current brand
@@ -115,10 +116,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           // Emit socket events for approved requests (requires approvalService)
           try {
             const { executeApprovedRequest } = await import('../services/approvalService');
-            const { io } = await import('../index');
             for (const a of pendingApprovals) {
               await executeApprovedRequest(a.id);
-              io?.emit('approval:executed', {
+              emitToClients('approval:executed', {
                 approvalRequestId: a.id,
                 requestType: a.requestType,
               });

@@ -9,7 +9,7 @@ import { addPerformanceLesson } from './brandMemoryService';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
 import * as credentialStore from '../lib/credentialStore';
 import * as instagramHandler from '../connectors/handlers/instagramHandler';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 export interface ScheduledPost {
   id?: string;
@@ -140,7 +140,7 @@ export async function initScheduler(): Promise<void> {
             .where(eq(scheduledPosts.id, post.id))
             .run();
 
-          io.emit('post:failed_permanently', {
+          emitToClients('post:failed_permanently', {
             postId: post.id,
             content: post.content,
             platform: post.platform,
@@ -442,7 +442,7 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
         console.warn('[Scheduler] Failed to record brand memory lesson:', (memErr as Error).message);
       }
 
-      io.emit('post:published', {
+      emitToClients('post:published', {
         ...row,
         status: 'published',
         metadataJson: JSON.stringify(metadata),
@@ -518,7 +518,7 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
           .where(eq(scheduledPosts.id, postId))
           .run();
 
-        io.emit('post:rescheduled', {
+        emitToClients('post:rescheduled', {
           postId,
           newScheduledAt: oneHourLater,
           reason: 'rate_limit',
@@ -534,7 +534,7 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
 
         if (instagramConnector) {
           await registry.setStatus(instagramConnector.id, 'error');
-          io.emit('connector:token_expired', {
+          emitToClients('connector:token_expired', {
             connectorId: instagramConnector.id,
             platform: 'instagram',
           });
@@ -553,7 +553,7 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
           .where(eq(scheduledPosts.id, postId))
           .run();
 
-        io.emit('post:failed', {
+        emitToClients('post:failed', {
           postId,
           error: errorMsg,
         });
@@ -572,7 +572,7 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
           .where(eq(scheduledPosts.id, postId))
           .run();
 
-        io.emit('post:failed', {
+        emitToClients('post:failed', {
           postId,
           error: errorMsg,
         });
@@ -590,7 +590,7 @@ async function processPost(post: ScheduledPost & { id?: string }): Promise<void>
       .where(eq(scheduledPosts.id, postId))
       .run();
 
-    io.emit('post:failed', {
+    emitToClients('post:failed', {
       postId,
       error: err instanceof Error ? err.message : 'Unknown error',
     });

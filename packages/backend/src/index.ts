@@ -47,6 +47,7 @@ import knowledgeGraphRoutes from './routes/knowledgeGraph';
 import { requireAuth } from './middleware/auth';
 import { formatError } from './lib/errorFormatter';
 import { findFrontendDist, findRepoRoot } from './lib/staticFrontend';
+import { setSocketServer, getSocketServer } from './lib/realtime';
 import { appSettings } from './db/schema';
 import { initScheduler } from './services/schedulerService';
 import { initViralStudioProcessing } from './services/viralStudioService';
@@ -64,8 +65,6 @@ import activityRoutes from './routes/activity';
 import connectionsRoutes from './routes/connections';
 import packConnectionsRoutes from './routes/packConnections';
 import cron from 'node-cron';
-
-let io: Server;
 
 /**
  * Ensure a `.env` exists, seeded from `.env.example`.
@@ -130,13 +129,16 @@ async function main() {
     logger: NODE_ENV === 'development',
   });
 
-  io = new Server(app.server, {
+  const socketServer = new Server(app.server, {
     cors: {
       origin: [FRONTEND_URL, FRONTEND_URL_ALT],
     },
   });
+  // Services get the socket through lib/realtime instead of importing this
+  // entrypoint (which used to boot the whole app inside unit tests).
+  setSocketServer(socketServer);
 
-  io.on('connection', (socket) => {
+  socketServer.on('connection', (socket) => {
     app.log.info(`Socket client connected: ${socket.id}`);
     socket.emit('welcome', { message: 'VIMO backend connected' });
   });
@@ -642,9 +644,7 @@ function setupShutdownHandlers(getApp: () => FastifyInstance | null): void {
 
       // 5. Close Socket.IO
       try {
-        if (io) {
-          io.close();
-        }
+        getSocketServer()?.close();
       } catch (err) {
         // Socket may not be available
         console.warn('[vimo] best-effort operation failed:', err);
@@ -668,6 +668,4 @@ export function setAppInstance(app: FastifyInstance): void {
   _getApp = () => app;
 }
 setupShutdownHandlers(() => _getApp());
-
-export { io };
 

@@ -10,7 +10,7 @@ import { db } from '../db';
 import { connectors, viralJobs, appSettings } from '../db/schema';
 import { callWithProviderChain } from '../lib/llmProvider';
 import * as credentialStore from '../lib/credentialStore';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ffmpeg = require('fluent-ffmpeg') as any;
@@ -212,7 +212,7 @@ async function logViralStatus(params: {
 }
 
 function emitProgress(jobId: string, status: ViralJobStatus, progress: number, message: string) {
-  io.emit('viral:progress', {
+  emitToClients('viral:progress', {
     jobId,
     status,
     progress,
@@ -405,7 +405,7 @@ async function runViralProcessingJob(jobData: ViralProcessingJobData): Promise<v
       clips,
     });
 
-    io.emit('viral:complete', {
+    emitToClients('viral:complete', {
       jobId,
       status: 'completed',
       videoPath: videoFilePath,
@@ -418,7 +418,7 @@ async function runViralProcessingJob(jobData: ViralProcessingJobData): Promise<v
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     await logViralStatus({ jobId, status: 'failed' });
-    io.emit('viral:progress', {
+    emitToClients('viral:progress', {
       jobId,
       status: 'failed',
       progress: 100,

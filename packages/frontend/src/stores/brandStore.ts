@@ -46,8 +46,9 @@ export const useBrandStore = create<BrandState>((set, get) => ({
   setSelectedId: (id: string) => {
     try {
       localStorage.setItem('selectedBrandId', id);
-    } catch {
-      // storage unavailable (private browsing) — in-memory only
+    } catch (err) {
+      // storage unavailable (private browsing) — keep the in-memory selection
+      console.warn('[vimo] best-effort operation failed:', err);
     }
     set({ selectedId: id });
   },

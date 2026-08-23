@@ -29,7 +29,7 @@ import {
   competitorProfiles,
 } from '../db/schema';
 import { callWithProviderChain } from '../lib/llmProvider';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -364,7 +364,7 @@ async function runResearchWorker(state: MarketingDirectorState): Promise<Partial
       collectedAt: new Date().toISOString(),
     };
 
-    io?.emit('director:research_complete', { complete: true });
+    emitToClients('director:research_complete', { complete: true });
 
     await logAgentAction({
       action: 'runResearchWorker',
@@ -497,7 +497,7 @@ Return JSON:
       `[Director] runAnalyticsWorker — health score: ${analyticsInsights.overallHealthScore}, trend: ${analyticsInsights.trend}`,
     );
 
-    io?.emit('director:analytics_complete', {
+    emitToClients('director:analytics_complete', {
       overallHealthScore: analyticsInsights.overallHealthScore,
       trend: analyticsInsights.trend,
     });
@@ -642,7 +642,7 @@ Return a JSON array of up to 5 content opportunities, each with:
       `[Director] runContentWorker — enriched ${enrichedCount}/${opportunities.length} opportunities with knowledge graph data`
     );
 
-    io?.emit('director:content_complete', { count: opportunities.length });
+    emitToClients('director:content_complete', { count: opportunities.length });
 
     await logAgentAction({
       action: 'runContentWorker',
@@ -754,7 +754,7 @@ async function runEngagementWorker(state: Partial<MarketingDirectorState>): Prom
       `[Director] runEngagementWorker — ${engagementStats.totalPending} pending, ${engagementStats.highPriorityCount} high priority`,
     );
 
-    io?.emit('director:engagement_complete', {
+    emitToClients('director:engagement_complete', {
       totalPending: engagementStats.totalPending,
       highPriorityCount: engagementStats.highPriorityCount,
     });
@@ -969,7 +969,7 @@ Return JSON:
     console.log(`[Director] synthesize — Saved session ${sessionId} with ${opps.length} opportunities`);
 
     // Emit socket event
-    io?.emit('director:session_complete', {
+    emitToClients('director:session_complete', {
       sessionId,
       directorSummary,
       opportunities: opps,

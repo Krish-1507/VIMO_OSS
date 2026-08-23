@@ -68,8 +68,9 @@ function redirectToLogin() {
   try {
     hadToken = !!localStorage.getItem('session_token');
     localStorage.removeItem('session_token');
-  } catch {
+  } catch (err) {
     // storage unavailable — nothing to clear
+    console.warn('[vimo] best-effort operation failed:', err);
   }
   const onAuthScreen =
     window.location.pathname.startsWith('/login') ||

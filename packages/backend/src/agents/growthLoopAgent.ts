@@ -23,7 +23,7 @@ import { generateReelsScript } from '../services/reelsScriptService';
 import { schedulePost } from '../services/schedulerService';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
 import * as credentialStore from '../lib/credentialStore';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                         */
@@ -341,7 +341,7 @@ async function decideActionsNode(state: GrowthLoopState): Promise<GrowthLoopStat
     }
 
     // Emit socket event so frontend can react
-    io.emit('growth_loop:actions_created', {
+    emitToClients('growth_loop:actions_created', {
       sourcePostId: state.postId,
       actions: actionIds.map((id, i) => ({
         id,
@@ -616,7 +616,7 @@ async function executeActionsNode(state: GrowthLoopState): Promise<GrowthLoopSta
     }
 
     // Emit completion event
-    io.emit('growth_loop:complete', {
+    emitToClients('growth_loop:complete', {
       sourcePostId: state.postId,
       actionsProcessed: pendingActions.length,
     });

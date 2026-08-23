@@ -10,7 +10,7 @@ import { db } from '../db';
 import { scheduledPosts } from '../db/schema';
 import * as credentialStore from '../lib/credentialStore';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 interface PostInsights {
   likes: number;
@@ -169,7 +169,7 @@ export async function refreshPostPerformance(): Promise<void> {
     }
 
     // Notify connected clients
-    io.emit('analytics:updated', {
+    emitToClients('analytics:updated', {
       refreshedAt: new Date().toISOString(),
       postCount: updatedCount,
     });

@@ -1,4 +1,4 @@
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 type RetryableError = {
   retryable: boolean;
@@ -62,7 +62,7 @@ export async function callLLMWithFallback<T>(
     // Auth error — emit event, throw
     if (classified.category === 'auth_error') {
       try {
-        io.emit('llm:auth_error', { context, error: (err as Error).message });
+        emitToClients('llm:auth_error', { context, error: (err as Error).message });
       } catch (err) {
         /* io may not be ready */
         console.warn('[vimo] best-effort operation failed:', err);
@@ -73,7 +73,7 @@ export async function callLLMWithFallback<T>(
     // Model error — emit event, throw
     if (classified.category === 'model_error') {
       try {
-        io.emit('llm:model_error', { context, error: (err as Error).message });
+        emitToClients('llm:model_error', { context, error: (err as Error).message });
       } catch (err) {
         /* io may not be ready */
         console.warn('[vimo] best-effort operation failed:', err);

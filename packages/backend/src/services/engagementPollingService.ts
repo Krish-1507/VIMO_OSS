@@ -13,7 +13,7 @@ import { ConnectorRegistry } from '../lib/connectorRegistry';
 import * as credentialStore from '../lib/credentialStore';
 import * as instagramHandler from '../connectors/handlers/instagramHandler';
 import { generateReply } from '../agents/engagementAgent';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 import { requestApproval } from './approvalService';
 
 /* ------------------------------------------------------------------ */
@@ -115,7 +115,7 @@ export async function pollInstagramComments(connectorId: string): Promise<{
 
   // Emit socket event with count of new items
   if (newCount > 0) {
-    io.emit('engagement:new_comments', {
+    emitToClients('engagement:new_comments', {
       connectorId,
       newCount,
       totalChecked: comments.length,
@@ -221,7 +221,7 @@ export async function runEngagementPipeline(connectorId: string): Promise<Pipeli
             .run();
 
           // Emit socket event immediately
-          io.emit('engagement:purchase_intent', {
+          emitToClients('engagement:purchase_intent', {
             id: item.id,
             authorHandle: item.authorHandle,
             content: item.content,
@@ -364,7 +364,7 @@ export async function runEngagementPipeline(connectorId: string): Promise<Pipeli
     }
 
     // Step 5: Emit pipeline complete
-    io.emit('engagement:pipeline_complete', {
+    emitToClients('engagement:pipeline_complete', {
       connectorId,
       ...result,
       timestamp: new Date().toISOString(),

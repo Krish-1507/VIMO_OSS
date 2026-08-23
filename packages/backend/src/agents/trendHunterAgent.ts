@@ -13,7 +13,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { trendSignals, brandProfiles, agentLogs } from '../db/schema';
 import { getActiveLLMProvider, callWithProviderChain } from '../lib/llmProvider';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -249,7 +249,7 @@ Only include trends with relevanceScore above 40.`;
     }
 
     // Emit socket event
-    io.emit('trends:new_signals', { count: insertedCount });
+    emitToClients('trends:new_signals', { count: insertedCount });
 
     console.log(`[TrendHunter] Inserted ${insertedCount} new trend signals.`);
 

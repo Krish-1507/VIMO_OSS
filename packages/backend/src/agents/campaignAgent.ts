@@ -9,7 +9,7 @@ import { getBrandContext } from '../services/brandMemoryService';
 import { generatePost } from '../services/contentGenerationService';
 import { schedulePost } from '../services/schedulerService';
 import { applyAdaptivePlan } from '../lib/adaptivePlanning';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 import { sanitizeUserInput } from '../lib/promptSanitizer';
 import { PHASE_DESCRIPTIONS } from './goalTranslationAgent';
 
@@ -108,7 +108,7 @@ async function emitAgentAction(params: {
   summary?: string;
   campaignId: string;
 }) {
-  io.emit('agent:action', {
+  emitToClients('agent:action', {
     agentType: 'campaign',
     step: params.step,
     status: params.status,
@@ -531,7 +531,7 @@ async function reviewGate(state: CampaignAgentState): Promise<CampaignAgentState
       .where(eq(campaigns.id, state.campaignId))
       .run();
 
-    io.emit('campaign:awaiting_approval', {
+    emitToClients('campaign:awaiting_approval', {
       campaignId: state.campaignId,
       status: 'awaiting_approval',
       generatedPosts: state.generatedPosts,
@@ -661,7 +661,7 @@ async function done(state: CampaignAgentState): Promise<CampaignAgentState> {
     .where(eq(campaigns.id, state.campaignId))
     .run();
 
-  io.emit('agent:complete', {
+  emitToClients('agent:complete', {
     campaignId: state.campaignId,
     status: 'active',
     completedAt: now,

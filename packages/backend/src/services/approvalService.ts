@@ -10,7 +10,7 @@ import crypto from 'crypto';
 import { eq, desc, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { approvalRequests, appSettings, scheduledPosts } from '../db/schema';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 // ApprovalMode and ApprovalRules types
 // Using inline definitions since the shared package may not resolve in all tsconfig setups
 export enum ApprovalMode {
@@ -228,7 +228,7 @@ export async function requestApproval(
   if (decision === 'pending') {
     const summary = getHumanReadableSummary(request.requestType, payload);
     try {
-      io?.emit('approval:requested', {
+      emitToClients('approval:requested', {
         approvalRequestId: id,
         requestType: request.requestType,
         requestedBy: request.requestedBy,
@@ -280,7 +280,7 @@ export async function approveRequest(approvalRequestId: string): Promise<void> {
   await executeApprovedRequest(approvalRequestId);
 
   try {
-    io?.emit('approval:executed', {
+    emitToClients('approval:executed', {
       approvalRequestId,
       requestType: request.requestType,
     });
@@ -458,7 +458,7 @@ export async function rejectRequest(approvalRequestId: string, reason?: string):
   }
 
   try {
-    io?.emit('approval:rejected', {
+    emitToClients('approval:rejected', {
       approvalRequestId,
       requestType: request.requestType,
       reason: reason || undefined,

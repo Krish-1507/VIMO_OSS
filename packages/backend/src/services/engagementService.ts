@@ -6,7 +6,7 @@ import { generateReply as agentGenerateReply } from '../agents/engagementAgent';
 import * as instagramHandler from '../connectors/handlers/instagramHandler';
 import * as credentialStore from '../lib/credentialStore';
 import { ConnectorRegistry } from '../lib/connectorRegistry';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 export interface EngagementItem {
   id: string;
@@ -129,7 +129,7 @@ export async function generateReply(itemId: string): Promise<{ reply: string; co
     .run();
 
   if (result.intent === 'purchase_intent') {
-    io.emit('engagement:purchase_intent', {
+    emitToClients('engagement:purchase_intent', {
       id: item.id,
       authorHandle: item.authorHandle,
       content: item.content,

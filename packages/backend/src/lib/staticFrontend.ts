@@ -59,8 +59,9 @@ export function findRepoRoot(): string | null {
           fs.readFileSync(path.join(dir, 'package.json'), 'utf8'),
         );
         if (pkg.name === 'vimo') return dir;
-      } catch {
-        // not a package.json we care about — keep walking
+      } catch (err) {
+        // No package.json here, or not valid JSON — keep walking up.
+        console.warn('[vimo] skipping unreadable package.json during root search:', err);
       }
     }
   }

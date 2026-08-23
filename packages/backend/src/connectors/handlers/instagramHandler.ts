@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { io } from '../../index';
+import { emitToClients } from '../../lib/realtime';
 
 type InstagramAccountType = 'business' | 'creator' | 'personal';
 
@@ -443,7 +443,7 @@ export async function publishPost(
 
     // Step 6: emit socket event
     const contentPreview = (post.content || '').substring(0, 120);
-    io.emit('post:published', {
+    emitToClients('post:published', {
       postId: post.id,
       platform: 'instagram',
       permalink: published.permalink,

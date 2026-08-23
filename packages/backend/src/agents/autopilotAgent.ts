@@ -30,7 +30,7 @@ import { suggestPostingTime } from '../services/postingTimeService';
 import { schedulePost, cancelPost } from '../services/schedulerService';
 import { translateGoalToStrategy } from './goalTranslationAgent';
 import { huntTrends } from './trendHunterAgent';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 
 /* ------------------------------------------------------------------ */
 /*  TrendSignal interface (from trend_signals table)                    */
@@ -149,9 +149,7 @@ function addEntry(
 
 function emitStatus(state: AutopilotState) {
   try {
-    if (io) {
-      io.emit('autopilot:status_update', state);
-    }
+    emitToClients('autopilot:status_update', state);
   } catch (err) {
     // Socket not available
     console.warn('[vimo] best-effort operation failed:', err);
@@ -1038,9 +1036,7 @@ async function activateMonitoringNode(state: AutopilotState): Promise<AutopilotS
 
   // Emit fully_active event
   try {
-    if (io) {
-      io.emit('autopilot:fully_active', finalState);
-    }
+    emitToClients('autopilot:fully_active', finalState);
   } catch (err) {
     // Socket not available
     console.warn('[vimo] best-effort operation failed:', err);

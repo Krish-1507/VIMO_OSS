@@ -1,7 +1,7 @@
 import { eq, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { notifications } from '../db/schema';
-import { io } from '../index';
+import { emitToClients } from '../lib/realtime';
 import crypto from 'crypto';
 
 export type NotificationType =
@@ -40,7 +40,7 @@ export async function createNotification(params: CreateNotificationParams): Prom
 
   try {
     await db.insert(notifications).values(notification).run();
-    io.emit('notification:new', notification);
+    emitToClients('notification:new', notification);
   } catch (err) {
     console.error('[Notification] Failed to create notification:', (err as Error).message);
   }
