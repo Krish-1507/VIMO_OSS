@@ -364,8 +364,9 @@ export default function VimoAssistant() {
     }
     try {
       await api.post('/api/assistant/stop', { sessionId: sessionIdRef.current });
-    } catch {
-      // nothing to stop
+    } catch (err) {
+      // nothing in flight — safe to ignore, but leave a trace
+      console.warn('[vimo] assistant stop on clear failed:', err);
     }
   }, []);
 
