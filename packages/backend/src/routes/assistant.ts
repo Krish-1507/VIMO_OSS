@@ -11,10 +11,54 @@ import { eq, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { assistantMessages, brandProfiles } from '../db/schema';
 import { formatError } from '../lib/errorFormatter';
-import { processMessage } from '../agents/vimoAssistantAgent';
+import { processMessage, startChatStream, stopChatStream } from '../agents/vimoAssistantAgent';
 
 export default async function assistantRoutes(app: FastifyInstance) {
-  // POST /api/assistant/message — process a user message
+  // POST /api/assistant/chat — kick off a streaming agent run.
+  // Progress arrives over Socket.IO as `assistant:event` frames tagged with
+  // the sessionId (delta / tool_start / tool_result / done / error).
+  app.post('/api/assistant/chat', {
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    try {
+      const body = request.body as { message?: string; sessionId?: string; brandProfileId?: string };
+      if (!body.message?.trim() || !body.sessionId) {
+        return reply.status(400).send({ error: 'message and sessionId are required' });
+      }
+
+      const brand = body.brandProfileId
+        ? db.select().from(brandProfiles).where(eq(brandProfiles.id, body.brandProfileId)).get()
+        : db.select().from(brandProfiles).all()[0];
+      if (!brand) {
+        return reply.status(400).send({ error: 'No brand profile found. Create a brand profile first.' });
+      }
+
+      // Fire and forget — the response streams over the socket.
+      void startChatStream({
+        userMessage: body.message.trim(),
+        brandProfileId: brand.id,
+        sessionId: body.sessionId,
+      });
+
+      return { ok: true };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  // POST /api/assistant/stop — abort an in-flight agent run for a session.
+  app.post('/api/assistant/stop', async (request, reply) => {
+    try {
+      const body = request.body as { sessionId?: string };
+      if (!body.sessionId) return reply.status(400).send({ error: 'sessionId is required' });
+      const stopped = stopChatStream(body.sessionId);
+      return { ok: true, stopped };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
+  // POST /api/assistant/message — legacy non-streaming endpoint (kept for compatibility)
   app.post('/api/assistant/message', async (request, reply) => {
     try {
       const body = request.body as {

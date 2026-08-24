@@ -11,7 +11,13 @@ import VimoAssistant from '../assistant/VimoAssistant';
 // eslint-disable-next-line react-hooks/rules-of-hooks
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { isSidebarCollapsed, isMobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
+  const {
+    isSidebarCollapsed,
+    isMobileSidebarOpen,
+    setMobileSidebarOpen,
+    isAssistantOpen,
+    assistantWidth,
+  } = useUIStore();
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const location = useLocation();
 
@@ -51,9 +57,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
         <Sidebar />
         <div
-          className={`flex flex-col transition-all duration-300 ease-in-out ${
+          className={`flex min-h-screen flex-col transition-all duration-300 ease-in-out ${
             isSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-[260px]'
           }`}
+          // The assistant dock lives beside the content (VS Code style), so the
+          // page shrinks to make room instead of being overlapped. On narrow
+          // screens the dock becomes a full-screen overlay and no padding is
+          // applied (the dock covers everything anyway).
+          style={isAssistantOpen ? { paddingRight: assistantWidth } : undefined}
         >
           <Header title="" />
           <HelpButton onClick={() => setIsHelpOpen(true)} />

@@ -1,11 +1,21 @@
 import crypto from 'crypto';
-import { generateText, ToolCallPart, ToolResultPart } from 'ai';
+import { generateText, streamText, ToolCallPart, ToolResultPart } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { eq, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { assistantMessages, brandProfiles } from '../db/schema';
 import { callWithProviderChain } from '../lib/llmProvider';
-import { assistantTools, VIMO_KNOWLEDGE, getToolDescriptions, ToolName } from './vimoTools';
+import { emitToClients } from '../lib/realtime';
+import {
+  assistantTools,
+  VIMO_KNOWLEDGE,
+  getToolDescriptions,
+  setAssistantBrandContext,
+  ToolName,
+} from './vimoTools';
+
+/** In-flight streams per session, so a user can stop a long agent run. */
+const activeStreams = new Map<string, AbortController>();
 
 export interface AssistantMessage {
   id: string;
@@ -105,7 +115,6 @@ export async function processMessage(params: {
   sessionId: string;
 }): Promise<AssistantResponse> {
   const { userMessage, brandProfileId, sessionId } = params;
-
   const allMessages = db
     .select()
     .from(assistantMessages)
@@ -161,7 +170,7 @@ RULES:
             })),
             { role: 'user' as const, content: userMessage },
           ],
-          maxSteps: 8,
+          maxSteps: 14,
         });
         return res;
       }
@@ -211,6 +220,9 @@ RULES:
       const providerName = providerMatch ? providerMatch[1] : 'your AI provider';
       finalText = `I couldn't reach ${providerName} — their API may be down or rate-limiting us. You can try:\n\n1. **Wait a moment and try again**\n2. **Add a backup provider** in Settings > AI Models (e.g., add both Groq AND OpenAI)\n3. **Check your API key** in Connector Hub to make sure it's still valid`;
       toolInfo = { toolNames: [], navigationTarget: undefined, results: [], allSuccess: false, lastToolName: undefined };
+    } else if (/402|payment required|budget/i.test(errMsg)) {
+      finalText = "The built-in free AI is out of credits right now. You've got two great options:\n\n1. **One-click local AI** — install Ollama from ollama.com, then click *Use free local AI* on the dashboard. Free forever, private.\n2. **A free API key** — Groq and Google AI Studio give generous free tiers. Paste it in **Settings → AI Models**.\n\nEither takes about a minute and I'll be back at full power.";
+      toolInfo = { toolNames: [], navigationTarget: undefined, results: [], allSuccess: false, lastToolName: undefined };
     } else {
       finalText = `Ran into an issue processing that. Could you try again or rephrase?`;
       toolInfo = { toolNames: [], navigationTarget: undefined, results: [], allSuccess: false, lastToolName: undefined };
@@ -240,4 +252,206 @@ RULES:
     navigationTarget: toolInfo.navigationTarget,
     quickReplies,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Streaming chat (Cursor-style live agent run)                       */
+/* ------------------------------------------------------------------ */
+
+type StreamEmit = (
+  type: 'delta' | 'tool_start' | 'tool_result' | 'done' | 'error',
+  payload: Record<string, unknown>,
+) => void;
+
+function emitStreamEvent(sessionId: string, type: Parameters<StreamEmit>[0], payload: Record<string, unknown>): void {
+  emitToClients('assistant:event', { sessionId, type, ...payload });
+}
+
+/** Abort the in-flight agent run for a session. Returns true if one was running. */
+export function stopChatStream(sessionId: string): boolean {
+  const controller = activeStreams.get(sessionId);
+  if (!controller) return false;
+  controller.abort();
+  activeStreams.delete(sessionId);
+  return true;
+}
+
+/**
+ * Run the assistant agent and stream progress over Socket.IO.
+ *
+ * Emits `assistant:event` frames tagged with the sessionId:
+ *   { type: 'delta', text }                        — model text chunk
+ *   { type: 'tool_start', toolName, args }         — tool invocation began
+ *   { type: 'tool_result', toolName, ok, summary } — tool finished
+ *   { type: 'done', navigationTarget, quickReplies }
+ *   { type: 'error', message }
+ *
+ * Returns immediately; all output is asynchronous.
+ */
+export async function startChatStream(params: {
+  userMessage: string;
+  brandProfileId: string;
+  sessionId: string;
+}): Promise<void> {
+  const { userMessage, sessionId } = params;
+  setAssistantBrandContext(params.brandProfileId);
+  const emit: StreamEmit = (type, payload) => emitStreamEvent(sessionId, type, payload);
+
+  const history = db
+    .select()
+    .from(assistantMessages)
+    .where(eq(assistantMessages.sessionId, sessionId))
+    .orderBy(desc(assistantMessages.createdAt))
+    .all()
+    .reverse()
+    .slice(-10) as AssistantMessage[];
+
+  const brand = db.select().from(brandProfiles).where(eq(brandProfiles.id, params.brandProfileId)).get();
+  const brandContext = brand
+    ? `Brand: ${brand.name}, Industry: ${brand.industry}, Audience: ${brand.audience}. This is the ACTIVE brand — all tools must operate on it.`
+    : 'No brand profile found.';
+
+  await db.insert(assistantMessages).values({
+    id: crypto.randomUUID(), role: 'user', content: userMessage,
+    intentType: null, systemActionTaken: null, systemActionResult: null,
+    sessionId, createdAt: new Date().toISOString(),
+  });
+
+  const now = new Date();
+  const systemPrompt = `${VIMO_KNOWLEDGE}
+
+Current date/time: ${now.toString()} (local time).
+Active brand context: ${brandContext}
+
+AVAILABLE TOOLS:
+${getToolDescriptions()}
+
+RULES:
+- Use tools to DO things. Chain multiple tools for multi-step requests.
+- "Schedule for tomorrow at 9am" → compute the exact ISO datetime from the current date above.
+- Only claim success when a tool actually succeeded. If a tool returns success:false, explain what failed and suggest a fix.
+- Keep answers tight: short paragraphs, markdown lists when helpful.
+- After completing an action, say what happened in one or two sentences.`;
+
+  const controller = new AbortController();
+  activeStreams.set(sessionId, controller);
+
+  const persistAssistant = async (content: string, lastTool?: string, resultsJson?: string) => {
+    await db.insert(assistantMessages).values({
+      id: crypto.randomUUID(), role: 'assistant', content,
+      intentType: lastTool || 'general_question',
+      systemActionTaken: lastTool || 'direct_answer',
+      systemActionResult: resultsJson ?? null,
+      sessionId, createdAt: new Date().toISOString(),
+    });
+  };
+
+  let fullText = '';
+  let lastToolName: string | undefined;
+  let navTarget: string | undefined;
+  const toolSummaries: Array<{ name: string; ok: boolean }> = [];
+
+  try {
+    const result = await callWithProviderChain(
+      'assistant_classification',
+      async (provider, modelId) =>
+        streamText({
+          model: provider.chat(modelId),
+          tools: assistantTools,
+          system: systemPrompt,
+          messages: [
+            ...history.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+            { role: 'user' as const, content: userMessage },
+          ],
+          maxSteps: 14,
+          abortSignal: controller.signal,
+        }),
+    );
+
+    for await (const part of result.fullStream) {
+      if (controller.signal.aborted) break;
+      switch (part.type) {
+        case 'text-delta':
+          fullText += part.textDelta;
+          emit('delta', { text: part.textDelta });
+          break;
+        case 'tool-call': {
+          lastToolName = part.toolName;
+          emit('tool_start', { toolName: part.toolName, args: part.args });
+          break;
+        }
+        case 'tool-result': {
+          let ok = true;
+          let summary = '';
+          try {
+            const parsed = JSON.parse(part.result as unknown as string);
+            ok = parsed.success !== false;
+            summary = parsed.message || '';
+            if (parsed.navigationTarget) navTarget = parsed.navigationTarget;
+          } catch {
+            summary = String(part.result ?? '');
+          }
+          toolSummaries.push({ name: part.toolName, ok });
+          emit('tool_result', { toolName: part.toolName, ok, summary });
+          break;
+        }
+        default:
+          break;
+      }
+    }
+
+    if (controller.signal.aborted) {
+      const text = fullText || 'Stopped.';
+      await persistAssistant(text + '\n\n_(stopped)_', lastToolName);
+      emit('done', { navigationTarget: navTarget, quickReplies: generateQuickReplies(lastToolName), stopped: true });
+      return;
+    }
+
+    // Some providers (notably reasoning models on free tiers) return HTTP 200
+    // with EMPTY content when their budget is exhausted. Treat silence as a
+    // failure so the user gets real guidance instead of a blank stare.
+    if (!fullText.trim() && !navTarget) {
+      throw new Error('Provider returned an empty response (possible exhausted free tier / 402 budget)');
+    }
+
+    const quickReplies = generateQuickReplies(lastToolName);
+    await persistAssistant(fullText, lastToolName, toolSummaries.length ? JSON.stringify(toolSummaries) : undefined);
+    emit('done', { navigationTarget: navTarget, quickReplies });
+  } catch (err) {
+    const errMsg = (err as Error).message || String(err);
+    console.error('[Assistant] stream error:', errMsg);
+
+    // Graceful degradation: plain Pollinations answer without tools.
+    try {
+      const fallbackProvider = createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' });
+      const res = await generateText({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        model: (fallbackProvider as any).chat('openai'),
+        system: systemPrompt,
+        messages: [
+          ...history.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+          { role: 'user' as const, content: userMessage },
+        ],
+        abortSignal: controller.signal,
+      });
+      fullText = res.text;
+      emit('delta', { text: res.text });
+      await persistAssistant(fullText);
+      emit('done', { quickReplies: generateQuickReplies() });
+    } catch {
+      const errMsg2 = errMsg.toLowerCase();
+      const freeTierDead = errMsg2.includes('402') || errMsg2.includes('payment required') || errMsg2.includes('budget');
+      const friendly = freeTierDead
+        ? "The built-in free AI is out of credits right now. You've got two great options:\n\n1. **One-click local AI** — install Ollama from ollama.com, then click *Use free local AI* on the dashboard. Free forever, private.\n2. **A free API key** — Groq and Google AI Studio give generous free tiers. Paste it in **Settings → AI Models**.\n\nEither takes about a minute and I'll be back at full power."
+        : errMsg.includes('API key') || errMsg.includes('No active LLM provider')
+          ? "I can't reach an AI provider yet. Open **Settings → AI Models** and connect one (OpenAI, Anthropic, Groq…), or use the free built-in provider."
+          : errMsg.includes('rate limit') || errMsg.includes('429')
+            ? 'Hit a rate limit on the AI provider — give it a moment and try again.'
+            : 'Something went wrong running that. Please try again.';
+      await persistAssistant(friendly);
+      emit('error', { message: friendly });
+    } finally {
+      activeStreams.delete(sessionId);
+    }
+  }
 }

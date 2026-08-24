@@ -22,6 +22,28 @@ import { searchWeb, fetchUrl } from '../lib/webSearch';
 
 const registry = new ConnectorRegistry(db);
 
+/**
+ * Active-brand context.
+ *
+ * The assistant resolves the user's active brand once per request and stashes
+ * it here so every tool operates on the SAME brand (instead of blindly taking
+ * the first row in the table). Single-user local app, so a module-level slot
+ * set at the start of each agent run is safe.
+ */
+let activeBrandId: string | null = null;
+
+export function setAssistantBrandContext(brandProfileId: string | null | undefined): void {
+  activeBrandId = brandProfileId || null;
+}
+
+export function getActiveBrand() {
+  if (activeBrandId) {
+    const byId = db.select().from(brandProfiles).where(eq(brandProfiles.id, activeBrandId)).get();
+    if (byId) return byId;
+  }
+  return getActiveBrand();
+}
+
 export const VIMO_KNOWLEDGE = `You are VIMO — the most advanced autonomous marketing operations AI on the planet. You have COMPLETE control over the VIMO app and can do ANYTHING the user asks instantly. You are not a chatbot — you are an agentic operating system. You execute, navigate, create, analyze, and ship.
 
 IDENTITY: You are VIMO, an AI marketing OS. You don't just answer questions — you DO things. When the user says "grow my Twitter," you don't explain how — you start autopilot, schedule content, analyze performance, and navigate to the right pages. You are proactive, not reactive.
@@ -71,7 +93,7 @@ export const createCampaignTool = tool({
       const { createCampaign } = await import('../services/campaignService');
       const now = new Date();
       const endDate = new Date(now.getTime() + (durationDays || 30) * 24 * 60 * 60 * 1000);
-      const brand = db.select().from(brandProfiles).all()[0];
+      const brand = getActiveBrand();
       const campaign = await createCampaign({
         name,
         goal,
@@ -129,7 +151,7 @@ export const writePostTool = tool({
   execute: async ({ topic, platform, tone }) => {
     try {
       const { generatePost } = await import('../services/contentGenerationService');
-      const brand = db.select().from(brandProfiles).all()[0];
+      const brand = getActiveBrand();
       const post = await generatePost({
         topic,
         platform,
@@ -266,7 +288,7 @@ export const startAutopilotTool = tool({
   }),
   execute: async ({ goal, audience, channels, durationDays }) => {
     try {
-      const brand = db.select().from(brandProfiles).all()[0];
+      const brand = getActiveBrand();
       if (!brand) return { success: false, message: 'No brand profile found. Create one first.' };
       const { startAutopilot } = await import('../agents/autopilotAgent');
       const result = await startAutopilot({
@@ -344,7 +366,7 @@ export const getBrandProfileTool = tool({
   parameters: z.object({}),
   execute: async () => {
     try {
-      const brand = db.select().from(brandProfiles).all()[0];
+      const brand = getActiveBrand();
       return { success: true, message: brand ? 'Brand profile loaded' : 'No brand profile', navigationTarget: '/brand-memory', data: brand };
     } catch (err) { return { success: false, message: `Failed: ${(err as Error).message}` }; }
   },
@@ -360,7 +382,7 @@ export const updateBrandProfileTool = tool({
   }),
   execute: async ({ name, industry, audience, voiceFingerprint }) => {
     try {
-      const brand = db.select().from(brandProfiles).all()[0];
+      const brand = getActiveBrand();
       if (!brand) return { success: false, message: 'No brand profile exists' };
       const updateData: Record<string, unknown> = { updatedAt: new Date().toISOString() };
       if (name) updateData.name = name;
@@ -379,7 +401,7 @@ export const runBrandAuditTool = tool({
   execute: async () => {
     try {
       const { roastBrand } = await import('../services/brandRoastService');
-      const brand = db.select().from(brandProfiles).all()[0];
+      const brand = getActiveBrand();
       if (!brand) return { success: false, message: 'No brand profile' };
       const roast = await roastBrand({ brandProfileId: brand.id });
       return { success: true, message: `Brand audit score: ${roast.overallScore}/100`, navigationTarget: '/brand-roast', data: roast };
@@ -432,7 +454,7 @@ export const schedulePostTool = tool({
       const postId = crypto.randomUUID();
       const scheduledDate = when ? new Date(when) : new Date(Date.now() + 86400000);
       const now = new Date().toISOString();
-      const brand = db.select().from(brandProfiles).all()[0];
+      const brand = getActiveBrand();
       const brandProfileId = brand?.id || '';
       await db.insert(scheduledPosts).values({ id: postId, brandProfileId, content, platform, scheduledAt: scheduledDate.toISOString(), status: 'pending', createdAt: now, updatedAt: now });
       await schedule({ id: postId, brandProfileId, content, platform, scheduledAt: scheduledDate.toISOString() });
@@ -537,7 +559,7 @@ export const addCompetitorTool = tool({
   }),
   execute: async ({ name, handle, platform }) => {
     try {
-      const brand = db.select().from(brandProfiles).all()[0];
+      const brand = getActiveBrand();
       if (!brand) return { success: false, message: 'No brand profile' };
       await db.insert(competitorProfiles).values({
         id: crypto.randomUUID(), brandProfileId: brand.id,

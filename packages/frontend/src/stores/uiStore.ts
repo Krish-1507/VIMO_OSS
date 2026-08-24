@@ -15,10 +15,13 @@ interface UIState {
   notifications: Notification[];
   isAssistantOpen: boolean;
   hasUnreadAssistant: boolean;
+  /** Docked assistant panel width in px (desktop). */
+  assistantWidth: number;
   toggleSidebar: () => void;
   setMobileSidebarOpen: (open: boolean) => void;
   toggleAssistant: () => void;
   setAssistantOpen: (open: boolean) => void;
+  setAssistantWidth: (width: number) => void;
   setHasUnreadAssistant: (unread: boolean) => void;
   addNotification: (type: Notification['type'], title: string, message: string) => void;
   removeNotification: (id: string) => void;
@@ -43,6 +46,7 @@ export const useUIStore = create<UIState>((set) => ({
   isMobileSidebarOpen: false,
   isAssistantOpen: false,
   hasUnreadAssistant: false,
+  assistantWidth: loadFromStorage('assistantWidth', 420),
   notifications: [],
   toggleSidebar: () =>
     set((state) => {
@@ -58,6 +62,15 @@ export const useUIStore = create<UIState>((set) => ({
   setMobileSidebarOpen: (open: boolean) => set({ isMobileSidebarOpen: open }),
   toggleAssistant: () => set((state) => ({ isAssistantOpen: !state.isAssistantOpen, hasUnreadAssistant: false })),
   setAssistantOpen: (open: boolean) => set({ isAssistantOpen: open, hasUnreadAssistant: open ? false : false }),
+  setAssistantWidth: (width: number) => {
+    const clamped = Math.min(720, Math.max(340, Math.round(width)));
+    try {
+      localStorage.setItem('assistantWidth', JSON.stringify(clamped));
+    } catch (err) {
+      console.warn('[vimo] best-effort operation failed:', err);
+    }
+    set({ assistantWidth: clamped });
+  },
   setHasUnreadAssistant: (unread: boolean) => set({ hasUnreadAssistant: unread }),
   addNotification: (type, title, message) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;

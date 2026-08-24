@@ -2,6 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import axios from 'axios';
+import { asNonStreamingModel } from './nonStreamingModel';
 import { ConnectorRegistry } from './connectorRegistry';
 import * as credentialStore from './credentialStore';
 import { callLLMWithFallback } from './llmErrorHandler';
@@ -32,6 +33,22 @@ export function resolveModelName(provider: string, config: Record<string, unknow
     return String(configured).trim();
   }
   return DEFAULT_MODELS[provider] || 'gpt-4o';
+}
+
+/**
+ * The zero-key "it just works" provider: Pollinations' anonymous tier.
+ *
+ * Its OpenAI-compatible endpoint rejects SSE streaming (`"stream": true` →
+ * HTTP 500) while plain completions succeed, so the model is wrapped with
+ * asNonStreamingModel() — callers keep using streamText() transparently.
+ */
+export function createBuiltInFreeProvider(): { provider: any; modelId: string } {
+  const openai = createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' });
+  return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    provider: { chat: (id: string) => asNonStreamingModel(openai.chat(id)) },
+    modelId: 'openai',
+  };
 }
 
 /**
@@ -85,7 +102,9 @@ function buildProviderInstance(providerName: string, apiKey: string, config: Rec
       return createOpenAI({ apiKey, baseURL: customBaseUrl });
     }
     case 'pollinations': {
-      return createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' });
+      // Anonymous Pollinations rejects SSE ("stream":true" -> HTTP 500), so the
+      // model is wrapped to stream from a regular completion instead.
+      return { chat: (id: string) => asNonStreamingModel(createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' }).chat(id)) };
     }
     default:
       throw new Error(`Unknown LLM provider: ${providerName}`);
@@ -124,10 +143,7 @@ export async function getActiveLLMProvider(task?: string): Promise<{ provider: a
     }
     // Built-in fallback: use Pollinations.ai (free, no API key needed)
     log.info('No active LLM provider — falling back to built-in Pollinations.ai (free, no key required)');
-    return {
-      provider: createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' }),
-      modelId: 'openai',
-    };
+    return createBuiltInFreeProvider();
   }
 
   const apiKey = (await credentialStore.getCredential(llmConnector.id, 'apiKey')) || '';
@@ -253,7 +269,7 @@ export async function callWithProviderChain<T>(
     // Built-in fallback: use Pollinations.ai (free, no API key needed)
     log.info('No active providers for chain — falling back to built-in Pollinations.ai');
     try {
-      const fallbackProvider = createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' });
+      const { provider: fallbackProvider } = createBuiltInFreeProvider();
       return await callLLMWithFallback(
         async () => fn(fallbackProvider, 'openai'),
         () => { throw new Error('Built-in Pollinations.ai failed'); },
@@ -331,7 +347,7 @@ export async function callWithProviderChain<T>(
   if (!(await isLocalOnlyMode())) {
     log.info('All providers failed — falling back to built-in Pollinations.ai');
     try {
-      const fallbackProvider = createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' });
+      const { provider: fallbackProvider } = createBuiltInFreeProvider();
       return await callLLMWithFallback(
         async () => fn(fallbackProvider, 'openai'),
         () => { throw new Error('Built-in Pollinations.ai also failed'); },
