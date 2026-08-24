@@ -18,6 +18,15 @@ function classifyError(err: unknown): RetryableError {
   if (status === 404 || msg.includes('model not found') || msg.includes('does not exist')) {
     return { retryable: false, category: 'model_error' };
   }
+  // Out of budget / free tier exhausted will never fix itself via retries —
+  // fail immediately so callers reach their template fallback without delay.
+  if (
+    status === 402 ||
+    msg.includes('payment required') ||
+    msg.includes('budget too low')
+  ) {
+    return { retryable: false, category: 'model_error' };
+  }
   if (msg.includes('econnrefused') || msg.includes('network') || msg.includes('fetch failed') || msg.includes('timeout')) {
     return { retryable: true, category: 'network' };
   }

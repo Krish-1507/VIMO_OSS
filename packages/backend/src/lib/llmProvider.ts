@@ -42,6 +42,8 @@ export function resolveModelName(provider: string, config: Record<string, unknow
  * HTTP 500) while plain completions succeed, so the model is wrapped with
  * asNonStreamingModel() — callers keep using streamText() transparently.
  */
+const BUILTIN_LLM_DISABLED = () => process.env.VIMO_DISABLE_BUILTIN_LLM === '1';
+
 export function createBuiltInFreeProvider(): { provider: any; modelId: string } {
   const openai = createOpenAI({ apiKey: 'pollinations', baseURL: 'https://text.pollinations.ai/openai' });
   return {
@@ -140,6 +142,9 @@ export async function getActiveLLMProvider(task?: string): Promise<{ provider: a
       throw new Error(
         'Local-only AI mode is on, but no local Ollama model is connected. Open Connector Hub, add your Ollama server, and mark it active.',
       );
+    }
+    if (BUILTIN_LLM_DISABLED()) {
+      throw new Error('Built-in free LLM disabled (VIMO_DISABLE_BUILTIN_LLM) and no other provider is connected.');
     }
     // Built-in fallback: use Pollinations.ai (free, no API key needed)
     log.info('No active LLM provider — falling back to built-in Pollinations.ai (free, no key required)');
@@ -269,6 +274,9 @@ export async function callWithProviderChain<T>(
     // Built-in fallback: use Pollinations.ai (free, no API key needed)
     log.info('No active providers for chain — falling back to built-in Pollinations.ai');
     try {
+      if (BUILTIN_LLM_DISABLED()) {
+        throw new Error('Built-in free LLM disabled (VIMO_DISABLE_BUILTIN_LLM)');
+      }
       const { provider: fallbackProvider } = createBuiltInFreeProvider();
       return await callLLMWithFallback(
         async () => fn(fallbackProvider, 'openai'),
@@ -347,6 +355,9 @@ export async function callWithProviderChain<T>(
   if (!(await isLocalOnlyMode())) {
     log.info('All providers failed — falling back to built-in Pollinations.ai');
     try {
+      if (BUILTIN_LLM_DISABLED()) {
+        throw new Error('Built-in free LLM disabled (VIMO_DISABLE_BUILTIN_LLM)');
+      }
       const { provider: fallbackProvider } = createBuiltInFreeProvider();
       return await callLLMWithFallback(
         async () => fn(fallbackProvider, 'openai'),

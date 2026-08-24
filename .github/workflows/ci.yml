@@ -21,6 +21,9 @@ jobs:
     env:
       ENCRYPTION_KEY: ci-test-encryption-key-32chars-long!!
       NODE_ENV: test
+      # CI has no LLM keys: skip the built-in free tier (dead + slow) so the
+      # Director pipeline uses instant template fallbacks instead of network retries.
+      VIMO_DISABLE_BUILTIN_LLM: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,6 +63,9 @@ jobs:
     env:
       ENCRYPTION_KEY: ci-test-encryption-key-32chars-long!!
       NODE_ENV: test
+      # CI has no LLM keys: skip the built-in free tier (dead + slow) so the
+      # Director pipeline uses instant template fallbacks instead of network retries.
+      VIMO_DISABLE_BUILTIN_LLM: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -94,6 +100,9 @@ jobs:
     env:
       ENCRYPTION_KEY: ci-test-encryption-key-32chars-long!!
       NODE_ENV: test
+      # CI has no LLM keys: skip the built-in free tier (dead + slow) so the
+      # Director pipeline uses instant template fallbacks instead of network retries.
+      VIMO_DISABLE_BUILTIN_LLM: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
