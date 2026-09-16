@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '../../stores/uiStore';
+import { useBrandStore } from '../../stores/brandStore';
 import api from '../../lib/api';
 import { socket } from '../../lib/socket';
 import MarkdownLite from './MarkdownLite';
@@ -317,9 +318,13 @@ export default function VimoAssistant() {
     stickToBottomRef.current = true;
 
     try {
+      // Always act on the ACTIVE brand (header picker), never "first row".
+      // The backend falls back to Default Brand → first brand when absent.
+      const activeBrandId = useBrandStore.getState().selectedId;
       await api.post('/api/assistant/chat', {
         message: trimmed,
         sessionId: sessionIdRef.current,
+        ...(activeBrandId ? { brandProfileId: activeBrandId } : {}),
       });
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
@@ -342,6 +347,26 @@ export default function VimoAssistant() {
       );
     }
   }, [isStreaming]);
+
+  /* Deep-link a prompt: dashboard CTAs store one and open the panel;
+     we consume it once and send it as the first message. */
+  const sendRef = useRef(sendMessage);
+  sendRef.current = sendMessage;
+  useEffect(() => {
+    if (!isAssistantOpen) return;
+    let pending: string | null = null;
+    try {
+      pending = sessionStorage.getItem('vimo_pending_prompt');
+      if (pending) sessionStorage.removeItem('vimo_pending_prompt');
+    } catch (err) {
+      console.warn('[vimo] failed to read pending assistant prompt:', err);
+    }
+    if (pending && pending.trim()) {
+      const text = pending.trim();
+      const t = setTimeout(() => sendRef.current(text), 350);
+      return () => clearTimeout(t);
+    }
+  }, [isAssistantOpen]);
 
   const stopStreaming = useCallback(async () => {
     try {

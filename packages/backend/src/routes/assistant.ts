@@ -9,9 +9,38 @@
 import { FastifyInstance } from 'fastify';
 import { eq, desc } from 'drizzle-orm';
 import { db } from '../db';
-import { assistantMessages, brandProfiles } from '../db/schema';
+import { assistantMessages, brandProfiles, appSettings } from '../db/schema';
 import { formatError } from '../lib/errorFormatter';
 import { processMessage, startChatStream, stopChatStream } from '../agents/vimoAssistantAgent';
+
+/**
+ * Resolve which brand the assistant acts on.
+ *
+ * Priority: explicit caller choice → the user's Default Brand (Settings) →
+ * the first brand on file. A stale explicit id (brand deleted since) falls
+ * through instead of 400ing, so the agent keeps working.
+ */
+export async function resolveActiveBrand(explicitId?: string) {
+  if (explicitId) {
+    const byId = db.select().from(brandProfiles).where(eq(brandProfiles.id, explicitId)).get();
+    if (byId) return byId;
+  }
+  try {
+    const defaultRow = await db
+      .select()
+      .from(appSettings)
+      .where(eq(appSettings.key, 'defaultBrandId'))
+      .get();
+    const defaultId = defaultRow?.value?.trim();
+    if (defaultId) {
+      const byDefault = db.select().from(brandProfiles).where(eq(brandProfiles.id, defaultId)).get();
+      if (byDefault) return byDefault;
+    }
+  } catch (err) {
+    console.warn('[assistant] failed to read defaultBrandId, falling back:', err);
+  }
+  return db.select().from(brandProfiles).all()[0] || null;
+}
 
 export default async function assistantRoutes(app: FastifyInstance) {
   // POST /api/assistant/chat — kick off a streaming agent run.
@@ -26,9 +55,7 @@ export default async function assistantRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: 'message and sessionId are required' });
       }
 
-      const brand = body.brandProfileId
-        ? db.select().from(brandProfiles).where(eq(brandProfiles.id, body.brandProfileId)).get()
-        : db.select().from(brandProfiles).all()[0];
+      const brand = await resolveActiveBrand(body.brandProfileId);
       if (!brand) {
         return reply.status(400).send({ error: 'No brand profile found. Create a brand profile first.' });
       }
@@ -64,14 +91,15 @@ export default async function assistantRoutes(app: FastifyInstance) {
       const body = request.body as {
         message: string;
         sessionId: string;
+        brandProfileId?: string;
       };
 
       if (!body.message || !body.sessionId) {
         return reply.status(400).send({ error: 'message and sessionId are required' });
       }
 
-      // Get the default brand profile
-      const defaultBrand = await db.select().from(brandProfiles).all()[0] || null;
+      // Resolve the active brand (explicit choice → Default Brand → first brand)
+      const defaultBrand = await resolveActiveBrand(body.brandProfileId);
 
       if (!defaultBrand) {
         return reply.status(400).send({ error: 'No brand profile found. Create a brand profile first.' });

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../../lib/api';
+import { vimoSocialService } from '../../social-accounts/vimoSocialService';
 import {
   ArrowRight,
   Instagram,
@@ -60,70 +61,79 @@ export default function OnboardingConnectSocial({ onComplete }: Props) {
   const [showReassurance, setShowReassurance] = useState<string | null>(null);
   const [pendingConnect, setPendingConnect] = useState<Preset | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
     api
       .get('/api/connectors/presets')
-      .then((res) => setPresets(res.data.filter((p: Preset) => p.type === 'social')))
-      .catch(() => setPresets([]));
+      .then((res) => {
+        if (mountedRef.current) setPresets(res.data.filter((p: Preset) => p.type === 'social'));
+      })
+      .catch(() => {
+        if (mountedRef.current) setPresets([]);
+      });
+    return () => {
+      mountedRef.current = false;
+      // Close any leftover popups / timers if the user leaves mid-connect.
+      vimoSocialService.cleanup();
+    };
   }, []);
 
   const doConnect = async (preset: Preset) => {
+    if (!mountedRef.current) return;
     setConnecting(preset.provider);
     setError(null);
     try {
-      const res = await api.get('/api/auth/oauth/start', {
-        params: { provider: preset.provider, connectorId: `${preset.provider}-${Date.now()}` },
-      });
+      // Start the real handshake on the backend. This either returns an
+      // authorization URL (managed/guided providers with credentials saved)
+      // or needsSetup (this instance needs a one-time guided setup first —
+      // e.g. app-password platforms like Bluesky).
+      const init = await vimoSocialService.initiateOAuth(preset.provider);
+      if (!mountedRef.current) return;
 
-      if (res.data.authUrl) {
-        const popup = window.open(res.data.authUrl, 'oauth', 'width=600,height=700');
-        if (!popup) {
-          setError('Popup blocked. Allow popups and try again.');
-          setConnecting(null);
-          return;
-        }
-        const handleMessage = (event: MessageEvent) => {
-          if (event.data?.success !== undefined) {
-            window.removeEventListener('message', handleMessage);
-            if (event.data?.success) {
-              setConnected((prev) => new Set(prev).add(preset.provider));
-            } else {
-              setError(event.data?.error || `Couldn't connect ${preset.name}.`);
-            }
-            setConnecting(null);
-          }
-        };
-        window.addEventListener('message', handleMessage);
-        const checkClosed = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(checkClosed);
-            window.removeEventListener('message', handleMessage);
-            setConnecting((prev) => (prev === preset.provider ? null : prev));
-          }
-        }, 1000);
-        return;
-      }
-
-      // No app credentials configured on this instance yet — let the user
-      // finish it later from the Connector Hub instead of blocking onboarding.
-      if (res.data.needsSetup) {
+      if (init.needsSetup) {
         setNeedsSetup((prev) => new Set(prev).add(preset.provider));
         setConnecting(null);
         return;
       }
 
-      setError(`Couldn't start the connection for ${preset.name}.`);
-      setConnecting(null);
-    } catch {
-      setError(`Couldn't start the connection for ${preset.name}.`);
-      setConnecting(null);
+      // Poll the backend for REAL completion. The old postMessage handshake
+      // silently dropped successful connections whenever the popup closed
+      // without posting back — the user did everything right and saw nothing.
+      const success = await vimoSocialService.openOAuthPopup(preset.provider, init.authUrl, init.connectorId);
+      if (!mountedRef.current) return;
+      if (success) {
+        await vimoSocialService.refreshAccounts();
+        if (!mountedRef.current) return;
+        setConnected((prev) => new Set(prev).add(preset.provider));
+      } else {
+        setError(
+          `Couldn't finish connecting ${preset.name}. If no popup opened, allow popups for this site and try again.`,
+        );
+      }
+    } catch (err: any) {
+      if (!mountedRef.current) return;
+      // Providers without browser login (Bluesky app password, …) answer 400
+      // with needsSetup — route them to the Connector Hub, don't error out.
+      if (err?.response?.data?.needsSetup) {
+        setNeedsSetup((prev) => new Set(prev).add(preset.provider));
+      } else {
+        setError(err?.response?.data?.error || `Couldn't start the connection for ${preset.name}.`);
+      }
+    } finally {
+      if (mountedRef.current) setConnecting((prev) => (prev === preset.provider ? null : prev));
     }
   };
 
   const handleConnect = async (preset: Preset) => {
     if (connected.has(preset.provider) || needsSetup.has(preset.provider)) return;
-    const hasSeen = localStorage.getItem('oauthReassuranceSeen') === 'true';
+    let hasSeen = false;
+    try {
+      hasSeen = localStorage.getItem('oauthReassuranceSeen') === 'true';
+    } catch (err) {
+      console.warn('[vimo] failed to read reassurance flag:', err);
+    }
     if (!hasSeen) {
       setPendingConnect(preset);
       setShowReassurance(preset.name);
@@ -144,7 +154,7 @@ export default function OnboardingConnectSocial({ onComplete }: Props) {
       <div className="text-center">
         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Connect your accounts</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-          VIMO connects on your behalf. Click a platform, approve in your browser, and you're done — no developer accounts needed. For platforms that need a one-time setup, VIMO guides you through it step by step. Connect more anytime from the Connector Hub.
+          VIMO connects on your behalf. Click a platform, approve in your browser, and you&apos;re done — no developer accounts needed. For platforms that need a one-time setup, VIMO guides you through it step by step. Connect more anytime from the Connector Hub.
         </p>
       </div>
 

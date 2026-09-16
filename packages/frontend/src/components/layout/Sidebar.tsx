@@ -17,6 +17,7 @@ import {
   Flame,
   CheckSquare,
   Users,
+  Sparkles,
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -47,7 +48,7 @@ const navGroups = [
 ];
 
 export default function Sidebar() {
-  const { isSidebarCollapsed, toggleSidebar, isMobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
+  const { isSidebarCollapsed, toggleSidebar, isMobileSidebarOpen, setMobileSidebarOpen, toggleAssistant } = useUIStore();
   const location = useLocation();
   const [approvalCount, setApprovalCount] = useState(0);
 
@@ -96,6 +97,26 @@ export default function Sidebar() {
 
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto px-3 py-6 select-none custom-scrollbar">
+        {/* Ask VIMO — the conversational agent is the product's front door */}
+        <button
+          onClick={() => {
+            toggleAssistant();
+            setMobileSidebarOpen(false);
+          }}
+          title="Ask VIMO (Ctrl+K)"
+          className={cn(
+            "mb-5 flex w-full items-center gap-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 px-3 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-500/20 transition-all hover:shadow-lg hover:shadow-teal-500/30 active:scale-[0.98]",
+            isSidebarCollapsed && "justify-center px-0"
+          )}
+        >
+          <Sparkles className="h-5 w-5 shrink-0" />
+          {!isSidebarCollapsed && (
+            <>
+              <span className="flex-1 text-left">Ask VIMO</span>
+              <kbd className="rounded bg-white/20 px-1.5 py-0.5 font-mono text-[10px] font-bold">⌘K</kbd>
+            </>
+          )}
+        </button>
         {navGroups.map((group, groupIdx) => (
           <div key={groupIdx} className="mb-8">
             <ul className="space-y-1.5">

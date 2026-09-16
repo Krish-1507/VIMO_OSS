@@ -352,6 +352,15 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
           >
             {loading ? 'Saving...' : 'Save Brand & Continue'}
           </button>
+
+          <div className="text-center">
+            <button
+              onClick={onComplete}
+              className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors"
+            >
+              Skip for now — I&apos;ll add my brand later
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -18,6 +18,8 @@ import {
 import { format } from 'date-fns';
 import { socket } from '../lib/socket';
 import { useAuthStore } from '../stores/authStore';
+import { useUIStore } from '../stores/uiStore';
+import InteractiveTour from '../components/onboarding/InteractiveTour';
 import { isDemoMode } from '../lib/demoMode';
 import { DEMO_DATA } from '../lib/demoData';
 import DemoBadge from '../components/demo/DemoBadge';
@@ -87,6 +89,9 @@ export default function DashboardPage() {
   const { sessionToken } = useAuthStore();
   const demoActive = isDemoMode();
 
+  const setAssistantOpen = useUIStore((s) => s.setAssistantOpen);
+  const [showTour, setShowTour] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [briefing, setBriefing] = useState<MorningBriefing | null>(null);
@@ -141,6 +146,41 @@ export default function DashboardPage() {
       socket.off('approval:rejected', handleApproval);
     };
   }, [sessionToken, navigate, demoActive]);
+
+  // First-visit handoff: onboarding can route straight into the agent
+  // ("Meet your marketing agent"), otherwise show the product tour once.
+  useEffect(() => {
+    if (demoActive) return;
+    let openFlag = false;
+    try {
+      openFlag = sessionStorage.getItem('vimo_open_assistant') === '1';
+      sessionStorage.removeItem('vimo_open_assistant');
+    } catch (err) {
+      console.warn('[vimo] failed to read assistant auto-open flag:', err);
+    }
+    if (openFlag) {
+      setAssistantOpen(true);
+      return;
+    }
+    let tourDone = false;
+    try {
+      tourDone = localStorage.getItem('dashboardTourComplete') === 'true';
+    } catch (err) {
+      console.warn('[vimo] failed to read tour flag:', err);
+    }
+    if (!tourDone) setShowTour(true);
+  }, [demoActive, setAssistantOpen]);
+
+  function askVimo(prompt?: string) {
+    if (prompt) {
+      try {
+        sessionStorage.setItem('vimo_pending_prompt', prompt);
+      } catch (err) {
+        console.warn('[vimo] failed to store pending prompt:', err);
+      }
+    }
+    setAssistantOpen(true);
+  }
 
   useEffect(() => {
     const count = opportunities.length;
@@ -338,6 +378,42 @@ export default function DashboardPage() {
 
       {/* Connection health — self-healing, one-click reconnect */}
       {!demoActive && <ConnectionHealthDashboard compact className="shadow-sm" />}
+
+      {/* Meet VIMO — the conversational agent is the front door, not a hidden shortcut */}
+      {!demoActive && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500 p-5 sm:p-6 shadow-lg shadow-teal-500/20">
+          <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-8 h-40 w-40 rounded-full bg-emerald-300/20 blur-2xl" />
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-bold text-white">Don&apos;t click around — just tell VIMO.</h2>
+              <p className="mt-0.5 text-sm text-teal-50/90">
+                Your marketing agent writes, schedules, launches and analyzes. Try &ldquo;Grow my Instagram&rdquo;, &ldquo;write this week&apos;s posts&rdquo;, &ldquo;why did engagement drop?&rdquo;
+              </p>
+            </div>
+            <button
+              onClick={() => askVimo()}
+              className="shrink-0 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-teal-700 shadow transition-colors hover:bg-teal-50 active:scale-[0.98]"
+            >
+              Ask VIMO
+            </button>
+          </div>
+          <div className="relative mt-4 flex flex-wrap gap-2">
+            {['Grow my Instagram this month', 'Write a post for tomorrow 9am', 'Roast my brand'].map((p) => (
+              <button
+                key={p}
+                onClick={() => askVimo(p)}
+                className="rounded-full border border-white/30 bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Claude-style interactive greeting */}
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
@@ -568,6 +644,9 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* First-visit product tour (dead code until now — shown once) */}
+      {showTour && !demoActive && <InteractiveTour onComplete={() => setShowTour(false)} />}
     </div>
   );
 }
