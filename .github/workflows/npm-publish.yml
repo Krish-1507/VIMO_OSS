@@ -70,9 +70,24 @@ jobs:
             echo "vimo-oss@$VERSION is new — publishing."
           fi
 
-      # No NODE_AUTH_TOKEN on purpose: npm authenticates via the workflow's
-      # OIDC identity (id-token: write). An empty/placeholder token here
-      # would override OIDC and break the publish.
+      # Auth strategy, in order:
+      #   1. NPM_TOKEN secret (classic "Automation" token, 2FA-proof) when the
+      #      owner has set one — fully deterministic, debuggable (401 = bad
+      #      token, never a mystery 404).
+      #   2. Otherwise OIDC trusted publishing. The userconfig is rewritten
+      #      from scratch first: a stale NODE_AUTH_TOKEN lingering in the
+      #      environment shadows OIDC and produces a misleading registry 404,
+      #      which is exactly what a bare `npm publish` tripped over.
       - name: Publish to npm with provenance
-        if: steps.check.outputs.published == 'false'
-        run: npm publish --provenance --access public
+        run: |
+          USERCONFIG="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            printf '//registry.npmjs.org/:_authToken=%s\nregistry=https://registry.npmjs.org/\n' "${NPM_TOKEN}" > "$USERCONFIG"
+            npm publish --provenance --access public
+          else
+            printf 'registry=https://registry.npmjs.org/\n' > "$USERCONFIG"
+            npm publish --provenance --access public
+          fi
+        env:
+          # Absent unless the owner adds it (see CONTRIBUTING → Releasing).
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

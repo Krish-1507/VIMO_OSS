@@ -157,8 +157,11 @@ We keep labels small and meaningful so newcomers can self-select work:
   publishes it to npm automatically via OIDC trusted publishing — no tokens.
 - **One-time setup (owner, browser, 2 min):** npmjs.com → `vimo-oss` →
   Settings → Trusted Publisher → GitHub Actions → org `Krish-1507`, repo
-  `VIMO_OSS`, workflow `npm-publish.yml`. Until linked, that job fails with a
-  clear OIDC error and changes nothing else.
+  `VIMO_OSS`, workflow `npm-publish.yml`, environment empty, **Allow npm
+  publish ticked**. Until linked, that job fails and changes nothing else.
+- **Belt and braces:** a classic "Automation" npm token (2FA-proof) stored as
+  the `NPM_TOKEN` repo secret is used instead of OIDC when present. If OIDC
+  ever 404s again, add the secret and re-run the failed job — no code change.
 - Users update with `vimo --update` (launcher self-updates first, then the
   app) or `npm i -g vimo-oss@latest`.
 
