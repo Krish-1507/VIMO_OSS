@@ -33,7 +33,9 @@ free installer and checks again automatically after you've installed it.
 First run takes a few minutes; later starts are fast. Press `Ctrl+C` to stop.
 
 Handy extras: `vimo doctor` checks your computer is ready; `vimo --update`
-gets the latest version while keeping all your data.
+updates the launcher and then the app while keeping all your data. If you ever
+suspect you're on an old copy: `npm i -g vimo-oss@latest`, then `vimo --update`,
+then confirm in Settings → About.
 
 ### Running from the source code (developers)
 

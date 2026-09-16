@@ -22,7 +22,8 @@
  *   --port <n>      Preferred port to serve on (default 3000; busy ports are skipped).
  *   --no-open       Start without opening a browser.
  *   --reset         Reinstall dependencies and rebuild from scratch.
- *   --update        Refresh VIMO to the latest version (your data is kept).
+ *   --update        Refresh VIMO to the latest version: updates this launcher
+ *                   itself first, then the app (your data is kept).
  *   --doctor        Check this computer is ready to run VIMO.
  *   --version       Print the version.
  *   --help          Show this help.
@@ -38,6 +39,9 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_TARBALL_URL = 'https://github.com/Krish-1507/VIMO_OSS/archive/refs/heads/main.tar.gz';
 const TARBALL_ROOT_DIR = 'VIMO_OSS-main'; // top-level folder inside the archive
+const NPM_PACKAGE = 'vimo-oss';
+const NPM_REGISTRY = process.env.VIMO_NPM_REGISTRY || 'https://registry.npmjs.org';
+const REGISTRY_TIMEOUT_MS = 8000;
 const DEFAULT_PORT = 3000;
 const PORT_ATTEMPTS = 50;
 const HEALTH_TIMEOUT_MS = 120_000;
@@ -90,6 +94,89 @@ function warn(msg) {
 function fail(msg) {
   console.error(`\n${paint(RED, '[vimo] ' + msg)}`);
   process.exit(1);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Self-update (the launcher itself)                                           */
+/* -------------------------------------------------------------------------- */
+
+// `vimo --update` used to refresh only the app code, never the launcher — so
+// `npm i -g vimo-oss` stayed frozen at whatever shipped months ago with no way
+// forward. Now the launcher checks the registry first and re-execs into the
+// new copy before touching the app.
+
+function parseVersion(v) {
+  return String(v || '')
+    .split('.')
+    .map((p) => {
+      const n = Number.parseInt(p, 10);
+      return Number.isFinite(n) ? n : 0;
+    });
+}
+
+function compareVersions(a, b) {
+  const pa = parseVersion(a);
+  const pb = parseVersion(b);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff > 0 ? 1 : -1;
+  }
+  return 0;
+}
+
+async function getRegistryLatest() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REGISTRY_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${NPM_REGISTRY}/${NPM_PACKAGE}/latest`, { signal: ctrl.signal });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return typeof body?.version === 'string' ? body.version : null;
+  } catch {
+    return null; // offline or registry hiccup — never block startup on this
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function ensureLauncherUpdated() {
+  let latest = null;
+  try {
+    latest = await getRegistryLatest();
+  } catch {
+    latest = null;
+  }
+  if (!latest) {
+    warn('Could not check for launcher updates (offline?). Continuing with the installed version.');
+    return;
+  }
+  if (compareVersions(latest, pkgVersion) <= 0) {
+    log(`Launcher is up to date (v${pkgVersion}).`);
+    return;
+  }
+  log(`A newer launcher is available (v${pkgVersion} → v${latest}). Updating…`);
+  const res = spawnSync(npmCmd(), ['i', '-g', `${NPM_PACKAGE}@latest`, '--no-fund', '--no-audit'], {
+    stdio: 'inherit',
+    shell: isWindows(),
+  });
+  if (res.error || res.status !== 0) {
+    warn(
+      `Automatic launcher update didn't finish. Run \`npm i -g ${NPM_PACKAGE}@latest\` yourself, ` +
+        'then `vimo --update` again. Continuing with the app refresh meanwhile.',
+    );
+    return;
+  }
+  ok(`Launcher updated to v${latest}. Restarting with the new version…`);
+  if (process.env.VIMO_SELF_UPDATED === '1') {
+    warn('Already relaunched once — continuing here to avoid a loop.');
+    return;
+  }
+  // Re-exec so the rest of `--update` runs under the NEW launcher code.
+  const child = spawnSync(process.execPath, [process.argv[1], ...process.argv.slice(2)], {
+    stdio: 'inherit',
+    env: { ...process.env, VIMO_SELF_UPDATED: '1' },
+  });
+  process.exit(child.status ?? 0);
 }
 
 /**
@@ -147,7 +234,8 @@ Flags:
   --port <n>      Preferred port (default ${DEFAULT_PORT}; busy ports are skipped automatically).
   --no-open       Start without opening a browser.
   --reset         Reinstall dependencies and rebuild from scratch.
-  --update        Refresh VIMO to the latest version (your data is kept).
+  --update        Refresh VIMO to the latest version: updates this launcher
+                  itself first, then the app (your data is kept).
   --doctor        Check whether this computer is ready to run VIMO.
   --version       Print the version.
   --help          Show this help.
@@ -292,6 +380,12 @@ function rmRf(dir) {
 
 /** Extract the archive into destDir; returns path to the extracted repo folder. */
 function extractArchive(archivePath, destDir, tarBin) {
+  if (!tarBin) {
+    fail(
+      'No compatible unpack tool (tar) found on this computer. ' +
+        'Install it with your system package manager, then run `vimo` again.',
+    );
+  }
   fs.mkdirSync(destDir, { recursive: true });
   const res = spawnSync(tarBin, ['-xzf', archivePath, '-C', destDir], { stdio: 'ignore' });
   if (res.status !== 0 || res.error) {
@@ -331,7 +425,19 @@ async function downloadLatest(targetDir, oldRepo) {
     }
 
     rmRf(targetDir);
-    fs.renameSync(extracted, targetDir);
+    try {
+      fs.renameSync(extracted, targetDir);
+    } catch (err) {
+      // Windows file locks (antivirus, open editors) can break rename after
+      // the old folder is already gone. Fall back to a copy so the user is
+      // never left with no install at all — and their .env/data ride along
+      // because they were already carried into `extracted` above.
+      log(`Move was blocked (${err.message || err}); copying instead…`);
+      fs.cpSync(extracted, targetDir, { recursive: true, force: true });
+    }
+    if (!isVimoRepo(targetDir)) {
+      fail('The downloaded package looks damaged after unpacking. Delete it and run `vimo` again.');
+    }
     ok('VIMO downloaded.');
   } finally {
     try {
@@ -374,11 +480,25 @@ function resolveRepo() {
   return home; // may not exist yet — ensureRepo handles it
 }
 
+// Set once an --update refresh has replaced the app files, so the install
+// and build steps below run unconditionally instead of trusting the
+// just-wiped directories' (now meaningless) existence checks.
+let forceRefresh = false;
+
 async function ensureRepo(repo) {
   if (doUpdate && repo === homeDir()) {
     log('Checking for a newer version of VIMO…');
     await downloadLatest(repo, repo);
+    forceRefresh = true;
     return;
+  }
+  if (doUpdate) {
+    // --repo / VIMO_HOME / cwd checkouts belong to the user — refreshing
+    // them silently would fight their own git workflow. Say so, then start.
+    warn(
+      `--update only refreshes the managed install at ${homeDir()}. ` +
+        `The checkout at ${repo} is yours — update it yourself (e.g. \`git pull\`), then run \`vimo\` again. Starting it as-is.`,
+    );
   }
   if (fs.existsSync(repo)) {
     if (!isVimoRepo(repo)) {
@@ -450,7 +570,7 @@ function depsInstalled(repo) {
 }
 
 function ensureDeps(repo) {
-  if (!doReset && depsInstalled(repo)) return;
+  if (!doReset && !forceRefresh && depsInstalled(repo)) return;
   if (doReset) {
     warn('Resetting: reinstalling everything from scratch (this can take a few minutes).');
   }
@@ -465,7 +585,7 @@ function appBuilt(repo) {
 }
 
 function ensureBuild(repo) {
-  if (!doReset && appBuilt(repo)) return;
+  if (!doReset && !forceRefresh && appBuilt(repo)) return;
   runLive(npmCmd(), ['run', 'build:app'], { cwd: repo }, 'Building VIMO (first run only)…');
 }
 
@@ -606,6 +726,13 @@ async function main() {
   checkNode();
 
   if (args.includes('--doctor')) doctor();
+
+  // VIMO_SKIP_LAUNCHER_UPDATE=1 is a testing seam so the suite never hits
+  // the network or touches the global npm root.
+  if (doUpdate && process.env.VIMO_SKIP_LAUNCHER_UPDATE !== '1') {
+    // Launcher first (re-execes into the new copy when it updates), then app.
+    await ensureLauncherUpdated();
+  }
 
   const repo = resolveRepo();
   await ensureRepo(repo);

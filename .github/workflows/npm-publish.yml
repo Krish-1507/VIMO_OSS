@@ -1,0 +1,52 @@
+name: Publish launcher to npm
+
+# Keeps `npm i -g vimo-oss` fresh automatically. When the changesets flow
+# cuts a GitHub Release for the launcher package (tag `vimo-oss@*`), this
+# publishes that exact version to npm with OIDC trusted publishing + provenance.
+#
+# One-time owner setup (browser, 2 minutes, required once ever):
+#   npmjs.com → vimo-oss package → Settings → Trusted Publisher → GitHub
+#   Actions → organization Krish-1507, repository VIMO_OSS,
+#   workflow file name npm-publish.yml, environment (none).
+# Until that link exists this job fails with a clear OIDC error and changes
+# nothing — releases, tags, and the app are unaffected.
+#
+# No tokens are stored: authentication is short-lived OIDC (`id-token: write`).
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish vimo-oss
+    # Only launcher releases — frontend/backend are private and never touch npm.
+    if: startsWith(github.event.release.tag_name, 'vimo-oss@')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/cli
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify launcher (lint + smoke tests)
+        run: |
+          node --check bin/vimo.mjs
+          node --test tests/*.test.mjs
+
+      # No NODE_AUTH_TOKEN on purpose: npm authenticates via the workflow's
+      # OIDC identity (id-token: write). An empty/placeholder token here
+      # would override OIDC and break the publish.
+      - name: Publish to npm with provenance
+        run: npm publish --provenance --access public

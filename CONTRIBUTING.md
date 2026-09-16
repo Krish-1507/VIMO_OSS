@@ -150,6 +150,18 @@ We keep labels small and meaningful so newcomers can self-select work:
 6. If you changed setup, config, or a connection, update the README and
    [docs/EXTENDING_VIMO.md](docs/EXTENDING_VIMO.md) as needed.
 
+## Releasing (maintainers)
+
+- Merging a Version Packages PR bumps versions, writes changelogs, and tags.
+- If the release includes the `vimo-oss` launcher, the npm-publish workflow
+  publishes it to npm automatically via OIDC trusted publishing — no tokens.
+- **One-time setup (owner, browser, 2 min):** npmjs.com → `vimo-oss` →
+  Settings → Trusted Publisher → GitHub Actions → org `Krish-1507`, repo
+  `VIMO_OSS`, workflow `npm-publish.yml`. Until linked, that job fails with a
+  clear OIDC error and changes nothing else.
+- Users update with `vimo --update` (launcher self-updates first, then the
+  app) or `npm i -g vimo-oss@latest`.
+
 ## Code Style
 
 - TypeScript strict mode — no `any` unless absolutely necessary.

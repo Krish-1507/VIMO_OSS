@@ -156,8 +156,10 @@ no key, nothing leaves your machine. Press `Ctrl+C` to stop. First run takes a
 few minutes (it's building the app for you); later starts are fast.
 
 Useful launcher commands: `vimo doctor` (check your machine is ready),
-`vimo --update` (get the latest version, keeps your data), `vimo --reset`
-(reinstall from scratch).
+`vimo --update` (updates the launcher itself, then the app — keeps your data),
+`vimo --reset` (reinstall from scratch). Stuck on an old version?
+`npm i -g vimo-oss@latest`, then `vimo --update`. Confirm what you're running
+in Settings → About (app) and `vimo --version` (launcher).
 
 ### Option A — Try the Demo (zero setup)
 

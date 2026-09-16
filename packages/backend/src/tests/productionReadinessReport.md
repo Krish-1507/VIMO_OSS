@@ -70,7 +70,7 @@
 #### 2.1 GET /api/health
 
 - **Status:** PASS
-- **Notes:** Returns 200 with status: ok, nodeVersion: v22.12.0, dbStatus: ok, encryptionKeySet: True, port: 3000
+- **Notes:** Returns 200 with status: ok, nodeVersion: v22.12.0, dbStatus: ok, encryptionKeySet: True, port: 3000, appVersion (repo-root package version for Settings → About)
 
 #### 2.2 GET /api/system/status
 

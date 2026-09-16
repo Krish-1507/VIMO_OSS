@@ -130,6 +130,17 @@ export default function SettingsPage() {
    const [dnaResult, setDnaResult] = useState<any>(null);
     const [showCreatePanel, setShowCreatePanel] = useState(false);
     const [dnaCreateMode, setDnaCreateMode] = useState<'url' | 'manual' | null>(null);
+    // Live app version for the About tab (Settings used to hardcode v2.0.0,
+    // so users could never tell whether an update had worked).
+    const [appVersion, setAppVersion] = useState('');
+    useEffect(() => {
+      if (activeTab !== 'about' || appVersion) return;
+      api.get('/api/health').then((res) => {
+        if (res.data?.appVersion && res.data.appVersion !== 'unknown') {
+          setAppVersion(res.data.appVersion);
+        }
+      }).catch((err) => console.warn('[vimo] failed to load app version:', err));
+    }, [activeTab, appVersion]);
     const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
     const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
     const debouncedSave = useCallback((key: string, value: string) => {
@@ -1742,8 +1753,11 @@ export default function SettingsPage() {
                      <Bot className="h-10 w-10" />
                    </div>
                    <div className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-mono text-slate-600 dark:text-slate-400">
-                     VIMO v2.0.0
+                     VIMO v{appVersion || '…'}
                    </div>
+                   <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-xs">
+                     This is your installed app version. Just updated? If this number didn&apos;t change, run <code className="font-mono">vimo --update</code> in your terminal. (Launcher version: run <code className="font-mono">vimo --version</code>.)
+                   </p>
                  </div>
  
                  <div className="grid gap-4 sm:grid-cols-2">

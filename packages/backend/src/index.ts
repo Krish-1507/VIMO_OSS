@@ -91,6 +91,22 @@ async function ensureEnvFile() {
   return envPath;
 }
 
+/**
+ * App version for the Settings → About screen and update checks. Read from
+ * the repo-root package.json (works in dev and from the built dist); never
+ * throws — 'unknown' simply means the version file wasn't reachable.
+ */
+function getAppVersion(): string {
+  try {
+    const root = findRepoRoot();
+    if (!root) return 'unknown';
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+    return typeof pkg?.version === 'string' ? pkg.version : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 /** Count credentials encrypted with the current key. Used to decide whether a key rotation is safe. */
 function countStoredCredentials(): number {
   const row = db
@@ -312,6 +328,8 @@ await app.register(webhookRoutes);
       dbStatus,
       encryptionKeySet: classifyEncryptionKey(process.env.ENCRYPTION_KEY) === null,
       port: process.env.PORT,
+      // Surfaced in Settings → About so users can verify an update worked.
+      appVersion: getAppVersion(),
     };
   });
 
