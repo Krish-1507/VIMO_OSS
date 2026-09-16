@@ -171,11 +171,14 @@ export default async function oauthRoutes(app: FastifyInstance) {
         await credentialStore.storeCredential(connectorId, 'tokenExpiresAt', String(expiresAt));
       }
 
-      // Enrich the connector with the sub-account ids each platform needs
-      // (Instagram business account, Facebook page, Threads user, etc.)
-      await enrichConnectorAfterOAuth(connectorId, provider, tokenResult.accessToken);
-
-      // Look up the connector and mark it active
+      // Resolve the real connector row FIRST, then enrich once against it.
+      //
+      // Pack flows handshake under a synthetic id (e.g. `pack-github-123`)
+      // that was never a connector row. The old code stored tokens + ran
+      // enrichment under that dead id and then created a fresh, empty row —
+      // a connection that looked live but could never publish or refresh.
+      // We now adopt the handshake credentials onto the real row.
+      let targetId = connectorId;
       try {
         const connector = await registry.getById(connectorId);
         if (connector) {
@@ -187,22 +190,33 @@ export default async function oauthRoutes(app: FastifyInstance) {
             (p) => p.provider === provider,
           );
           if (preset) {
-            await registry.create({
+            const created = await registry.create({
               name: preset.name,
               type: preset.type as any,
               provider: preset.provider,
               status: 'active',
               config: { tools: preset.tools, serverType: 'builtin' },
             });
+            try {
+              const moved = await credentialStore.moveCredentials(connectorId, created.id);
+              console.log(`[OAuth] Adopted ${moved} credential(s) from handshake ${connectorId} onto connector ${created.id}`);
+            } catch (moveErr) {
+              console.warn(`[OAuth] Failed to adopt handshake credentials for ${created.id}:`, moveErr);
+            }
+            targetId = created.id;
           }
         }
       } catch (connErr) {
         console.error(`[OAuth] Failed to update connector ${connectorId}:`, connErr);
       }
 
+      // Enrich the connector with the sub-account ids each platform needs
+      // (Instagram business account, Facebook page, Threads user, etc.)
+      await enrichConnectorAfterOAuth(targetId, provider, tokenResult.accessToken);
+
       // Return success HTML that closes the popup
       reply.type('text/html');
-      return oauthResponseHtml(true, connectorId);
+      return oauthResponseHtml(true, targetId);
     } catch (err: any) {
       console.error('[OAuth] Callback error:', err);
       reply.type('text/html');

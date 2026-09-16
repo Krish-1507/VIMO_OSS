@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useUIStore } from '../../stores/uiStore';
+import { useBrandStore } from '../../stores/brandStore';
 import {
   LayoutDashboard,
   Megaphone,
@@ -18,6 +19,7 @@ import {
   CheckSquare,
   Users,
   Sparkles,
+  Building2,
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -46,6 +48,31 @@ const navGroups = [
     { name: 'Settings', icon: Settings, path: '/settings' },
   ]
 ];
+
+function SidebarBrandPicker() {
+  const profiles = useBrandStore((s) => s.profiles);
+  const selectedId = useBrandStore((s) => s.selectedId);
+  const setSelectedId = useBrandStore((s) => s.setSelectedId);
+  if (profiles.length === 0) return null;
+  return (
+    <label className="flex items-center gap-2.5 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/60">
+      <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
+      <span className="sr-only">Active brand</span>
+      <select
+        value={selectedId || ''}
+        onChange={(e) => setSelectedId(e.target.value)}
+        className="w-full min-w-0 flex-1 truncate bg-transparent text-xs font-medium text-slate-700 outline-none dark:text-slate-300"
+        aria-label="Active brand"
+      >
+        {profiles.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 export default function Sidebar() {
   const { isSidebarCollapsed, toggleSidebar, isMobileSidebarOpen, setMobileSidebarOpen, toggleAssistant } = useUIStore();
@@ -79,6 +106,11 @@ export default function Sidebar() {
       console.warn('[vimo] best-effort operation failed:', err);
     }
   }
+
+  // Brand list for the switcher (also feeds the header picker).
+  useEffect(() => {
+    useBrandStore.getState().fetchProfiles();
+  }, []);
 
   return (    <aside
       className={cn(
@@ -161,7 +193,10 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom section */}
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+      <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+        {/* Brand switcher — the header picker is desktop-only, so mobile
+            users switch brands here. Hidden when the rail is collapsed. */}
+        {!isSidebarCollapsed && <SidebarBrandPicker />}
         {/* Close button for mobile */}
         <button
           onClick={() => setMobileSidebarOpen(false)}

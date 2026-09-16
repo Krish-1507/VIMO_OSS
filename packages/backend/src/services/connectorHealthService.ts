@@ -10,6 +10,31 @@ import { createLogger } from '../lib/logger';
 const log = createLogger('connector:health');
 
 /**
+ * Emit a needs-attention alert tagged with the connector's provider + kind,
+ * so the UI can deep-link non-technical users straight to the right fix
+ * screen (Social Accounts for social logins, Connector Hub for packs).
+ */
+async function emitAttention(
+  connectorId: string,
+  reason: string,
+  extra?: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const registry = new ConnectorRegistry(db);
+    const conn = await registry.getById(connectorId);
+    emitToClients('connector:needs_attention', {
+      connectorId,
+      reason,
+      provider: conn?.provider || null,
+      kind: conn?.type === 'social' ? 'social' : 'connector',
+      ...extra,
+    });
+  } catch (err) {
+    console.warn('[vimo] best-effort operation failed:', err);
+  }
+}
+
+/**
  * Check all active connectors for health issues.
  * - LLM connectors: send a minimal test prompt
  * - Instagram connectors: verify token validity
@@ -63,17 +88,11 @@ async function tryRefreshOAuthToken(connectorId: string, provider: string): Prom
       // Token is still valid — check if we need to send a notification
       if (expiresAt <= notificationDays && !isManaged) {
         // Guided provider within 30 days — emit notification
-        try {
-          emitToClients('connector:needs_attention', {
-            connectorId,
-            reason: `Token expires in ${Math.ceil((expiresAt - Date.now()) / (1000 * 60 * 60 * 24))} days. Please reconnect.`,
-            type: 'token_expiring',
-            expiresAt: new Date(expiresAt).toISOString(),
-          });
-        } catch (err) {
-          /* ignore */
-          console.warn('[vimo] best-effort operation failed:', err);
-        }
+        await emitAttention(
+          connectorId,
+          `Token expires in ${Math.ceil((expiresAt - Date.now()) / (1000 * 60 * 60 * 24))} days. Please reconnect.`,
+          { type: 'token_expiring', expiresAt: new Date(expiresAt).toISOString() },
+        );
       }
       return;
     }
@@ -138,7 +157,7 @@ async function checkInstagramConnector(connectorId: string): Promise<void> {
     const accessToken = await credentialStore.getCredential(connectorId, 'accessToken');
     if (!accessToken) {
       await updateConnectorStatus(connectorId, 'inactive', 'No access token');
-      emitToClients('connector:needs_attention', { connectorId, reason: 'No access token configured' });
+      await emitAttention(connectorId, 'No access token configured');
       return;
     }
 
@@ -151,10 +170,10 @@ async function checkInstagramConnector(connectorId: string): Promise<void> {
     // Error 190 = invalid/expired token
     if (msg.includes('190') || msg.includes('expired') || msg.includes('invalid')) {
       await updateConnectorStatus(connectorId, 'inactive', msg);
-      emitToClients('connector:needs_attention', { connectorId, reason: 'Instagram token has expired. Please reconnect.' });
+      await emitAttention(connectorId, 'Instagram token has expired. Please reconnect.');
     } else {
       await updateConnectorStatus(connectorId, 'error', msg);
-      emitToClients('connector:needs_attention', { connectorId, reason: msg });
+      await emitAttention(connectorId, msg);
     }
   }
 }

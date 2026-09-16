@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import api from '../../lib/api';
 import {
   Instagram,
   Facebook,
@@ -98,11 +99,11 @@ export default function ConnectionHealthDashboard({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/connections/health`, {
-        headers: { 'x-session-token': token },
-      });
-      if (res.ok) setData(await res.json());
+      // Shared client: session + double-submit CSRF + 401 renewal. The old
+      // raw fetch omitted the CSRF header, so every state-changing call
+      // died with 403 and the Reconnect button could never work.
+      const res = await api.get('/api/connections/health');
+      setData(res.data);
     } catch (err) {
       // ignore
       console.warn('[vimo] best-effort operation failed:', err);
@@ -121,21 +122,18 @@ export default function ConnectionHealthDashboard({
     setReconnecting(platform);
     setToast(null);
     try {
-      const token = localStorage.getItem('session_token') || '';
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/connections/${platform}/reconnect`, {
-        method: 'POST',
-        headers: { 'x-session-token': token },
-      });
-      const body = await res.json();
+      const res = await api.post(`/api/connections/${platform}/reconnect`);
+      const body = res.data || {};
       setToast({
         platform,
         ok: !!body.success,
-        msg: body.message || body.details || (res.ok ? 'Reconnected.' : 'Reconnect failed.'),
+        msg: body.message || body.details || 'Reconnected.',
       });
       await load();
       setTimeout(() => setToast(null), 6000);
     } catch (err: any) {
-      setToast({ platform, ok: false, msg: err?.message || 'Reconnect failed.' });
+      const serverMsg = err?.response?.data?.error || err?.response?.data?.details;
+      setToast({ platform, ok: false, msg: serverMsg || err?.message || 'Reconnect failed.' });
       setTimeout(() => setToast(null), 6000);
     } finally {
       setReconnecting(null);

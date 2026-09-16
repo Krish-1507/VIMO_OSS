@@ -1696,8 +1696,14 @@ export default function SettingsPage() {
 
                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
                   <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Audit Logs</h2>
-                  <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-                    <table className="w-full text-left text-sm">
+                  {auditLogs.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-6 text-center">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No activity recorded yet</p>
+                      <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Agent actions, approvals and publishes will show up here.</p>
+                    </div>
+                  ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                    <table className="w-full min-w-[560px] text-left text-sm">
                       <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 uppercase text-[10px] font-bold tracking-wider">
                         <tr>
                           <th className="px-4 py-3">Time</th>
@@ -1724,6 +1730,7 @@ export default function SettingsPage() {
                       </tbody>
                     </table>
                   </div>
+                  )}
                 </div>
               </section>
             )}

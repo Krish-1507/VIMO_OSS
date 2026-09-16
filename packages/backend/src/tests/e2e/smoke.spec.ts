@@ -86,25 +86,35 @@ test('boot app → Demo brand → run Director', async ({ request, page }) => {
   const run = await runRes.json();
   expect(run.sessionId, 'director run should return a sessionId').toBeTruthy();
 
-  // 5) Poll until the Director session is persisted — i.e. the pipeline ran to
-  //    completion against the real server without crashing.
+  // 5) Poll until the Director session reaches a terminal state — i.e. the
+  //    pipeline ran to completion against the real server without crashing.
+  //    Sessions are `running` from second zero, so a `failed` run fails this
+  //    test in seconds with a clear message instead of a 120s blind timeout.
   const deadline = Date.now() + 120_000;
-  let latest: { brandProfileId?: string } | null = null;
+  let latest: { brandProfileId?: string; status?: string } | null = null;
+  let runFailed = false;
   while (Date.now() < deadline) {
     const latestRes = await request.get(
       `/api/director/latest?brandProfileId=${encodeURIComponent(brand.id)}`,
       { headers: { 'x-session-token': token } },
     );
     if (latestRes.ok()) {
-      const body = (await latestRes.json()) as { session?: { brandProfileId?: string } };
-      if (body?.session) {
+      const body = (await latestRes.json()) as {
+        session?: { brandProfileId?: string; status?: string } | null;
+      };
+      if (body?.session?.status === 'completed') {
         latest = body.session;
+        break;
+      }
+      if (body?.session?.status === 'failed') {
+        runFailed = true;
         break;
       }
     }
     await new Promise((r) => setTimeout(r, 2000));
   }
 
+  expect(runFailed, 'Director run failed — check the backend logs for [Director] errors').toBe(false);
   expect(latest, 'Director session should be persisted after a run').toBeTruthy();
   expect(latest?.brandProfileId).toBe(brand.id);
 });

@@ -50,7 +50,9 @@ function ToastItem({ notification, onDismiss }: ToastItemProps) {
   return (
     <div
       className={cn(
-        "toast-item relative bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-modal p-4 flex items-start gap-3 min-w-[320px] max-w-[400px]",
+        // Full-width on phones (a 320px min-width overflows a 320-360px viewport),
+        // floating card on larger screens.
+        "toast-item relative bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-modal p-4 flex items-start gap-3 w-full sm:w-auto sm:min-w-[320px] sm:max-w-[400px]",
         isRemoving && "removing"
       )}
     >
@@ -79,7 +81,7 @@ export default function Toast() {
   const removeNotification = useUIStore((s) => s.removeNotification);
 
   return (
-    <div className="fixed bottom-0 right-0 z-50 flex flex-col gap-2 pb-4 pr-4" role="status" aria-live="polite">
+    <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-stretch sm:items-end gap-2 p-4" role="status" aria-live="polite">
       {notifications.map((n) => (
         <ToastItem key={n.id} notification={n} onDismiss={removeNotification} />
       ))}

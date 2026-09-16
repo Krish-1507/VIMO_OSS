@@ -1,35 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import { useOnboardingStore } from './stores/onboardingStore';
 import { useDemoMode } from './lib/demoMode';
 import DemoModeBar from './components/demo/DemoModeBar';
 import AppLayout from './components/layout/AppLayout';
+// Auth gates stay eager: they ARE the first paint for logged-out users.
 import SetupPage from './pages/SetupPage';
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import CampaignsPage from './pages/CampaignsPage';
-import SchedulerPage from './pages/SchedulerPage';
-import ViralPage from './pages/ViralPage';
-import EngagementPage from './pages/EngagementPage';
-import IntelligencePage from './pages/IntelligencePage';
-import LibraryPage from './pages/LibraryPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-
-import ConnectorHubPage from './connector-packs/pages/ConnectorHubPage';
-import SocialAccountsPage from './social-accounts/pages/SocialAccountsPage';
-// Legacy connector page kept for reference: /connectors-legacy
-import SettingsPage from './pages/SettingsPage';
-import BrandMemoryPage from './pages/BrandMemoryPage';
-import BrandRoastPage from './pages/BrandRoastPage';
-import ApprovalQueuePage from './pages/ApprovalQueuePage';
 import SystemCheckPage from './pages/SystemCheckPage';
-import ContentPage from './pages/ContentPage';
-import BrandPage from './pages/BrandPage';
-import ActivityPage from './pages/ActivityPage';
-import AutopilotPage from './pages/AutopilotPage';
 import NotFoundPage from './pages/NotFoundPage';
-import OnboardingWizard from './components/onboarding/OnboardingWizard';
+import { PageLoader } from './components/ui/PageLoader';
+// Everything behind the app shell loads on demand. This split the 2.2MB
+// single bundle into a ~small shell + per-page chunks, so first paint only
+// downloads the login/setup flow and each page loads when visited.
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const CampaignsPage = lazy(() => import('./pages/CampaignsPage'));
+const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
+const ViralPage = lazy(() => import('./pages/ViralPage'));
+const EngagementPage = lazy(() => import('./pages/EngagementPage'));
+const IntelligencePage = lazy(() => import('./pages/IntelligencePage'));
+const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const ConnectorHubPage = lazy(() => import('./connector-packs/pages/ConnectorHubPage'));
+const SocialAccountsPage = lazy(() => import('./social-accounts/pages/SocialAccountsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const BrandMemoryPage = lazy(() => import('./pages/BrandMemoryPage'));
+const BrandRoastPage = lazy(() => import('./pages/BrandRoastPage'));
+const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
+const ContentPage = lazy(() => import('./pages/ContentPage'));
+const BrandPage = lazy(() => import('./pages/BrandPage'));
+const ActivityPage = lazy(() => import('./pages/ActivityPage'));
+const AutopilotPage = lazy(() => import('./pages/AutopilotPage'));
+const OnboardingWizard = lazy(() => import('./components/onboarding/OnboardingWizard'));
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 function AppRoutes() {
@@ -159,6 +162,7 @@ function AppRoutes() {
         path="/*"
         element={
           <AppLayout>
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route
                 path="/dashboard"
@@ -315,6 +319,7 @@ function AppRoutes() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            </Suspense>
           </AppLayout>
         }
       />
@@ -326,7 +331,11 @@ function OnboardingOverlay() {
   const { isComplete, isLoading } = useOnboardingStore();
   if (isLoading) return null;
   if (isComplete) return null;
-  return <OnboardingWizard />;
+  return (
+    <Suspense fallback={null}>
+      <OnboardingWizard />
+    </Suspense>
+  );
 }
 
 function DemoBanner() {

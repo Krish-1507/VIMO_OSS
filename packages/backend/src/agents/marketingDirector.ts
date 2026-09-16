@@ -949,13 +949,12 @@ Return JSON:
       }).run();
     }
 
-    // Save director session to DB
+    // Complete the up-front `running` row. Update-first (not insert):
+    // runMarketingDirector always creates the row, so a second insert would
+    // violate the primary key. The insert fallback only covers pipelines
+    // driven directly (unit tests, older callers) with no pre-created row.
     const sessionId = state.sessionId || crypto.randomUUID();
-
-    await db.insert(directorSessions).values({
-      id: sessionId,
-      brandProfileId: state.brandProfileId!,
-      trigger: state.trigger!,
+    const completedValues = {
       researchReportJson: state.researchReport ? JSON.stringify(state.researchReport) : null,
       analyticsInsightsJson: state.analyticsInsights ? JSON.stringify(state.analyticsInsights) : null,
       contentOpportunitiesJson: state.contentOpportunities ? JSON.stringify(state.contentOpportunities) : null,
@@ -963,8 +962,29 @@ Return JSON:
       directorSummary,
       recommendedActionsJson: JSON.stringify([]), // legacy field
       morningBriefingJson: null,
-      createdAt: now.toISOString(),
-    });
+      status: 'completed',
+    };
+
+    await db
+      .update(directorSessions)
+      .set(completedValues)
+      .where(eq(directorSessions.id, sessionId))
+      .run();
+
+    const stillMissing = db
+      .select({ id: directorSessions.id })
+      .from(directorSessions)
+      .where(eq(directorSessions.id, sessionId))
+      .get();
+    if (!stillMissing) {
+      await db.insert(directorSessions).values({
+        id: sessionId,
+        brandProfileId: state.brandProfileId!,
+        trigger: state.trigger!,
+        ...completedValues,
+        createdAt: now.toISOString(),
+      });
+    }
 
     console.log(`[Director] synthesize — Saved session ${sessionId} with ${opps.length} opportunities`);
 
@@ -1096,6 +1116,17 @@ export async function runDirectorPipeline(params: {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[Director] runDirectorPipeline error for session ${sessionId}:`, msg);
 
+    // Terminal state: a crashed run must never sit at 'running' forever.
+    try {
+      await db
+        .update(directorSessions)
+        .set({ status: 'failed' })
+        .where(eq(directorSessions.id, sessionId))
+        .run();
+    } catch (dbErr) {
+      console.warn(`[Director] failed to mark session ${sessionId} as failed:`, (dbErr as Error).message);
+    }
+
     await logAgentAction({
       action: 'runMarketingDirector',
       input: JSON.stringify(params),
@@ -1113,6 +1144,20 @@ export async function runMarketingDirector(params: {
   trigger: DirectorTrigger;
 }): Promise<string> {
   const sessionId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  // Persist the run UP FRONT as `running`. The row used to appear only at the
+  // very end (inside synthesize), so a slow or crashed pipeline was
+  // indistinguishable from "nothing happened" — the UI, the API, and the E2E
+  // suite all polled a void for 120s and then timed out. Every run is now
+  // observable from second zero and always ends in a terminal state.
+  await db.insert(directorSessions).values({
+    id: sessionId,
+    brandProfileId: params.brandProfileId,
+    trigger: params.trigger,
+    status: 'running',
+    createdAt: now,
+  });
 
   // Run in non-blocking background context so the HTTP request returns
   // immediately while the Director works.

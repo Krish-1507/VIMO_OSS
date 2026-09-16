@@ -7,7 +7,7 @@ covered by `packages/backend/src/tests/connectorsMarketplaceRoutes.test.ts`.
 
 ## TL;DR
 
-- **All 211 backend tests + 9 frontend tests pass** (run `npm test` in the
+- **All 241 backend tests + 9 frontend tests pass** (run `npm test` in the
   repo root). A Playwright smoke (`npm run test:e2e`) additionally boots the
   real app, performs first-run PIN setup, runs the Marketing Director, and
   checks the webhook, approval, and CSV-export endpoints end-to-end.
@@ -28,6 +28,13 @@ covered by `packages/backend/src/tests/connectorsMarketplaceRoutes.test.ts`.
   grace-timeout) wins the race.
 - **App-password connectors (Bluesky) validate inputs** before touching
   the DB. A short app password or a missing handle is a clean 400.
+- **OAuth handshakes adopt their tokens.** Pack flows start under a synthetic
+  id; the callback moves those credentials onto the created connector row (and
+  enriches it), so no "connected" row is ever left without tokens.
+- **One-click Reconnect actually reconnects.** The health dashboard uses the
+  session + CSRF client (raw fetches used to die with 403), the hourly cron
+  refreshes expiring OAuth tokens, and attention banners deep-link social
+  logins to Social Accounts and packs to the Connector Hub.
 
 ---
 
@@ -36,7 +43,7 @@ covered by `packages/backend/src/tests/connectorsMarketplaceRoutes.test.ts`.
 From the repo root:
 
 ```bash
-npm run test:backend -- --reporter=verbose src/tests/connectorsMarketplaceRoutes.test.ts
+npm run test:backend -- --reporter=verbose src/tests/connectorsMarketplaceRoutes.test.ts src/tests/oauthCallbackAdoption.test.ts
 npm run test:backend
 npm run test:frontend
 ```
@@ -45,7 +52,9 @@ You should see:
 
 - `connectorsMarketplaceRoutes.test.ts`: **26/26 passing** (real Fastify
   app, real session token + CSRF, real DB, mocked axios only).
-- Full backend suite: **211/211 passing** across 25 test files.
+- `oauthCallbackAdoption.test.ts`: handshake credentials land on the real
+  connector row; pre-existing rows are reused, never duplicated.
+- Full backend suite: **241/241 passing** across 31 test files.
 - Frontend: **9/9 passing** across 3 test files.
 
 ---

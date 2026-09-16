@@ -22,6 +22,8 @@ interface ConnectorAlert {
   connectorId: string;
   connectorName: string;
   reason: string;
+  kind?: string;
+  provider?: string;
 }
 
 const NOTIF_ICONS: Record<string, React.ElementType> = {
@@ -96,10 +98,10 @@ export default function Header({ title }: { title: string }) {
     };
     socket.on('notification:new', onNewNotif);
 
-    const onConnectorAttention = (data: { connectorId: string; reason: string }) => {
+    const onConnectorAttention = (data: { connectorId: string; reason: string; kind?: string; provider?: string }) => {
       setConnectorAlerts((prev) => {
         if (prev.some((a) => a.connectorId === data.connectorId)) return prev;
-        return [...prev, { connectorId: data.connectorId, connectorName: data.connectorId.slice(0, 8), reason: data.reason }];
+        return [...prev, { connectorId: data.connectorId, connectorName: data.connectorId.slice(0, 8), reason: data.reason, kind: data.kind, provider: data.provider }];
       });
     };
     socket.on('connector:needs_attention', onConnectorAttention);
@@ -221,7 +223,9 @@ export default function Header({ title }: { title: string }) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate('/connector-hub')}
+              // Social logins reconnect in Social Accounts; packs reconnect
+              // in the Connector Hub. One click, right screen, no hunting.
+              onClick={() => navigate(alert.kind === 'social' ? '/social-accounts' : '/connector-hub')}
               className="flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-900 dark:text-amber-300"
             >
               Fix now <ExternalLink className="h-3 w-3" />

@@ -78,3 +78,33 @@ export async function deleteCredential(connectorId: string): Promise<void> {
     await db.delete(appSettings).where(eq(appSettings.key, row.key)).run();
   }
 }
+
+/**
+ * Move every credential from one connector id to another, returning how many
+ * moved. Values are copied as-is (they stay encrypted at rest) and the source
+ * rows are deleted, so this is a true move, not a copy.
+ *
+ * Used by the OAuth callback: pack flows handshake under a synthetic id that
+ * was never a connector row. Without this the tokens (and later enrichment
+ * values) sit under a dead id while the real connector row holds nothing —
+ * a connection that looks live but can never publish.
+ */
+export async function moveCredentials(fromConnectorId: string, toConnectorId: string): Promise<number> {
+  if (!fromConnectorId || !toConnectorId || fromConnectorId === toConnectorId) return 0;
+  const prefix = `cred:${fromConnectorId}:`;
+  const rows = await db.select().from(appSettings).where(like(appSettings.key, `${prefix}%`)).all();
+  let moved = 0;
+  const now = new Date().toISOString();
+  for (const row of rows) {
+    const name = row.key.slice(prefix.length);
+    if (!name) continue;
+    const newKey = `cred:${toConnectorId}:${name}`;
+    await db
+      .insert(appSettings)
+      .values({ key: newKey, value: row.value, updatedAt: now })
+      .onConflictDoUpdate({ target: appSettings.key, set: { value: row.value, updatedAt: now } });
+    await db.delete(appSettings).where(eq(appSettings.key, row.key)).run();
+    moved++;
+  }
+  return moved;
+}

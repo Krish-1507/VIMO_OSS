@@ -303,6 +303,11 @@ export const directorSessions = sqliteTable('director_sessions', {
   id: text('id').primaryKey(),
   brandProfileId: text('brand_profile_id').notNull(),
   trigger: text('trigger').notNull(),
+  // Run visibility: every run starts as 'running' (row written up front) and
+  // ends as 'completed' or 'failed'. Previously the row only appeared at the
+  // very end, so a slow or crashed run was indistinguishable from "nothing
+  // happened" — the UI, the API, and the E2E suite all polled a void.
+  status: text('status').default('running').notNull(),
   researchReportJson: text('research_report_json'),
   analyticsInsightsJson: text('analytics_insights_json'),
   contentOpportunitiesJson: text('content_opportunities_json'),

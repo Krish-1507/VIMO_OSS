@@ -323,6 +323,7 @@ sqlite.exec(`
     id TEXT PRIMARY KEY,
     brand_profile_id TEXT NOT NULL,
     trigger TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
     research_report_json TEXT,
     analytics_insights_json TEXT,
     content_opportunities_json TEXT,
@@ -632,6 +633,24 @@ try {
   }
 } catch (err) {
   console.warn('⚠ Failed to add morning_briefing_json column:', err);
+}
+
+// Ensure director_sessions has status column (run visibility: running → completed/failed).
+// Backfill honestly: rows that reached synthesize (director_summary set) are
+// completed; rows that never got there died mid-run, so they are failed —
+// never leave a stale 'running' that the UI would show as progress forever.
+try {
+  const dsCols2 = sqlite
+    .prepare("PRAGMA table_info('director_sessions')")
+    .all() as Array<{ name: string }>;
+  if (!new Set(dsCols2.map((c) => c.name)).has('status')) {
+    console.log('🔄 Adding director_sessions.status column...');
+    sqlite.exec(`ALTER TABLE director_sessions ADD COLUMN status TEXT NOT NULL DEFAULT 'running'`);
+    sqlite.prepare(`UPDATE director_sessions SET status = 'completed' WHERE director_summary IS NOT NULL`).run();
+    sqlite.prepare(`UPDATE director_sessions SET status = 'failed' WHERE director_summary IS NULL`).run();
+  }
+} catch (err) {
+  console.warn('⚠ Failed to add status column:', err);
 }
 
 // Set default approval settings using key-value pattern (app_settings is a key-value store)

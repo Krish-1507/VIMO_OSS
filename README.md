@@ -73,12 +73,22 @@ by an automated test:
   missing handle is a clean `400`, not a half-written connector.
 - **Abandoned OAuth handshakes are reaped** after 15 minutes so the Connector Hub
   doesn't accumulate "inactive" rows from users who closed the popup.
+- **OAuth tokens land on the real connector.** Pack flows handshake under a synthetic
+  id; the callback now adopts those credentials onto the created row (and enriches
+  it) instead of leaving a "connected" row with no tokens behind.
+- **Connections self-heal and reconnect in one click.** Hourly health checks refresh
+  expiring OAuth tokens, warn before guided-provider tokens lapse, and route every
+  alert to the right fix screen (Social Accounts vs. Connector Hub).
+- **Director runs are observable.** Every run persists a `running` row up front and
+  ends in `completed`/`failed` — no more polling a void, and keyless environments
+  skip the dead free tier straight to instant fallbacks instead of hanging.
 - **CSRF + session enforcement is covered by tests** on every state-changing route
   (`x-session-token` + double-submit `x-csrf-token`).
 
 All of the above is covered by `packages/backend/src/tests/connectorsMarketplaceRoutes.test.ts`
-(26 tests, real Fastify app, real DB, mocked HTTP only). Full breakdown + copy-paste
-manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_VERIFICATION.md)**.
+(26 tests, real Fastify app, real DB, mocked HTTP only) plus `oauthCallbackAdoption`,
+`assistantBrandResolution`, and `marketingDirector` lifecycle tests. Full breakdown +
+copy-paste manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_VERIFICATION.md)**.
 
 ---
 
@@ -93,8 +103,10 @@ manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/CONNECTORS_V
   delivery history, and a **retry queue with exponential backoff**.
 - **Brand Brain & Content DNA** — permanent memory of every post, campaign, lesson, and audience
   insight. VIMO evolves its voice automatically.
-- **VIMO Assistant** — a conversational system controller (`Cmd/Ctrl + K`). "Grow my Instagram,"
-  "Why did engagement drop last month?" — and it operates the whole platform for you.
+- **VIMO Assistant** — a conversational system controller and the app's front door
+  (dashboard hero, sidebar entry, `Cmd/Ctrl + K`, auto-opens after onboarding). "Grow my
+  Instagram," "Why did engagement drop last month?" — and it operates the whole platform
+  for you, always on your active brand.
 - **Brand Roast** — a brutally honest 0–100 score with specific fixes. Designed to be shared.
 - **Marketing Time Machine** — root-cause analysis over 12 weeks of your own data.
 - **Content Intelligence** — Reels scripts, three-tier hashtag rotation, growth-optimized posting
@@ -397,6 +409,11 @@ including a 50-line example connector and the discover/validate contract.
 **Zero Docker required.** SQLite, an in-memory job-queue fallback, and optional local AI via
 Ollama mean VIMO can run entirely offline.
 
+**Fast by default.** Route-level code-splitting keeps first paint to a ~124KB shell
+(~36KB gzipped) with per-page chunks; shared vendors (React, charts, network) are cached
+across navigations. The UI is responsive down to phones — tables scroll, toasts fit,
+and brand switching lives in the sidebar.
+
 ---
 
 ## 🤝 Contributing
@@ -426,7 +443,7 @@ code end-to-end on every CI run.
 # Run the full test suite (backend + frontend)
 npm test
 
-# Backend only — 211 tests across 25 files
+# Backend only — 241 tests across 31 files
 npm run test:backend
 
 # Frontend only — 9 tests across 3 files
@@ -446,6 +463,13 @@ What the suite covers:
   session token + CSRF, real in-memory SQLite, mocked `axios` only. Proves install
   idempotency, uninstall cleanup, disconnect 404s, OAuth-status `410` semantics,
   Bluesky validation, and more.
+- `oauthCallbackAdoption.test.ts` — pack OAuth handshakes adopt their tokens onto the
+  real connector row (no orphaned credentials, no empty "connected" rows).
+- `assistantBrandResolution.test.ts` — the agent resolves explicit choice → Default
+  Brand → first brand, with stale ids falling through instead of failing.
+- `marketingDirector.test.ts` — the full pipeline persists a `completed` session;
+  `runMarketingDirector` writes the `running` row up front.
+- `llmBuiltinDisable.test.ts` — keyless mode never attempts the dead free tier.
 - `connectionPackMarketplace.test.ts` — live `discoverPack` + `PackAdapter` round-trip
   for Shopify, GitHub, Stripe, SEO, … with real DB and credential store.
 - `connectionSocialAccounts.test.ts` — Instagram account verification + publish path

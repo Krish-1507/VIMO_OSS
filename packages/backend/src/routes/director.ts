@@ -32,6 +32,9 @@ export default async function directorRoutes(app: FastifyInstance) {
           id: s.id,
           brandProfileId: s.brandProfileId,
           trigger: s.trigger,
+          // running → completed | failed. Pollers use this to distinguish
+          // "still working" from "dead" instead of timing out blindly.
+          status: (s as { status?: string }).status ?? 'completed',
           researchReport: s.researchReportJson ? JSON.parse(s.researchReportJson) : null,
           analyticsInsights: s.analyticsInsightsJson ? JSON.parse(s.analyticsInsightsJson) : null,
           contentOpportunities: s.contentOpportunitiesJson ? JSON.parse(s.contentOpportunitiesJson) : null,

@@ -123,6 +123,14 @@ export async function getActiveLLMProvider(task?: string): Promise<{ provider: a
     allConnectors = allConnectors.filter((c) => c.provider === 'ollama');
   }
 
+  // Keyless/test environments explicitly disable the built-in free tier. Its
+  // auto-created connector row still exists, so exclude it here — otherwise
+  // the chain burns minutes hanging on a dead free-tier endpoint before
+  // reaching the instant template fallback.
+  if (BUILTIN_LLM_DISABLED()) {
+    allConnectors = allConnectors.filter((c) => c.provider !== 'pollinations');
+  }
+
   let llmConnector;
   if (task) {
     const taskKey = `model_${task.toLowerCase().replace(/\s+/g, '_')}`;
@@ -173,6 +181,14 @@ export async function getAllActiveLLMProviders(
   // Local-only mode: never touch cloud providers.
   if (await isLocalOnlyMode()) {
     allConnectors = allConnectors.filter((c) => c.provider === 'ollama');
+  }
+
+  // Keyless/test environments explicitly disable the built-in free tier. Its
+  // auto-created connector row still exists, so exclude it here — otherwise
+  // the chain burns minutes hanging on a dead free-tier endpoint before
+  // reaching the instant template fallback.
+  if (BUILTIN_LLM_DISABLED()) {
+    allConnectors = allConnectors.filter((c) => c.provider !== 'pollinations');
   }
 
   let prioritized: Array<{ connector: typeof allConnectors[0]; isTaskSpecific: boolean }> = [];

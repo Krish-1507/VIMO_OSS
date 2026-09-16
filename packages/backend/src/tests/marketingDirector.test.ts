@@ -32,7 +32,7 @@ vi.mock('../services/knowledgeGraphService', () => ({
   findUnimplementedLessons: vi.fn().mockResolvedValue([]),
 }));
 
-import { runDirectorPipeline } from '../agents/marketingDirector';
+import { runDirectorPipeline, runMarketingDirector } from '../agents/marketingDirector';
 import { db } from '../db';
 import { directorSessions, opportunities } from '../db/schema';
 
@@ -61,6 +61,8 @@ describe('Marketing Director — orchestration pipeline', () => {
     expect(session).toBeDefined();
     expect(session?.brandProfileId).toBe(BRAND);
     expect(session?.trigger).toBe('user_requested');
+    // A finished pipeline always lands in a terminal state.
+    expect(session?.status).toBe('completed');
     // The research/analytics/content/engagement reports are persisted as JSON.
     expect(session?.researchReportJson).toBeTruthy();
     expect(session?.analyticsInsightsJson).toBeTruthy();
@@ -89,5 +91,34 @@ describe('Marketing Director — orchestration pipeline', () => {
     // complete. We assert the queue ended in a clean, known state.
     const ops = db.select().from(opportunities).all();
     expect(Array.isArray(ops)).toBe(true);
+  });
+
+  it('writes a running row up front so runs are observable from second zero', async () => {
+    const sessionId = await runMarketingDirector({ brandProfileId: BRAND, trigger: 'user_requested' });
+
+    // The row must exist immediately — the background pipeline (mocked fast
+    // here) may already have completed it, so accept either live state, but
+    // it must never be missing.
+    const session = db
+      .select()
+      .from(directorSessions)
+      .where(eq(directorSessions.id, sessionId))
+      .get();
+    expect(session).toBeDefined();
+    expect(session?.brandProfileId).toBe(BRAND);
+    expect(['running', 'completed']).toContain(session?.status);
+
+    // Let the mocked background pipeline settle, then clean up after it.
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const current = db
+        .select()
+        .from(directorSessions)
+        .where(eq(directorSessions.id, sessionId))
+        .get();
+      if (current?.status === 'completed') break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    db.delete(directorSessions).where(eq(directorSessions.id, sessionId)).run();
   });
 });

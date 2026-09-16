@@ -27,4 +27,21 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Shared vendor chunks: without these, heavy deps (recharts, date-fns,
+        // socket.io) get duplicated into every lazy page chunk — ConnectorHub
+        // alone ballooned to 849KB. Splitting vendors keeps page chunks small
+        // and lets the browser cache framework code across navigations.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-charts': ['recharts'],
+          'vendor-net': ['axios', 'socket.io-client'],
+          'vendor-utils': ['date-fns', 'clsx', 'tailwind-merge', 'zustand'],
+        },
+      },
+    },
+  },
 });

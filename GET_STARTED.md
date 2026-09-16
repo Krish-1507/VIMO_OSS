@@ -43,9 +43,13 @@ gets the latest version while keeping all your data.
 
 No credit card needed to start. Connect more accounts whenever you like from the Connector Hub.
 
+## Just tell VIMO what you want
+
+After setup, you don't need to learn the app. Click **Ask VIMO** (sidebar, dashboard hero, or `Cmd/Ctrl+K`) and type one sentence: "Grow my Instagram this month", "write a post for tomorrow 9am", "why did engagement drop?" The agent does the work across your connected accounts and brand — writing, scheduling, analyzing — and shows you every step it takes.
+
 ## Want to verify before trusting it?
 
-- **Automated tests** — `npm test` runs the full suite (**211 backend tests** across 25 files, 9
+- **Automated tests** — `npm test` runs the full suite (**241 backend tests** across 31 files, 9
   frontend tests). The Pack Marketplace + Social Accounts flows are covered by
   `connectorsMarketplaceRoutes.test.ts` on a real Fastify app with a real session
   token + CSRF token. A Playwright smoke boots the real app, runs the Marketing
