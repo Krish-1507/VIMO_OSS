@@ -145,9 +145,19 @@ async function main() {
     logger: NODE_ENV === 'development',
   });
 
+  // Split deployments (Vite dev, docker nginx, VPS domains) talk cross-origin.
+  // The bundled single-port build is same-origin and needs none of this, but
+  // a public domain must be allowlisted: set CORS_ORIGINS to a
+  // comma-separated list, e.g. CORS_ORIGINS=https://vimo.example.com.
+  const extraOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const allowedOrigins = [FRONTEND_URL, FRONTEND_URL_ALT, ...extraOrigins];
+
   const socketServer = new Server(app.server, {
     cors: {
-      origin: [FRONTEND_URL, FRONTEND_URL_ALT],
+      origin: allowedOrigins,
     },
   });
   // Services get the socket through lib/realtime instead of importing this
@@ -163,7 +173,7 @@ async function main() {
   process.env.PORT = finalPort.toString();
 
   await app.register(cors, {
-    origin: [FRONTEND_URL, FRONTEND_URL_ALT],
+    origin: allowedOrigins,
   });
 
   await app.register(helmet);

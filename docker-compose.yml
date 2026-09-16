@@ -1,4 +1,13 @@
-version: '3.8'
+# VIMO on Docker — the VPS path.
+#
+# Local trial:  ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up --build
+# VPS + domain: see DEPLOY.md (set BACKEND_URL/FRONTEND_URL/CORS_ORIGINS to
+#               your public URL or OAuth popups and live updates break).
+#
+# Data (brands, posts, encrypted credentials) lives in the `vimo-data` volume
+# and survives rebuilds. Back it up before major updates:
+#   docker run --rm -v vimo-data:/data -v "$PWD":/backup alpine \
+#     tar czf /backup/vimo-data-backup.tar.gz -C /data .
 
 services:
   backend:
@@ -6,17 +15,21 @@ services:
       context: .
       dockerfile: packages/backend/Dockerfile
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     volumes:
       - vimo-data:/app/data
     environment:
       - PORT=3000
       - HOST=0.0.0.0
       - NODE_ENV=production
-      - BACKEND_URL=http://localhost:3000
-      - FRONTEND_URL=http://localhost:80
+      - BACKEND_URL=${BACKEND_URL:-http://localhost:3000}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:80}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
       - DB_PATH=./data/vimo.db
       - LOG_LEVEL=info
+      # Fail fast with a readable message instead of a crash loop when the
+      # key is missing. Generate one: openssl rand -hex 32
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?Set ENCRYPTION_KEY before first start (openssl rand -hex 32)}
     restart: unless-stopped
 
   frontend:

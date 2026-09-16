@@ -31,8 +31,6 @@ everywhere else (`Ready` · `In progress` · `Planned` · `Idea`).
   brand.
 - **Email notifications.** Dependency-free SMTP client (plain/STARTTLS/implicit
   TLS), settings UI with test send, best-effort mirrors of in-app notifications.
-- **Team mode (roster MVP).** Workspace toggle + member list with roles
-  (owner/admin/editor/viewer). Enforcement is a future auth layer.
 - **Plugin API.** Register third-party connectors with actions, install them as
   real connectors, and run their actions with credential/param templating.
 - **Automated releases.** Changesets drive versioning + changelog; CI verifies
@@ -57,9 +55,9 @@ everywhere else (`Ready` · `In progress` · `Planned` · `Idea`).
 
 ## Later / Ideas
 
-- **Team mode, enforced.** Real auth layer with per-role permissions, shared
-  brands, and invitations (currently a roster + roles, single-user app — see
-  [SECURITY.md](SECURITY.md)).
+- **Multi-user mode (deferred).** Real auth layer with per-role permissions,
+  shared brands, and invitations. VIMO is intentionally single-user today —
+  the unenforced roster UI was removed; see [SECURITY.md](SECURITY.md).
 - **Visual connector builder.** A UI to scaffold a `PackAdapter` without leaving
   VIMO.
 - **Plugin API, richer.** Auth flows beyond API keys, webhook-triggered actions,

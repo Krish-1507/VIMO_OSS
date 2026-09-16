@@ -58,3 +58,9 @@ jobs:
       # The frontend is built above; a deeper E2E is covered by the PR CI.
       - name: Frontend tests
         run: npm run test --workspace=packages/frontend
+
+      # Docker images are the VPS story — build (don't run) them so a broken
+      # Dockerfile can never ship silently. Nightly-only to stay cheap.
+      - name: Docker build smoke (Linux only)
+        if: runner.os == 'Linux'
+        run: docker compose build

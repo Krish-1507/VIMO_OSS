@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   ExternalLink,
   Bot,
-  Monitor,
   RefreshCw,
   User,
   Building2,
@@ -25,8 +24,6 @@ import {
   Loader2,
   Check,
   Search,
-  Users,
-  Trash,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../lib/api';
@@ -307,38 +304,6 @@ export default function SettingsPage() {
      }
    }
 
-   const [teamEnabled, setTeamEnabled] = useState(false);
-   const [teamMembers, setTeamMembers] = useState<{ name: string; email: string; role: string }[]>([]);
-   const [newMember, setNewMember] = useState({ name: '', email: '', role: 'viewer' });
-   const [teamStatus, setTeamStatus] = useState<{ ok: boolean; message: string } | null>(null);
-
-   useEffect(() => {
-     if (activeTab !== 'team') return;
-     api
-       .get('/api/settings/team')
-       .then((res) => {
-         setTeamEnabled(Boolean(res.data?.enabled));
-         setTeamMembers(res.data?.members || []);
-       })
-       .catch((err) => console.warn('[vimo] best-effort operation failed:', err));
-   }, [activeTab]);
-
-   async function saveTeam(nextEnabled: boolean, members: { name: string; email: string; role: string }[]) {
-     setTeamStatus(null);
-     try {
-       await api.post('/api/settings/team', { enabled: nextEnabled, members });
-       setTeamStatus({ ok: true, message: 'Team settings saved.' });
-     } catch (err) {
-       setTeamStatus({ ok: false, message: 'Failed to save team settings.' });
-     }
-   }
-
-   function handleAddMember() {
-     if (!newMember.email.trim()) return;
-     setTeamMembers((prev) => [...prev, { ...newMember, name: newMember.name.trim() || newMember.email }]);
-     setNewMember({ name: '', email: '', role: 'viewer' });
-   }
-
   async function fetchData() {
     try {
       const [settingsRes, profilesRes, connectorsRes] = await Promise.all([
@@ -387,13 +352,37 @@ export default function SettingsPage() {
      }
    }
 
-   async function handleSaveUserProfile(key: string, value: string) {
-     try {
-       await api.post('/api/user-profile', { [key]: value });
-     } catch (err) {
-       console.error(`Failed to save user profile ${key}`, err);
-     }
-   }
+    // Debounced profile saves: typing a name used to fire one request per
+    // keystroke. Now keystrokes only update local state; the save goes out
+    // 600ms after the user pauses, with a tiny Saving…/Saved indicator.
+    const [profileSaving, setProfileSaving] = useState(false);
+    const [profileSavedAt, setProfileSavedAt] = useState(false);
+    const profileSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const profileSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+      return () => {
+        if (profileSaveTimer.current) clearTimeout(profileSaveTimer.current);
+        if (profileSavedTimer.current) clearTimeout(profileSavedTimer.current);
+      };
+    }, []);
+
+    function queueProfileSave(key: string, value: string) {
+      if (profileSaveTimer.current) clearTimeout(profileSaveTimer.current);
+      if (profileSavedTimer.current) clearTimeout(profileSavedTimer.current);
+      setProfileSavedAt(false);
+      setProfileSaving(true);
+      profileSaveTimer.current = setTimeout(async () => {
+        try {
+          await api.post('/api/user-profile', { [key]: value.trim() });
+          setProfileSavedAt(true);
+          profileSavedTimer.current = setTimeout(() => setProfileSavedAt(false), 2000);
+        } catch (err) {
+          console.error(`Failed to save user profile ${key}`, err);
+        } finally {
+          setProfileSaving(false);
+        }
+      }, 600);
+    }
 
   useEffect(() => {
     if (activeTab === 'privacy') {
@@ -556,6 +545,7 @@ export default function SettingsPage() {
       { id: 'groq', name: 'Groq', placeholder: 'gsk_...', helpUrl: 'https://console.groq.com/keys' },
       { id: 'openrouter', name: 'OpenRouter', placeholder: 'Your API key', helpUrl: 'https://openrouter.ai/keys' },
       { id: 'mistral', name: 'Mistral', placeholder: 'Your API key', helpUrl: 'https://console.mistral.ai/' },
+      { id: 'ollama', name: 'Ollama (This Computer, Free)', placeholder: 'No key required', helpUrl: 'https://ollama.com/download' },
       { id: 'pollinations', name: 'Built-in Free (Pollinations.ai)', placeholder: 'No key required', helpUrl: '' },
       { id: 'custom', name: 'Custom OpenAI-Compatible', placeholder: 'Your API key', helpUrl: '' },
     ];
@@ -572,10 +562,13 @@ export default function SettingsPage() {
   const MODEL_LIST_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'mistral', 'groq', 'openrouter']);
   // Providers whose model list requires an API key to fetch dynamically.
   const KEYED_MODEL_PROVIDERS = new Set(['groq', 'openrouter']);
+  // Local Ollama models come from the machine itself — no key, ever.
+  const [ollamaRefreshTick, setOllamaRefreshTick] = useState(0);
 
   useEffect(() => {
     if (!showAddAIProvider) return;
-    if (!MODEL_LIST_PROVIDERS.has(aiProviderPreset)) return;
+    const isOllama = aiProviderPreset === 'ollama';
+    if (!MODEL_LIST_PROVIDERS.has(aiProviderPreset) && !isOllama) return;
     if (KEYED_MODEL_PROVIDERS.has(aiProviderPreset) && (!aiProviderKey || aiProviderKey.length < 8)) return;
 
     let cancelled = false;
@@ -584,11 +577,18 @@ export default function SettingsPage() {
         setProviderModelsLoading(true);
         setProviderModelOptions([]);
 
-        const res = await api.get('/api/connectors/llm-models', {
-          params: { provider: aiProviderPreset, apiKey: aiProviderKey },
-        });
-
-        const models: string[] = res.data?.models || [];
+        let models: string[] = [];
+        if (isOllama) {
+          const res = await api.get('/api/connectors/ollama/status');
+          models = ((res.data?.models || []) as Array<{ name?: string }>)
+            .map((m) => String(m?.name || '').trim())
+            .filter(Boolean);
+        } else {
+          const res = await api.get('/api/connectors/llm-models', {
+            params: { provider: aiProviderPreset, apiKey: aiProviderKey },
+          });
+          models = res.data?.models || [];
+        }
         if (cancelled) return;
 
         setProviderModelOptions(models);
@@ -606,16 +606,22 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [showAddAIProvider, aiProviderPreset, aiProviderKey]);
+  }, [showAddAIProvider, aiProviderPreset, aiProviderKey, ollamaRefreshTick]);
 
   async function handleAddAIProvider() {
     const presets = getProviderPresets();
     const preset = presets.find((p) => p.id === aiProviderPreset);
     if (!preset) return;
 
-    // For providers with a selectable model list, a model must be chosen
-    if (MODEL_LIST_PROVIDERS.has(aiProviderPreset) && !providerSelectedModel.trim()) {
-      setAiProviderError('Please select a model for this provider.');
+    // For providers with a selectable model list (including local Ollama
+    // models), a model must be chosen — otherwise we'd save a connector
+    // pointing at a model that isn't there.
+    if ((MODEL_LIST_PROVIDERS.has(aiProviderPreset) || aiProviderPreset === 'ollama') && !providerSelectedModel.trim()) {
+      setAiProviderError(
+        aiProviderPreset === 'ollama'
+          ? 'No local model found. Start Ollama and pull a model first (e.g. run `ollama pull llama3` in your terminal), then refresh the list.'
+          : 'Please select a model for this provider.',
+      );
       return;
     }
 
@@ -625,7 +631,7 @@ export default function SettingsPage() {
         setAiProviderError('Provider Name, Base URL, and Model Name are required for custom providers.');
         return;
       }
-    } else if (aiProviderPreset !== 'pollinations') {
+    } else if (aiProviderPreset !== 'pollinations' && aiProviderPreset !== 'ollama') {
       if (!aiProviderKey.trim()) return;
     }
 
@@ -644,7 +650,7 @@ export default function SettingsPage() {
         }
       } else {
         // Any provider that exposes a model list stores the chosen model name
-        if (MODEL_LIST_PROVIDERS.has(aiProviderPreset) && providerSelectedModel.trim()) {
+        if ((MODEL_LIST_PROVIDERS.has(aiProviderPreset) || aiProviderPreset === 'ollama') && providerSelectedModel.trim()) {
           config.modelName = providerSelectedModel.trim();
         }
         if (aiProviderKey.trim()) {
@@ -838,7 +844,7 @@ export default function SettingsPage() {
     { id: 'dna', label: 'Business DNA', icon: Dna, desc: 'Brand profiles' },
     { id: 'ai', label: 'AI Models', icon: Bot, desc: 'Providers & assignments' },
     { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Email & webhooks' },
-    { id: 'team', label: 'Team', icon: Users, desc: 'Members & roles' },
+
     { id: 'privacy', label: 'Data', icon: Database, desc: 'Export & retention' },
     { id: 'about', label: 'About', icon: Info, desc: 'Version & help' },
   ];
@@ -1469,23 +1475,6 @@ export default function SettingsPage() {
 
                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
                   <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Monitor className="h-5 w-5 text-blue-500" />
-                    Desktop Notifications
-                  </h2>
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                    <button
-                      onClick={() => Notification.requestPermission()}
-                      className="flex items-center space-x-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      <Bell className="h-4 w-4" />
-                      <span>Enable Browser Notifications</span>
-                    </button>
-                    <p className="mt-2 text-xs text-slate-500">Receive alerts for post failures and urgent engagement items directly on your desktop.</p>
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                     <ExternalLink className="h-5 w-5 text-teal-500" />
                     Event Notifications
                   </h2>
@@ -1555,120 +1544,6 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     )}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {activeTab === 'team' && (
-              <section className="space-y-6">
-                <div className="space-y-4">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Users className="h-5 w-5 text-violet-500" />
-                    Team
-                  </h2>
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <span className="text-sm text-slate-700 dark:text-slate-300">Team mode</span>
-                        <p className="text-xs text-slate-500">Share this workspace with collaborators. Roles: owner, admin, editor, viewer.</p>
-                      </div>
-                      <button
-                        onClick={() => saveTeam(!teamEnabled, teamMembers)}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-                          teamEnabled ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                        }`}
-                      >
-                        <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${teamEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {teamMembers.map((member, idx) => (
-                        <div key={idx} className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 p-2.5">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{member.name}</p>
-                            <p className="text-xs text-slate-500 truncate">{member.email}</p>
-                          </div>
-                          <select
-                            value={member.role}
-                            onChange={(e) => {
-                              const next = [...teamMembers];
-                              next[idx] = { ...member, role: e.target.value };
-                              setTeamMembers(next);
-                            }}
-                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                          >
-                            <option value="owner">Owner</option>
-                            <option value="admin">Admin</option>
-                            <option value="editor">Editor</option>
-                            <option value="viewer">Viewer</option>
-                          </select>
-                          <button
-                            onClick={() => setTeamMembers((prev) => prev.filter((_, i) => i !== idx))}
-                            className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors"
-                          >
-                            <Trash className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                      {teamMembers.length === 0 && (
-                        <p className="text-sm text-slate-500">No team members yet. Add your first collaborator below.</p>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                      <input
-                        type="text"
-                        placeholder="Name"
-                        value={newMember.name}
-                        onChange={(e) => setNewMember((prev) => ({ ...prev, name: e.target.value }))}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                      />
-                      <input
-                        type="email"
-                        placeholder="Email"
-                        value={newMember.email}
-                        onChange={(e) => setNewMember((prev) => ({ ...prev, email: e.target.value }))}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                      />
-                      <div className="flex gap-2">
-                        <select
-                          value={newMember.role}
-                          onChange={(e) => setNewMember((prev) => ({ ...prev, role: e.target.value }))}
-                          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                        >
-                          <option value="viewer">Viewer</option>
-                          <option value="editor">Editor</option>
-                          <option value="admin">Admin</option>
-                          <option value="owner">Owner</option>
-                        </select>
-                        <button
-                          onClick={handleAddMember}
-                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700 transition-colors"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Add
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                      <button
-                        onClick={() => saveTeam(teamEnabled, teamMembers)}
-                        className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700 transition-colors"
-                      >
-                        Save team settings
-                      </button>
-                      {teamStatus && (
-                        <span className={`text-xs ${teamStatus.ok ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {teamStatus.message}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      This is the team roster for your workspace. VIMO is a single-user app today — roles are stored so multi-user access can be enforced cleanly later.
-                    </p>
                   </div>
                 </div>
               </section>
@@ -1799,34 +1674,43 @@ export default function SettingsPage() {
                      <User className="h-5 w-5" />
                      User Profile
                    </h2>
-                   <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 space-y-4">
-                     <div className="space-y-2">
-                       <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Name</label>
-                       <input
-                         type="text"
-                         placeholder="Enter your name"
-                         value={userName}
-                         onChange={(e) => {
-                           setUserName(e.target.value);
-                           handleSaveUserProfile('name', e.target.value);
-                         }}
-                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                       />
-                     </div>
-                     <div className="space-y-2">
-                       <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Email</label>
-                       <input
-                         type="email"
-                         placeholder="Enter your email"
-                         value={userEmail}
-                         onChange={(e) => {
-                           setUserEmail(e.target.value);
-                           handleSaveUserProfile('email', e.target.value);
-                         }}
-                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                       />
-                     </div>
-                   </div>
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Name</label>
+                          {profileSaving && <span className="text-[10px] text-amber-600">Saving…</span>}
+                          {!profileSaving && profileSavedAt && <span className="text-[10px] text-teal-600 flex items-center gap-1"><Check className="h-3 w-3" /> Saved</span>}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Enter your name"
+                          value={userName}
+                          onChange={(e) => {
+                            setUserName(e.target.value);
+                            queueProfileSave('name', e.target.value);
+                          }}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Email</label>
+                        <input
+                          type="email"
+                          placeholder="Enter your email"
+                          value={userEmail}
+                          onChange={(e) => {
+                            setUserEmail(e.target.value);
+                            queueProfileSave('email', e.target.value);
+                          }}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                        />
+                        {userEmail.trim() !== '' && !userEmail.includes('@') && (
+                          <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                            That email doesn&apos;t look complete — double-check it so notifications reach you.
+                          </p>
+                        )}
+                      </div>
+                    </div>
                  </div>
  
                  </section>
@@ -2192,11 +2076,24 @@ export default function SettingsPage() {
                   </div>
 
               {/* Provider Model Picker for any provider with a selectable model list */}
-              {MODEL_LIST_PROVIDERS.has(aiProviderPreset) && (
+              {(MODEL_LIST_PROVIDERS.has(aiProviderPreset) || aiProviderPreset === 'ollama') && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Model *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Model *
+                    </label>
+                    {aiProviderPreset === 'ollama' && (
+                      <button
+                        type="button"
+                        onClick={() => setOllamaRefreshTick((t) => t + 1)}
+                        disabled={providerModelsLoading}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-500 disabled:opacity-50 dark:text-teal-400"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${providerModelsLoading ? 'animate-spin' : ''}`} />
+                        Refresh list
+                      </button>
+                    )}
+                  </div>
                   <select
                     value={providerSelectedModel}
                     onChange={(e) => {
@@ -2213,7 +2110,9 @@ export default function SettingsPage() {
                     ))}
                   </select>
                   <p className="text-xs text-slate-400 mt-1">
-                    Choose the exact model to use for this provider.
+                    {aiProviderPreset === 'ollama'
+                      ? 'Models installed on this computer. Pull more any time with `ollama pull <name>`, then refresh.'
+                      : 'Choose the exact model to use for this provider.'}
                   </p>
                 </div>
               )}
@@ -2277,6 +2176,18 @@ export default function SettingsPage() {
                     Pollinations.ai is a free, open-source AI that works out of the box. No configuration required.
                     {aiType === 'image' && ' Images are generated via pollinations.ai free image API.'}
                     {aiType === 'video' && ' Video generation uses pollinations.ai (beta).'}
+                  </p>
+                </div>
+              ) : aiProviderPreset === 'ollama' ? (
+                <div className="rounded-lg bg-green-50 border border-green-200 p-3 dark:bg-green-900/20 dark:border-green-800">
+                  <p className="text-sm font-medium text-green-700 dark:text-green-300">No API key needed — runs on this computer</p>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    Pick one of your installed Ollama models above. Nothing ever leaves your machine.
+                    No models yet? Install Ollama from{' '}
+                    <a href="https://ollama.com/download" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+                      ollama.com
+                    </a>{' '}
+                    and pull one (e.g. <code className="font-mono">ollama pull llama3</code>), then refresh the list.
                   </p>
                 </div>
               ) : (

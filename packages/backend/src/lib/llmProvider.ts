@@ -36,6 +36,61 @@ export function resolveModelName(provider: string, config: Record<string, unknow
 }
 
 /**
+ * UI task ids that alias to another task's model choice.
+ *
+ * The Settings screen lets users pick a model per task (`model_<task>` keys),
+ * but several background callers use free-form names with no matching UI row
+ * ('content strategy', 'marketing director synthesis'). Without aliases those
+ * callers silently ignore the user's picks. Each alias lists UI task ids to
+ * try, in order — the first one the user configured wins.
+ */
+const TASK_SETTING_ALIASES: Record<string, string[]> = {
+  'content strategy': ['content_generation', 'campaign_strategy'],
+  'marketing director synthesis': ['campaign_analysis', 'content_generation'],
+};
+
+function normalizeTask(task: string): string {
+  return task.toLowerCase().replace(/\s+/g, '_');
+}
+
+/**
+ * All `model_<task>` setting keys to try for a task, most specific first.
+ * Exported so the model router honors exactly the same picks as the chain.
+ */
+export function taskSettingKeys(task: string): string[] {
+  const keys = [`model_${normalizeTask(task)}`];
+  for (const alias of TASK_SETTING_ALIASES[task] || []) {
+    const key = `model_${alias}`;
+    if (!keys.includes(key)) keys.push(key);
+  }
+  return keys;
+}
+
+/**
+ * Look up the user's chosen connector for a task across its setting keys.
+ * Returns the connector id, or null when the user picked nothing (or picked
+ * a connector that is gone/inactive — callers then fall back honestly).
+ */
+export async function findTaskConnectorId(task: string): Promise<string | null> {
+  for (const key of taskSettingKeys(task)) {
+    try {
+      const row = await db.select().from(appSettings).where(eq(appSettings.key, key)).get();
+      const id = row?.value?.trim();
+      if (!id) continue;
+      const registry = new ConnectorRegistry(db);
+      const all = await registry.getAll();
+      const match = all.find((c) => c.id === id && c.type === 'llm' && c.status === 'active');
+      if (match) return match.id;
+      // Chosen connector is gone or inactive — keep looking through aliases,
+      // then let the caller fall back to the first active provider.
+    } catch (err) {
+      console.warn(`[llm] failed to read task setting ${key}:`, (err as Error).message);
+    }
+  }
+  return null;
+}
+
+/**
  * The zero-key "it just works" provider: Pollinations' anonymous tier.
  *
  * Its OpenAI-compatible endpoint rejects SSE streaming (`"stream": true` →
@@ -133,10 +188,11 @@ export async function getActiveLLMProvider(task?: string): Promise<{ provider: a
 
   let llmConnector;
   if (task) {
-    const taskKey = `model_${task.toLowerCase().replace(/\s+/g, '_')}`;
-    const taskSetting = await db.select().from(appSettings).where(eq(appSettings.key, taskKey)).get();
-    if (taskSetting?.value) {
-      llmConnector = allConnectors.find((c) => c.id === taskSetting.value && c.type === 'llm' && c.status === 'active');
+    // Honors the Settings → AI Models picks, including aliases for
+    // background task names that have no UI row of their own.
+    const chosenId = await findTaskConnectorId(task);
+    if (chosenId) {
+      llmConnector = allConnectors.find((c) => c.id === chosenId);
     }
   }
 
@@ -193,14 +249,11 @@ export async function getAllActiveLLMProviders(
 
   let prioritized: Array<{ connector: typeof allConnectors[0]; isTaskSpecific: boolean }> = [];
 
-  // Find task-specific connector first
+  // Find task-specific connector first (Settings picks + aliases).
   if (task) {
-    const taskKey = `model_${task.toLowerCase().replace(/\s+/g, '_')}`;
-    const taskSetting = await db.select().from(appSettings).where(eq(appSettings.key, taskKey)).get();
-    if (taskSetting?.value) {
-      const taskConnector = allConnectors.find(
-        (c) => c.id === taskSetting.value && c.type === 'llm' && c.status === 'active'
-      );
+    const chosenId = await findTaskConnectorId(task);
+    if (chosenId) {
+      const taskConnector = allConnectors.find((c) => c.id === chosenId);
       if (taskConnector) {
         prioritized.push({ connector: taskConnector, isTaskSpecific: true });
       }

@@ -130,7 +130,7 @@ copy-paste manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/C
 - **Analytics CSV export** — download post performance for any date range and brand.
 - **Email notifications** — dependency-free SMTP client (plain/STARTTLS/implicit TLS) with a
   settings UI and test send.
-- **Team mode (roster)** — workspace member list with roles (owner/admin/editor/viewer).
+
 - **Plugin API** — register third-party connectors with actions and install them as real
   connectors.
 
@@ -445,7 +445,7 @@ code end-to-end on every CI run.
 # Run the full test suite (backend + frontend)
 npm test
 
-# Backend only — 241 tests across 31 files
+# Backend only — 245 tests across 32 files
 npm run test:backend
 
 # Frontend only — 9 tests across 3 files

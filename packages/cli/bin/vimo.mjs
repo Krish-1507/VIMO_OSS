@@ -20,6 +20,8 @@
  * Flags:
  *   --repo <path>   Use a specific VIMO checkout instead of auto-detecting.
  *   --port <n>      Preferred port to serve on (default 3000; busy ports are skipped).
+ *   --host <ip>     Interface to bind (default 127.0.0.1; use 0.0.0.0 on a VPS
+ *                   behind a firewall + reverse proxy you trust).
  *   --no-open       Start without opening a browser.
  *   --reset         Reinstall dependencies and rebuild from scratch.
  *   --update        Refresh VIMO to the latest version: updates this launcher
@@ -232,6 +234,7 @@ Usage: vimo [flags]
 Flags:
   --repo <path>   Use a specific VIMO checkout.
   --port <n>      Preferred port (default ${DEFAULT_PORT}; busy ports are skipped automatically).
+  --host <ip>     Interface to bind (default 127.0.0.1; 0.0.0.0 for VPS use).
   --no-open       Start without opening a browser.
   --reset         Reinstall dependencies and rebuild from scratch.
   --update        Refresh VIMO to the latest version: updates this launcher
@@ -245,6 +248,7 @@ First run downloads and builds VIMO automatically — no other tools needed.`);
 }
 
 const portBase = Number(getArg('--port') || DEFAULT_PORT);
+const hostFlag = getArg('--host');
 const noOpen = args.includes('--no-open');
 const doReset = args.includes('--reset');
 const doUpdate = args.includes('--update');
@@ -762,7 +766,12 @@ async function main() {
 
   const child = spawn(process.execPath, [entry], {
     cwd: repo,
-    env: { ...process.env, PORT: String(port), NODE_ENV: 'production' },
+    env: {
+      ...process.env,
+      PORT: String(port),
+      NODE_ENV: 'production',
+      ...(hostFlag ? { HOST: hostFlag } : {}),
+    },
     stdio: 'inherit',
     detached: !isWindows(),
   });

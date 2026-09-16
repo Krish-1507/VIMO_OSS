@@ -9,7 +9,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { appSettings, connectors } from '../db/schema';
-import { getActiveLLMProvider } from './llmProvider';
+import { getActiveLLMProvider, findTaskConnectorId } from './llmProvider';
 
 /* ------------------------------------------------------------------ */
 /*  Task Types                                                        */
@@ -199,11 +199,42 @@ export interface ModelRouteResult {
 }
 
 /**
+ * Settings → AI Models task ids honoring each router TaskType, in order.
+ * This is what makes "pick a model per task" actually work: the UI writes
+ * `model_<task>` keys, and every agent resolves through here.
+ */
+const TASKTYPE_UI_KEYS: Record<TaskType, string[]> = {
+  [TaskType.STRATEGY]: ['campaign_strategy', 'campaign_calendar'],
+  [TaskType.CONTENT_GENERATION]: ['content_generation', 'weekly_content_generation'],
+  [TaskType.RESEARCH]: ['trend_analysis', 'opportunity_analysis', 'competitor_analysis'],
+  [TaskType.ENGAGEMENT_REPLY]: ['engagement_reply_generation', 'engagement_intent_detection'],
+  [TaskType.ANALYTICS_INSIGHT]: ['analytics_insights', 'growth_analysis', 'marketing_time_machine'],
+  [TaskType.INTENT_CLASSIFICATION]: ['engagement_intent_detection', 'assistant_classification'],
+  [TaskType.MEMORY_UPDATE]: ['content_dna_analysis', 'campaign_analysis'],
+};
+
+function routeForConnector(conn: { id: string; provider: string; configJson: string }): ModelRouteResult {
+  const config = parseConfig(conn.configJson);
+  const modelId = resolveModelId(conn.provider, config);
+  const modelInfo = MODEL_CAPABILITIES[modelId];
+  const avgCost = modelInfo
+    ? (modelInfo.inputCostPer1K + modelInfo.outputCostPer1K) / 2
+    : 0.001;
+  return {
+    connectorId: conn.id,
+    provider: conn.provider,
+    modelId,
+    estimatedCostPer1000Tokens: avgCost,
+  };
+}
+
+/**
  * Route an LLM task to the best available model.
  *
  * Priority:
- * 1. Manual assignment in appSettings (user-configured)
- * 2. Auto-assign based on capability requirements vs available connectors
+ * 1. Manual assignment in appSettings (user-configured, legacy blob)
+ * 2. Settings → AI Models per-task picks (what the UI actually writes)
+ * 3. Auto-assign based on capability requirements vs available connectors
  *
  * Never throws — falls back to getActiveLLMProvider or best available.
  */
@@ -212,7 +243,7 @@ export async function getModelForTask(
   brandProfileId?: string,
 ): Promise<ModelRouteResult> {
   try {
-    // Step 1: Check for saved model assignment
+    // Step 1: Check for saved model assignment (legacy blob)
     const assignments = await getSavedModelAssignments();
     if (assignments && assignments[taskType]) {
       const assignedConnectorId = assignments[taskType]!;
@@ -221,18 +252,20 @@ export async function getModelForTask(
         (c) => c.id === assignedConnectorId && c.type === 'llm' && c.status === 'active',
       );
       if (assignedConnector) {
-        const config = parseConfig(assignedConnector.configJson);
-        const modelId = resolveModelId(assignedConnector.provider, config);
-        const modelInfo = MODEL_CAPABILITIES[modelId];
-        const avgCost = modelInfo
-          ? (modelInfo.inputCostPer1K + modelInfo.outputCostPer1K) / 2
-          : 0.001;
-        return {
-          connectorId: assignedConnector.id,
-          provider: assignedConnector.provider,
-          modelId,
-          estimatedCostPer1000Tokens: avgCost,
-        };
+        return routeForConnector(assignedConnector);
+      }
+    }
+
+    // Step 2: Honor the Settings → AI Models per-task picks. Previously every
+    // agent ignored these (they only read the legacy blob, which the UI never
+    // writes), so model switching silently did nothing for campaigns,
+    // autopilot, content, engagement, analytics, and brand DNA.
+    for (const uiTask of TASKTYPE_UI_KEYS[taskType] || []) {
+      const chosenId = await findTaskConnectorId(uiTask);
+      if (chosenId) {
+        const allConnectors = await db.select().from(connectors).all();
+        const conn = allConnectors.find((c) => c.id === chosenId);
+        if (conn) return routeForConnector(conn);
       }
     }
 
