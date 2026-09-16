@@ -3,6 +3,11 @@
   "version": "2.2.3",
   "description": "VIMO — one-command start for the VIBE Marketing Operations platform. Installs, builds and launches VIMO locally; type `vimo` (or `VIMO`) anywhere to open it in your browser.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Krish-1507/VIMO_OSS",
+    "directory": "packages/cli"
+  },
   "bin": {
     "vimo": "./bin/vimo.mjs",
     "VIMO": "./bin/vimo.mjs"
