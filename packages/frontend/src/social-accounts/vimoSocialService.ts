@@ -145,16 +145,22 @@ class VimoSocialService {
         'width=600,height=700,left=200,top=100'
       );
 
+      // Popup blocked — fail fast with a clear signal instead of hanging on polling
+      if (!popup) {
+        console.warn(`[vimo] auth popup blocked for ${platform}`);
+        resolve(false);
+        return;
+      }
+
       this.oauthPopups.set(connectorId, popup);
 
-      // Single resolution channel. We register a finalize() closure that any
-      // path (status-poll success, popup-closed, timeout) calls exactly once
-      // to clean up every timer and then resolve. This is the fix for the
-      // previous popup-check timer leak.
       let resolved = false;
       let pollTimer: ReturnType<typeof setInterval> | undefined;
       let popupCheckTimer: ReturnType<typeof setInterval> | undefined;
       let graceTimer: ReturnType<typeof setTimeout> | undefined;
+      let graceScheduled = false;
+      // Safety timeout — abandon after 5 minutes so we never poll forever
+      let expiryTimer: ReturnType<typeof setTimeout> | undefined;
 
       const finalize = async (success: boolean) => {
         if (resolved) return;
@@ -162,8 +168,10 @@ class VimoSocialService {
         if (pollTimer) clearInterval(pollTimer);
         if (popupCheckTimer) clearInterval(popupCheckTimer);
         if (graceTimer) clearTimeout(graceTimer);
+        if (expiryTimer) clearTimeout(expiryTimer);
         this.pollTimers.delete(connectorId);
         this.oauthPopups.delete(connectorId);
+        try { popup?.close(); } catch (err) { console.warn('[vimo] failed to close auth popup:', err); }
         if (success) {
           await this.loadState();
         }
@@ -175,17 +183,20 @@ class VimoSocialService {
           const statusRes = await api.get(`/api/social-accounts/oauth-status/${connectorId}`);
           if (statusRes.data?.status === 'active') {
             finalize(true);
+          } else if (statusRes.status === 410) {
+            // Connector gone (abandoned handshake) — treat as cancel
+            finalize(false);
           }
-        } catch (err) {
-          // still pending — keep polling
-          console.warn('[vimo] best-effort operation failed:', err);
+        } catch (err: any) {
+          if (err?.response?.status === 410) finalize(false);
         }
       }, 1500);
       this.pollTimers.set(connectorId, pollTimer);
 
       popupCheckTimer = setInterval(() => {
-        if (popup?.closed) {
-          // Give the status poll one more chance before assuming the user cancelled
+        if (popup?.closed && !graceScheduled) {
+          graceScheduled = true;
+          if (popupCheckTimer) clearInterval(popupCheckTimer);
           graceTimer = setTimeout(async () => {
             try {
               const finalCheck = await api.get(`/api/social-accounts/oauth-status/${connectorId}`);
@@ -199,7 +210,11 @@ class VimoSocialService {
             }
           }, 2000);
         }
-      }, 1000);
+      }, 800);
+
+      expiryTimer = setTimeout(() => {
+        finalize(false);
+      }, 5 * 60 * 1000);
     });
   }
 

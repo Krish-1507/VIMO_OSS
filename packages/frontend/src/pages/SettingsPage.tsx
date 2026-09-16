@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Settings as SettingsIcon,
   Shield,
@@ -128,8 +128,29 @@ export default function SettingsPage() {
    const [dnaLoading, setDnaLoading] = useState(false);
    const [dnaError, setDnaError] = useState('');
    const [dnaResult, setDnaResult] = useState<any>(null);
-   const [showCreatePanel, setShowCreatePanel] = useState(false);
-   const [dnaCreateMode, setDnaCreateMode] = useState<'url' | 'manual' | null>(null);
+    const [showCreatePanel, setShowCreatePanel] = useState(false);
+    const [dnaCreateMode, setDnaCreateMode] = useState<'url' | 'manual' | null>(null);
+    const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
+    const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+    const debouncedSave = useCallback((key: string, value: string) => {
+      const existing = saveTimers.current.get(key);
+      if (existing) clearTimeout(existing);
+      setSaveIndicator(key);
+      const t = setTimeout(async () => {
+        try {
+          await api.post('/api/settings', { key, value });
+          setSettings((prev) => ({ ...prev, [key]: value }));
+          setSaveIndicator(`saved:${key}`);
+          setTimeout(() => setSaveIndicator((cur) => cur === `saved:${key}` ? null : cur), 1500);
+        } catch {
+          setSaveIndicator(`error:${key}`);
+          setTimeout(() => setSaveIndicator(null), 2000);
+        } finally {
+          saveTimers.current.delete(key);
+        }
+      }, 500);
+      saveTimers.current.set(key, t);
+    }, []);
 
    async function handleAnalyzeDNA() {
      if (!dnaUrl) return;
@@ -370,11 +391,16 @@ export default function SettingsPage() {
   }, [activeTab]);
 
   async function handleSaveSetting(key: string, value: string) {
+    setSaveIndicator(key);
     try {
       await api.post('/api/settings', { key, value });
       setSettings((prev) => ({ ...prev, [key]: value }));
+      setSaveIndicator(`saved:${key}`);
+      setTimeout(() => setSaveIndicator((cur) => cur === `saved:${key}` ? null : cur), 1500);
     } catch (err) {
       console.error(`Failed to save ${key}`, err);
+      setSaveIndicator(`error:${key}`);
+      setTimeout(() => setSaveIndicator(null), 2000);
     }
   }
 
@@ -796,35 +822,56 @@ export default function SettingsPage() {
   }
 
   const tabs = [
-    { id: 'general', label: 'General', icon: SettingsIcon },
-    { id: 'user', label: 'User', icon: User },
-    { id: 'dna', label: 'DNA', icon: Dna },
-    { id: 'ai', label: 'AI Models', icon: Bot },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'team', label: 'Team', icon: Users },
-    { id: 'privacy', label: 'Data & Privacy', icon: Database },
-    { id: 'about', label: 'About', icon: Info },
+    { id: 'general', label: 'General', icon: SettingsIcon, desc: 'App, timezone, security' },
+    { id: 'user', label: 'Profile', icon: User, desc: 'Your identity' },
+    { id: 'dna', label: 'Business DNA', icon: Dna, desc: 'Brand profiles' },
+    { id: 'ai', label: 'AI Models', icon: Bot, desc: 'Providers & assignments' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Email & webhooks' },
+    { id: 'team', label: 'Team', icon: Users, desc: 'Members & roles' },
+    { id: 'privacy', label: 'Data', icon: Database, desc: 'Export & retention' },
+    { id: 'about', label: 'About', icon: Info, desc: 'Version & help' },
   ];
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-slate-200 bg-white px-4 sm:px-6 py-4 dark:border-slate-700 dark:bg-slate-900">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Configure your VIMO instance</p>
+    <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
+      <header className="relative overflow-hidden border-b border-slate-200 bg-white px-4 sm:px-6 py-5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/5 via-emerald-500/5 to-transparent pointer-events-none" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-sm">
+                <SettingsIcon className="h-4 w-4" />
+              </span>
+              Settings
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Make VIMO yours — quick setup, no guesswork. Every change saves instantly.</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              <CheckCircle2 className="h-3.5 w-3.5 text-teal-500" />
+              {brandProfiles.length} brand{brandProfiles.length !== 1 ? 's' : ''} · {llmConnectors.length} AI provider{llmConnectors.length !== 1 ? 's' : ''}
+            </span>
+            {saveIndicator && (
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${saveIndicator.startsWith('saved') ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' : saveIndicator.startsWith('error') ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700'}`}>
+                {saveIndicator.startsWith('saved') ? <><Check className="h-3 w-3" /> Saved</> : saveIndicator.startsWith('error') ? 'Save failed' : <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>}
+              </span>
+            )}
+          </div>
+        </div>
       </header>
 
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-        {/* Sidebar Nav */}
-        <aside className="w-full lg:w-64 border-r border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50 overflow-x-auto">
-          <nav className="space-y-1">
+        {/* Sidebar Nav — pills on mobile, sidebar on desktop */}
+        <aside className="w-full lg:w-64 shrink-0 border-b lg:border-b-0 lg:border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:bg-slate-50/50 dark:lg:bg-slate-900/50 lg:overflow-y-auto">
+          <nav className="flex lg:flex-col gap-1.5 p-2 sm:p-3 overflow-x-auto scrollbar-none lg:overflow-visible">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex w-full items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all whitespace-nowrap lg:whitespace-normal ${
                   activeTab === tab.id
-                    ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                    ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md shadow-teal-500/20'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 hover:text-slate-900'
                 }`}
               >
                 <tab.icon className="h-4 w-4" />
@@ -843,15 +890,17 @@ export default function SettingsPage() {
                   <h2 className="text-lg font-semibold text-slate-900 dark:text-white">App Settings</h2>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">App Name</label>
+                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center justify-between">App Name {saveIndicator === 'appName' && <span className="text-[10px] text-amber-600 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving…</span>}{saveIndicator === 'saved:appName' && <span className="text-[10px] text-teal-600 flex items-center gap-1"><Check className="h-3 w-3" /> Saved</span>}</label>
                       <input
                         type="text"
                         value={appName}
                         onChange={(e) => {
                           setAppName(e.target.value);
-                          handleSaveSetting('appName', e.target.value);
+                          debouncedSave('appName', e.target.value);
                         }}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                        onBlur={(e) => debouncedSave('appName', e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white transition-all"
+                        placeholder="Your brand's workspace name"
                       />
                     </div>
                     <div className="space-y-1">

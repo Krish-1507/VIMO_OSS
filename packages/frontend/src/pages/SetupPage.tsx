@@ -50,8 +50,10 @@ export default function SetupPage() {
     }
   };
 
+  const [submitting, setSubmitting] = useState(false);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setError('');
     if (!/^\d{4,8}$/.test(pin)) {
       setError('PIN must be 4-8 digits.');
@@ -65,18 +67,20 @@ export default function SetupPage() {
       setError('Enter the 8-digit reset code from the VIMO terminal window.');
       return;
     }
+    setSubmitting(true);
     try {
       if (isReset) {
         await api.post('/api/auth/reset-pin', { pin, code: resetCode.trim() });
         clearAuth();
         addNotification('success', 'PIN Reset', 'Your PIN has been reset. Please log in with your new PIN.');
-        navigate('/login');
+        navigate('/login', { replace: true });
       } else {
         await api.post('/api/auth/setup', { pin });
         const verifyRes = await api.post('/api/auth/verify', { pin });
         setAuth(verifyRes.data.token);
         addNotification('success', 'Setup complete', 'Welcome to VIMO!');
-        navigate('/dashboard');
+        await new Promise((r) => setTimeout(r, 50));
+        navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
       const status = err?.response?.status;
@@ -84,9 +88,15 @@ export default function SetupPage() {
         setError('Too many attempts. Wait a minute and try again.');
         return;
       }
+      if (status === 409) {
+        setError(err?.response?.data?.message || 'A PIN is already set. Please log in or use Forgot PIN.');
+        return;
+      }
       const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
       const detail = err?.response?.data?.hint ? ` (${err?.response?.data?.hint})` : '';
       setError(serverMsg ? `${serverMsg}${detail}` : 'Setup failed. Is the backend server running?');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -179,12 +189,14 @@ export default function SetupPage() {
               </p>
             </div>
           )}
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-red-500 animate-in fade-in">{error}</p>}
           <button
             type="submit"
-            className="w-full rounded-lg bg-teal-500 px-4 py-2 font-medium text-white transition hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+            disabled={submitting}
+            className="w-full rounded-lg bg-teal-500 px-4 py-2 font-medium text-white transition hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500/40 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
           >
-            {isReset ? 'Reset PIN' : 'Get Started'}
+            {submitting && <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            {submitting ? (isReset ? 'Resetting…' : 'Setting up…') : (isReset ? 'Reset PIN' : 'Get Started')}
           </button>
           {isReset && (
             <div className="text-center">

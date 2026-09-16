@@ -302,6 +302,15 @@ export default function Header({ title }: { title: string }) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">
+          {/* Command palette hint — legendary UX: one keystroke to control VIMO */}
+          <button
+            onClick={() => useUIStore.getState().toggleAssistant()}
+            className="hidden md:inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
+            title="Open VIMO Assistant (Cmd/Ctrl+K)"
+          >
+            <span className="text-[10px]">⌘K</span>
+            <span className="hidden lg:inline">Ask VIMO</span>
+          </button>
           <div className="hidden sm:flex items-center gap-2 border-r border-slate-200 pr-4 sm:pr-6 dark:border-slate-800">
             <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-2 sm:px-3 py-1.5 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
               <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest text-slate-500">Socket</span>

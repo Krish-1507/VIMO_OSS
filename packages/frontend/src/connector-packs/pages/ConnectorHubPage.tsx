@@ -74,16 +74,26 @@ export default function ConnectorHubPage() {
 
   async function fetchConnectors() {
     try {
-      const res = await api.get('/api/connectors');
+      const [connRes, packsRes, socialRes] = await Promise.all([
+        api.get('/api/connectors').catch(() => ({ data: [] })),
+        api.get('/api/packs/installed').catch(() => ({ data: { packs: [] } })),
+        api.get('/api/social-accounts/status').catch(() => ({ data: { isConnected: false } })),
+      ]);
       const connected = new Set<string>();
-      res.data.forEach((c: any) => {
+      // From connectors table (provider -> pack mapping)
+      (connRes.data as any[]).forEach((c: any) => {
         const pack = getPackByProvider(c.provider);
         if (pack) connected.add(pack.id);
       });
+      // From installed packs (source of truth for marketplace)
+      const installed = (packsRes.data as any)?.packs || [];
+      installed.forEach((p: any) => {
+        if (p.packId) connected.add(p.packId);
+      });
+      // Social accounts special case — check social status separately
+      if (socialRes.data?.isConnected) connected.add(SOCIAL_ACCOUNTS_PACK.id);
       setConnectedIds(connected);
-      if (connected.has(SOCIAL_ACCOUNTS_PACK.id)) {
-        setVimoSocialConnected(true);
-      }
+      setVimoSocialConnected(connected.has(SOCIAL_ACCOUNTS_PACK.id));
     } catch (err) {
       // ignore
       console.warn('[vimo] best-effort operation failed:', err);
@@ -120,15 +130,6 @@ export default function ConnectorHubPage() {
   async function handleComplete(credentials: Record<string, string>, discoveryItems?: { icon: string; label: string; value: string }[]) {
     if (!activePack) return;
     try {
-      // Register the pack installation FIRST. The pack record is the source
-      // of truth for "this capability is active" — if the connector create
-      // fails afterwards the user can retry from the Installed Pack card
-      // without us having orphaned state to clean up.
-      //
-      // We also send the connector `provider` so the uninstall endpoint can
-      // find and clean up the matching connector row atomically. Without this
-      // the packId (e.g. "notion-knowledge") wouldn't match the connector
-      // provider (e.g. "notion") and we'd leak the connector + its creds.
       await api.post('/api/packs/install', {
         packId: activePack.id,
         packName: activePack.name,
@@ -137,8 +138,6 @@ export default function ConnectorHubPage() {
         discoveryItems,
       });
 
-      // For OAuth-connected packs the connector may already exist
-      // (the OAuth callback created it). Only create one if it doesn't.
       const existingConnectors = await api.get('/api/connectors');
       const alreadyConnected = existingConnectors.data.some(
         (c: any) => c.provider === activePack.provider && c.status === 'active'
@@ -152,30 +151,38 @@ export default function ConnectorHubPage() {
           social_accounts: 'social',
         };
         const connectorType = typeMap[activePack.category] || 'analytics';
-        try {
-          await api.post('/api/connectors', {
-            name: activePack.name,
-            type: connectorType,
-            provider: activePack.provider,
-            status: 'active',
-            config: { serverType: 'builtin' },
-            credentials,
-          });
-        } catch (connectorErr: any) {
-          // The pack is already registered, so the user gets the value
-          // even without the underlying connector. Surface the warning.
-          console.warn(
-            `[Pack] Pack "${activePack.id}" registered but connector create failed:`,
-            connectorErr?.response?.data?.error || connectorErr?.message
-          );
+        // Filter out placeholder credentials (empty values) so the backend
+        // validation doesn't reject with "At least one credential required" for
+        // OAuth packs where the real tokens were already saved via the popup.
+        const filteredCreds: Record<string, string> = {};
+        Object.entries(credentials || {}).forEach(([k, v]) => {
+          if (typeof v === 'string' && v.trim().length > 0) filteredCreds[k] = v.trim();
+        });
+        const hasCreds = Object.keys(filteredCreds).length > 0;
+        if (hasCreds || !['github','notion','canva','linkedin','x','google','instagram_facebook'].includes(activePack.provider)) {
+          try {
+            await api.post('/api/connectors', {
+              name: activePack.name,
+              type: connectorType,
+              provider: activePack.provider,
+              status: 'active',
+              config: { serverType: 'builtin' },
+              credentials: hasCreds ? filteredCreds : credentials,
+            });
+          } catch (connectorErr: any) {
+            console.warn(
+              `[Pack] Pack "${activePack.id}" registered but connector create failed:`,
+              connectorErr?.response?.data?.error || connectorErr?.message
+            );
+          }
         }
       }
 
+      // Optimistic update + immediate reconciliation with server truth
       setConnectedIds((prev) => new Set([...prev, activePack.id]));
+      // Re-fetch in background so the installedPackCount and social flag stay in sync
+      fetchConnectors();
     } catch (installErr: any) {
-      // Pack registration itself failed — do NOT mark as connected, let the
-      // user see the error and retry. The SetupAssistant surfaces this
-      // through its existing error banner; we just don't lie about the state.
       console.error(
         `[Pack] Install failed for ${activePack.id}:`,
         installErr?.response?.data?.error || installErr?.message
@@ -185,40 +192,32 @@ export default function ConnectorHubPage() {
   }
 
   async function handleUninstall(pack: ConnectorPack) {
-    // Uninstall the pack record FIRST. The backend now cleans up the
-    // associated connectors atomically — so we don't need to (and must not)
-    // delete them from the client, otherwise a slow API call could leave the
-    // pack registered but the connectors gone.
+    const prev = new Set(connectedIds);
+    // Optimistic UI — remove immediately so the button doesn't feel stuck
+    setConnectedIds((cur) => {
+      const next = new Set(cur);
+      next.delete(pack.id);
+      return next;
+    });
     try {
       await api.delete('/api/packs/uninstall', {
         params: { packId: pack.id },
       });
     } catch (uninstallErr: any) {
-      // If the pack isn't installed (404) we just treat it as already gone.
-      if (uninstallErr?.response?.status !== 404) {
+      if (uninstallErr?.response?.status === 404) {
+        // Already gone — nothing to do
+      } else {
         console.error(
           `[Pack] Uninstall failed for ${pack.id}:`,
           uninstallErr?.response?.data?.error || uninstallErr?.message
         );
-        // Still remove from local state — the user clicked the button and
-        // the next /api/connectors + /api/packs/installed poll will confirm.
+        // Revert optimistic update on real failure
+        setConnectedIds(prev);
+        return;
       }
     }
-
-    // Refresh the connector list so any orphaned rows the user may have
-    // accumulated outside the marketplace flow get a chance to be cleaned up.
-    try {
-      await api.get('/api/connectors');
-    } catch (err) {
-      // best-effort
-      console.warn('[vimo] best-effort operation failed:', err);
-    }
-
-    setConnectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(pack.id);
-      return next;
-    });
+    // Reconcile with server truth
+    await fetchConnectors();
   }
 
   // Categorized packs for display

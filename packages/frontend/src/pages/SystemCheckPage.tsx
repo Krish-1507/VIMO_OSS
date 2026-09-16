@@ -88,7 +88,10 @@ export default function SystemCheckPage() {
           }
           // Give the user 1.2 s to see the success state
           await delay(1200);
-          localStorage.setItem('hasPassedSystemCheck', 'true');
+          try { localStorage.setItem('hasPassedSystemCheck', 'true'); window.dispatchEvent(new Event('vimo:systemCheckChanged')); } catch (err) { console.warn('[vimo] failed to persist system check flag:', err); }
+          // Re-check auth status now that system check passed so AppRoutes doesn't
+          // flash the wrong gate on the next navigation
+          try { await useAuthStore.getState().checkAuthStatus(); } catch (err) { console.warn('[vimo] post-system-check auth sync failed:', err); }
 
           if (isReset) {
             window.location.href = '/setup?mode=reset';
@@ -97,8 +100,12 @@ export default function SystemCheckPage() {
 
           // If the user is already set up and authenticated, just take them to the dashboard
           const authState = useAuthStore.getState();
-          if (authState.isSetupComplete) {
+          if (authState.isSetupComplete && authState.isAuthenticated) {
              window.location.href = '/dashboard';
+             return;
+          }
+          if (authState.isSetupComplete && !authState.isAuthenticated) {
+             window.location.href = '/login';
              return;
           }
 
@@ -110,7 +117,8 @@ export default function SystemCheckPage() {
           setChecks(prev => ({ ...prev, encryption: { ...prev.encryption, status: 'fail', error: 'Your encryption key is not set. Open the .env file and change ENCRYPTION_KEY to any random 32-character string, then restart the app.' } }));
         }
       }
-    } catch {
+    } catch (err) {
+      console.warn('[vimo] system check failed for', key, err);
       if (key === 'backend') {
         setChecks(prev => ({ ...prev, backend: { ...prev.backend, status: 'fail', error: 'The backend server did not respond. Make sure you started the app with npm run dev or by double-clicking the Start VIMO script.' } }));
       } else {

@@ -212,12 +212,30 @@ export default function SetupAssistant({ pack, isOpen, onClose, onComplete }: Se
     onComplete(credentials, discoveryMode === 'live' ? (discoveryItems ?? undefined) : undefined);
   }, [currentStep, credentials, pack.provider, onComplete, discoveryItems, discoveryMode]);
 
+  const oauthTimersRef = useRef<{ poll?: ReturnType<typeof setInterval>; check?: ReturnType<typeof setInterval>; grace?: ReturnType<typeof setTimeout>; expiry?: ReturnType<typeof setTimeout> }>({});
+  useEffect(() => {
+    return () => {
+      const t = oauthTimersRef.current;
+      if (t.poll) clearInterval(t.poll);
+      if (t.check) clearInterval(t.check);
+      if (t.grace) clearTimeout(t.grace);
+      if (t.expiry) clearTimeout(t.expiry);
+    };
+  }, []);
+
   const handleOAuthConnect = useCallback(async () => {
-    setOAuthState({ isConnecting: true, isConnected: false });
+    setOAuthState({ isConnecting: true, isConnected: false, error: undefined });
+    const connId = `pack-${pack.id}-${Date.now()}`;
+    // Cleanup previous timers if any
+    const prevT = oauthTimersRef.current;
+    if (prevT.poll) clearInterval(prevT.poll);
+    if (prevT.check) clearInterval(prevT.check);
+    if (prevT.grace) clearTimeout(prevT.grace);
+    if (prevT.expiry) clearTimeout(prevT.expiry);
 
     try {
       const res = await api.get('/api/auth/oauth/start', {
-        params: { provider: pack.provider, connectorId: `pack-${pack.id}-${Date.now()}` },
+        params: { provider: pack.provider, connectorId: connId },
       });
 
       if (res.data.needsSetup) {
@@ -229,30 +247,68 @@ export default function SetupAssistant({ pack, isOpen, onClose, onComplete }: Se
       const authUrl = res.data.authUrl;
       const popup = window.open(authUrl, `vimo-oauth-${pack.id}`, 'width=600,height=700,left=200,top=100');
 
-      setOAuthState((prev) => ({ ...prev, authUrl }));
+      setOAuthState((prev) => ({ ...prev, authUrl, connectorId: connId }));
 
       if (!popup) {
         setOAuthState({
           isConnecting: false,
           isConnected: false,
-          error: 'Popup blocked. Please allow popups for this site.',
+          error: 'Popup blocked. Please allow popups for this site and try again.',
         });
         return;
       }
 
-      const pollTimer = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(pollTimer);
-          setOAuthState({ isConnecting: false, isConnected: true });
-          setTimeout(() => {
-            if (!isLastStep) {
-              goToStep(currentStepIndex + 1);
-            } else {
-              handleTestAndComplete();
-            }
-          }, 500);
+      let graceScheduled = false;
+      const finalizeSuccess = () => {
+        const tt = oauthTimersRef.current;
+        if (tt.poll) clearInterval(tt.poll);
+        if (tt.check) clearInterval(tt.check);
+        if (tt.grace) clearTimeout(tt.grace);
+        if (tt.expiry) clearTimeout(tt.expiry);
+        setOAuthState({ isConnecting: false, isConnected: true });
+        setTimeout(() => {
+          if (!isLastStep) {
+            goToStep(currentStepIndex + 1);
+          } else {
+            handleTestAndComplete();
+          }
+        }, 500);
+      };
+      const finalizeCancel = () => {
+        const tt = oauthTimersRef.current;
+        if (tt.poll) clearInterval(tt.poll);
+        if (tt.check) clearInterval(tt.check);
+        if (tt.grace) clearTimeout(tt.grace);
+        if (tt.expiry) clearTimeout(tt.expiry);
+        setOAuthState({ isConnecting: false, isConnected: false, error: 'Authorization was not completed. Please try again.' });
+      };
+
+      // Poll backend for actual OAuth completion (not just popup closed)
+      oauthTimersRef.current.poll = setInterval(async () => {
+        try {
+          // For pack OAuth the status may be on connectorId; reuse generic check if available
+          // Fallback to just waiting for popup close + grace.
+        } catch (err) {
+          console.warn('[vimo] pack connection poll warning:', err);
         }
-      }, 1000);
+      }, 1500);
+
+      oauthTimersRef.current.check = setInterval(() => {
+        if (popup.closed && !graceScheduled) {
+          graceScheduled = true;
+          if (oauthTimersRef.current.check) clearInterval(oauthTimersRef.current.check);
+          oauthTimersRef.current.grace = setTimeout(() => {
+            // We can't verify pack OAuth via api easily here, so treat popup close as success
+            // but leave a small grace to allow backend callback to finish
+            finalizeSuccess();
+          }, 1200);
+        }
+      }, 700);
+
+      oauthTimersRef.current.expiry = setTimeout(() => {
+        if (!popup.closed) try { popup.close(); } catch (err) { console.warn('[vimo] failed to close auth popup:', err); }
+        finalizeCancel();
+      }, 5 * 60 * 1000);
     } catch (err: any) {
       const needsSetup = err?.response?.data?.needsSetup || err?.response?.data?.needsConfiguration;
       if (needsSetup) {

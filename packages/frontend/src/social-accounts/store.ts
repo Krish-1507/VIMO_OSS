@@ -3,6 +3,10 @@ import type { VimoSocialConnectionState, SocialPlatform } from './types';
 import { vimoSocialService } from './vimoSocialService';
 import api from '../lib/api';
 
+function popupBlockedHint(_platform: string) {
+  return `If a popup didn't open, allow popups for this site and try again.`;
+}
+
 interface SocialAccountsStore extends VimoSocialConnectionState {
   setupStep: number;
   selectedAccountIds: string[];
@@ -115,19 +119,32 @@ export const useSocialAccountsStore = create<SocialAccountsStore>((set, get) => 
     },
 
     connectBluesky: async (handle: string, appPassword: string) => {
-      set({ oauthInProgress: true, connectingPlatform: 'bluesky' });
+      const trimmedHandle = handle?.trim();
+      const trimmedPass = appPassword?.trim();
+      if (!trimmedHandle || !trimmedHandle.includes('.') ) {
+        set({ error: 'Enter a full Bluesky handle, e.g. yourname.bsky.social' });
+        return;
+      }
+      if (!trimmedPass || trimmedPass.length < 8) {
+        set({ error: 'App password looks too short. Copy the full xxxx-xxxx-xxxx-xxxx value from Bluesky → Settings → App Passwords.' });
+        return;
+      }
+      set({ oauthInProgress: true, connectingPlatform: 'bluesky', error: null });
       try {
         await api.post('/api/social-accounts/connect-app-password', {
           provider: 'bluesky',
-          handle,
-          appPassword,
+          handle: trimmedHandle,
+          appPassword: trimmedPass,
         });
         await vimoSocialService.refreshAccounts();
-        set({ setupStep: 3 });
+        set({ setupStep: 3, error: null });
       } catch (err: any) {
-        set({ error: err?.response?.data?.error || `Failed to connect Bluesky` });
+        const msg = err?.response?.data?.error || err?.response?.data?.message || `Failed to connect Bluesky`;
+        set({ error: msg });
+        throw new Error(msg);
+      } finally {
+        set({ oauthInProgress: false, connectingPlatform: null });
       }
-      set({ oauthInProgress: false, connectingPlatform: null });
     },
 
     reconnectAccount: async (id: string) => {
@@ -179,6 +196,7 @@ export const useSocialAccountsStore = create<SocialAccountsStore>((set, get) => 
 
     connectPlatform: async (platform: SocialPlatform) => {
       set({ oauthInProgress: true, connectingPlatform: platform, error: null });
+      let needsSetupErr: any = null;
       try {
         const result = await vimoSocialService.initiateOAuth(platform);
         if (result.needsSetup) {
@@ -186,22 +204,25 @@ export const useSocialAccountsStore = create<SocialAccountsStore>((set, get) => 
           (err as any).needsSetup = true;
           (err as any).setupGuide = result.setupGuide;
           (err as any).platform = platform;
-          set({ oauthInProgress: false, connectingPlatform: null });
+          needsSetupErr = err;
           throw err;
         }
         const success = await vimoSocialService.openOAuthPopup(platform, result.authUrl, result.connectorId);
         if (success) {
           await vimoSocialService.refreshAccounts();
-          set({ setupStep: 3 });
+          set({ setupStep: 3, error: null });
+        } else {
+          // User closed popup without completing — surface a helpful hint, not silent fail
+          set({ error: `Authorization for ${platform} was not completed. ${popupBlockedHint(platform)}` });
         }
       } catch (err: any) {
         if (err?.needsSetup) throw err;
-        set({ error: `Failed to connect ${platform}` });
+        const msg = err?.response?.data?.error || err?.message || `Failed to connect ${platform}`;
+        // Don't overwrite needsSetup flow
+        if (!needsSetupErr) set({ error: msg });
+      } finally {
+        set({ oauthInProgress: false, connectingPlatform: null });
       }
-      // Always clear the in-progress flags, even if the popup was cancelled
-      // (success === false) — otherwise the user sees a stuck "Connecting…"
-      // spinner and can't try again without a page refresh.
-      set({ oauthInProgress: false, connectingPlatform: null });
     },
   };
 });
