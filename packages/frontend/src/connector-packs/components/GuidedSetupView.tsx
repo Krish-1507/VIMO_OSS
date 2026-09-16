@@ -94,16 +94,29 @@ export default function GuidedSetupView({
   const needsSecret = !PKCE_PROVIDERS.includes(provider);
 
   // Collect credential fields from steps (clientId, clientSecret, etc.)
+  // PKCE providers (GitHub) never need the secret — asking for it only
+  // confuses people, so it is excluded from the form entirely.
   const credentialFields = useMemo(() => {
     return steps
-      .filter((s) => s.inputField && (s.inputField.key === 'clientId' || s.inputField.key === 'clientSecret'))
+      .filter(
+        (s) =>
+          s.inputField &&
+          (s.inputField.key === 'clientId' ||
+            (s.inputField.key === 'clientSecret' && needsSecret)),
+      )
       .map((s) => s.inputField!)
       .filter(Boolean);
-  }, [steps]);
+  }, [steps, needsSecret]);
 
-  const hasClientId = !!credentials.clientId;
-  const hasClientSecret = !needsSecret || !!credentials.clientSecret;
-  const canSave = hasClientId && (needsSecret ? hasClientSecret : true);
+  // True for steps whose input is a credential the user must go fetch
+  // (as opposed to a copyable helper like the return address).
+  const stepAsksForCredential =
+    step?.inputField?.key === 'clientId' || step?.inputField?.key === 'clientSecret';
+
+  const hasClientId = !!credentials.clientId?.trim();
+  const hasClientSecret = !needsSecret || !!credentials.clientSecret?.trim();
+  // Guides without any credential fields are saveable immediately.
+  const canSave = credentialFields.length === 0 || (hasClientId && (needsSecret ? hasClientSecret : true));
 
   const handleCopy = async (text: string, index: number) => {
     try {
@@ -117,15 +130,19 @@ export default function GuidedSetupView({
   };
 
   const handleSaveCredentials = async () => {
+    // Portals love trailing spaces when you copy — trim everything.
+    const clientId = (credentials.clientId || '').trim();
+    const clientSecret = (credentials.clientSecret || '').trim();
+    if (!clientId || (needsSecret && !clientSecret)) {
+      setError('Paste your connection details above first.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      const payload: Record<string, string> = {
-        provider,
-        clientId: credentials.clientId || '',
-      };
+      const payload: Record<string, string> = { provider, clientId };
       if (needsSecret) {
-        payload.clientSecret = credentials.clientSecret || '';
+        payload.clientSecret = clientSecret;
       }
       await api.post('/api/social-accounts/save-credentials', payload);
       setSaved(true);
@@ -239,8 +256,10 @@ export default function GuidedSetupView({
               </a>
             )}
 
-            {/* ── Copyable redirect link / placeholder ── */}
-            {step.inputField && (
+            {/* ── Copyable helper (return address). Credential fields are
+                deliberately excluded: showing their placeholder text as a
+                copyable value tricks people into pasting dummy text. ── */}
+            {step.inputField && !stepAsksForCredential && (
               <div className="space-y-2 pt-3 border-t border-[var(--border-subtle)]">
                 <p className="text-xs font-medium text-[var(--text-secondary)]">
                   {step.inputField.label}
@@ -269,6 +288,17 @@ export default function GuidedSetupView({
                 )}
               </div>
             )}
+
+            {/* ── Credential fetch step: the value gets pasted on the final
+                step, so point there instead of showing a dummy placeholder
+                as if it were something to copy. ── */}
+            {stepAsksForCredential && (
+              <div className="rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 p-3">
+                <p className="text-xs text-teal-700 dark:text-teal-300">
+                  Copy this value from the portal — you&apos;ll paste it on the final step.
+                </p>
+              </div>
+            )}
           </div>
         </StepContent>
       )}
@@ -281,9 +311,10 @@ export default function GuidedSetupView({
         </div>
       )}
 
-      {/* ── Credential input section (always visible on last steps) ── */}
+      {/* ── Credential input section (final step only — one place to paste,
+          after the guide has collected every value) ── */}
       <div className="space-y-3">
-        {(isLastStep || step?.inputField?.key === 'clientId' || step?.inputField?.key === 'clientSecret') && (
+        {isLastStep && (
           <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-[var(--text-secondary)]">
@@ -317,7 +348,10 @@ export default function GuidedSetupView({
             Back
           </button>
 
-          {isLastStep || credentialFields.length > 0 ? (
+          {/* Save & Connect exists ONLY on the last step. It used to show on
+              every step (credentialFields is computed from all steps), which
+              left users staring at a disabled button with no way forward. */}
+          {isLastStep ? (
             <button
               onClick={handleSaveCredentials}
               disabled={!canSave || saving}
