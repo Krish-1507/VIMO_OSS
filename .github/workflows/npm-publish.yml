@@ -1,8 +1,15 @@
 name: Publish launcher to npm
 
-# Keeps `npm i -g vimo-oss` fresh automatically. When the changesets flow
-# cuts a GitHub Release for the launcher package (tag `vimo-oss@*`), this
-# publishes that exact version to npm with OIDC trusted publishing + provenance.
+# Keeps `npm i -g vimo-oss` fresh automatically. After the Release workflow
+# finishes on main, this checks whether the launcher version on main is
+# already on npm — and publishes it (OIDC trusted publishing + provenance)
+# when it isn't.
+#
+# Why `workflow_run` and not `release: published`: the Release workflow cuts
+# tags and GitHub Releases with the default GITHUB_TOKEN, and GitHub
+# deliberately does NOT start new workflow runs from token-triggered events —
+# so a `release: published` trigger silently never fires for bot-made
+# releases. Chaining off the Release run's *completion* sidesteps that.
 #
 # One-time owner setup (browser, 2 minutes, required once ever):
 #   npmjs.com → vimo-oss package → Settings → Trusted Publisher → GitHub
@@ -14,8 +21,9 @@ name: Publish launcher to npm
 # No tokens are stored: authentication is short-lived OIDC (`id-token: write`).
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ['Release']
+    types: [completed]
 
 permissions:
   contents: read
@@ -24,15 +32,19 @@ permissions:
 jobs:
   publish:
     name: Publish vimo-oss
-    # Only launcher releases — frontend/backend are private and never touch npm.
-    if: startsWith(github.event.release.tag_name, 'vimo-oss@')
+    # Only after a successful Release run, and only for the main branch.
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: packages/cli
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -45,8 +57,22 @@ jobs:
           node --check bin/vimo.mjs
           node --test tests/*.test.mjs
 
+      - name: Skip if this version is already on npm
+        id: check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view vimo-oss versions --json | grep -q "\"$VERSION\""; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "vimo-oss@$VERSION is already on npm — nothing to do."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "vimo-oss@$VERSION is new — publishing."
+          fi
+
       # No NODE_AUTH_TOKEN on purpose: npm authenticates via the workflow's
       # OIDC identity (id-token: write). An empty/placeholder token here
       # would override OIDC and break the publish.
       - name: Publish to npm with provenance
+        if: steps.check.outputs.published == 'false'
         run: npm publish --provenance --access public
