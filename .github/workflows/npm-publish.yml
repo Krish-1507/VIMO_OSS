@@ -55,10 +55,10 @@ jobs:
       # Non-negotiable: OIDC trusted publishing (registry auth without any
       # stored token) requires npm 11.5+, but Node 20 ships npm 10 — which can
       # *sign* provenance yet still PUTs with whatever bearer it finds,
-      # producing the exact misleading registry 404 we chased. This upgrades
-      # the runner's npm first; public-package install needs no auth.
-      - name: Use latest npm for OIDC publishing
-        run: npm install -g npm@latest && npm --version
+      # producing the exact misleading registry 404 we chased. npm@11 is the
+      # newest line that still runs on Node 20 (npm@12 needs Node 22+).
+      - name: Use npm 11 for OIDC publishing
+        run: npm install -g npm@11 && npm --version
 
       - name: Verify launcher (lint + smoke tests)
         run: |
