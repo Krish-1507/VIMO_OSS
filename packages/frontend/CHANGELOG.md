@@ -1,5 +1,23 @@
 # @vimo/frontend
 
+## 1.2.2
+
+### Patch Changes
+
+- 86eaf6e: Reliability + performance pass: Director runs are observable, the bundle is split, mobile is fixed, and connections stay alive.
+
+  - **Backend**: Director sessions persist a `running` row up front and end `completed`/`failed` (new `status` column + backfill); keyless mode excludes the dead built-in free tier from the provider chain so pipelines hit instant fallbacks instead of hanging; OAuth callbacks adopt handshake credentials onto the real connector row; attention alerts carry provider/kind for smart routing.
+  - **Frontend**: route-level code-splitting (124KB shell, per-page chunks, shared vendors) plus a tree-shakeable icon map (ConnectorHub 849KB → 139KB); health dashboard uses the session+CSRF client so Reconnect works; alert banners deep-link social logins to Social Accounts; audit table scrolls with an empty state; toasts fit small phones; brand switcher in the sidebar.
+  - **Docs**: README, GET_STARTED, and CONNECTORS_VERIFICATION updated (241 tests / 31 files, new guarantees, agent front door).
+
+- f0306ee: Make the conversational Marketing Agent the front door and fix onboarding end-to-end.
+
+  - **Backend**: the assistant now acts on the ACTIVE brand (explicit choice → Default Brand setting → first brand) instead of always the first row, on both `/api/assistant/chat` and the legacy `/message` endpoint.
+  - **Frontend**: chat requests send the active brand id from the header picker.
+  - **Onboarding actually finishes**: the completion screen persists `complete-step('complete')` server-side (previously the wizard reappeared on every reload), shows LIVE status instead of hardcoded checkmarks with one-click fix CTAs, and offers "Meet your marketing agent" which opens the assistant on arrival.
+  - **Social connect rewritten** on the polling connection service — no more postMessage handshake that silently dropped successes, no timer leaks, honest routing for app-password platforms, cleanup on unmount. Brand setup gains a "Skip for now" escape hatch.
+  - **Agent discoverability**: dashboard "Don't click around — just tell VIMO" hero with one-click prompt chips, an "Ask VIMO ⌘K" sidebar entry, first-visit auto-open, and the previously dead InteractiveTour now shows once.
+
 ## 1.2.1
 
 ### Patch Changes
