@@ -1,5 +1,11 @@
 # @vimo-oss/cli
 
+## 2.2.4
+
+### Patch Changes
+
+- 50d9861: Sync release: republish the launcher so `npm i -g vimo-oss` carries the current generation (self-updating launcher, forced app refresh, visible versions). No launcher code changes — this bump is the update signal for existing installs.
+
 ## 2.2.3
 
 ### Patch Changes
