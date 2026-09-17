@@ -7,7 +7,7 @@ covered by `packages/backend/src/tests/connectorsMarketplaceRoutes.test.ts`.
 
 ## TL;DR
 
-- **All 266 backend tests + 143 frontend tests pass** (run `npm test` in the
+- **All 280 backend tests + 143 frontend tests pass** (run `npm test` in the
   repo root). A Playwright smoke (`npm run test:e2e`) additionally boots the
   real app, performs first-run PIN setup, runs the Marketing Director, and
   checks the webhook, approval, and CSV-export endpoints end-to-end.
@@ -54,7 +54,7 @@ You should see:
   app, real session token + CSRF, real DB, mocked axios only).
 - `oauthCallbackAdoption.test.ts`: handshake credentials land on the real
   connector row; pre-existing rows are reused, never duplicated.
-- Full backend suite: **266/266 passing** across 35 test files.
+- Full backend suite: **280/280 passing** across 38 test files.
 - Frontend: **143/143 passing** across 4 test files.
 
 ---
@@ -199,3 +199,18 @@ It asserts:
   normalizes the provider key (`instagram` → `instagram_facebook`).
 - **`/api/social-accounts/connect/myspace`** returns 400 with
   `needsSetup: true` for unsupported platforms.
+
+## Browser sessions & channel research
+
+Covered by `browserSession.test.ts` (fake Chromium backend, real in-memory
+approval service) and `researchChannels.test.ts` (stubbed `fetch`, no
+network):
+
+- Launch/read/close keeps the profile on disk (login survives); login status
+  derives from stored cookies per domain; delete wipes the profile + meta.
+- First write with no approval creates an `execute_director_action` request
+  and touches nothing; still-pending stays pending; approved executes and
+  returns a snapshot.
+- Every research channel returns clean text (headings kept, chrome stripped,
+  nested RSS markup read in document order); YouTube without captions and
+  login-walled X posts fail with explicit errors.

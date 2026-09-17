@@ -37,6 +37,12 @@ everywhere else (`Ready` · `In progress` · `Planned` · `Idea`).
   (lint, build, banned words, silent catches), tests with coverage, and runs a
   Playwright smoke that boots the app, runs the Director, and checks webhooks,
   approvals, and CSV export.
+- **Stay-logged-in browser sessions.** Persistent Chromium profiles (one per
+  account) with approval-gated clicks/types and `browser_read` / `browser_act`
+  assistant tools.
+- **Login-free channel research.** Internal AgentReach readers for Reddit,
+  YouTube transcripts, GitHub, RSS, and single X posts, exposed as the
+  `research_channel` assistant tool.
 
 ## Now (next release)
 

@@ -133,6 +133,14 @@ copy-paste manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/C
   Reddit/Medium/Bluesky.
 - **Multi-account per platform** — connect several Instagram/LinkedIn/X accounts and pick the
   publishing account per post ("Publish as" in the Scheduler).
+- **Stay-logged-in browser sessions** — persistent Chromium profiles (one per
+  account): log in once in a visible window, the agent reuses that login
+  headlessly from then on. Reads are automatic; every click or keystroke needs
+  a human-approved approval request. Deleting a session wipes the profile and
+  forgets the login.
+- **Login-free channel research** — VIMO's internal AgentReach reads subreddits
+  + threads, YouTube transcripts, GitHub repos/readmes, RSS feeds, and single X
+  posts directly. Login walls fail honestly instead of returning garbage.
 - **Autopilot guardrails** — daily post cap + daily AI spend cap, enforced in content generation
   and scheduling, plus "Run next week now."
 - **Analytics CSV export** — download post performance for any date range and brand.
@@ -446,7 +454,7 @@ code end-to-end on every CI run.
 # Run the full test suite (backend + frontend)
 npm test
 
-# Backend only — 266 tests across 36 files
+# Backend only — 280 tests across 38 files
 npm run test:backend
 
 # Frontend only — 143 tests across 4 files
@@ -486,6 +494,12 @@ What the suite covers:
   (blocked/not_found/timeout/unreachable/bad_url), full analysis shape.
 - `approvalService.test.ts` — platform boundary mocked (Meta-style fast
   failure); execute-path tests carry a 20s budget for cold scheduler imports.
+- `browserSession.test.ts` — persistent sessions against a fake Chromium
+  backend: launch/read/close keeps the profile on disk, cookie-based login
+  status, writes create an approval request and execute only after approval.
+- `researchChannels.test.ts` — every channel (web extract, Reddit, YouTube,
+  GitHub, RSS, X) tested with stubbed fetch: clean LLM-ready text in, honest
+  login-wall errors out, zero network.
 - `packs.test.ts` (frontend, **134 tests**) — every marketplace pack satisfies
   the setup contract: completable steps with valid payloads, resolving help
   links, rules matching real fields, resolvable icons, in-app routes.
