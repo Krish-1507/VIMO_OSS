@@ -43,19 +43,51 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
     setExamples(updated);
   };
 
+  const [errorReason, setErrorReason] = useState<string | null>(null);
+  const [progress, setProgress] = useState('');
+
   async function handleAnalyzeURL() {
-    if (!url) return;
+    if (!url.trim()) return;
     setLoading(true);
     setError('');
+    setErrorReason(null);
     setDnaResult(null);
+    const startedAt = Date.now();
+    setProgress('Fetching your website…');
+    const progressTimer = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 9000) setProgress('Fetching your website…');
+      else if (elapsed < 25000) setProgress('Reading pages, colors, and fonts…');
+      else setProgress('Extracting your brand DNA… almost there.');
+    }, 1500);
     try {
-      const res = await api.post('/api/brand-profiles/analyze-dna', { url });
+      // Crawling + reasoning runs well past the 10s default API timeout.
+      const res = await api.post('/api/brand-profiles/analyze-dna', { url: url.trim() }, { timeout: 90000 });
       setDnaResult(res.data);
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Analysis failed. Please check the URL and try again.');
+      const reason: string | null =
+        err?.response?.data?.reason || (err?.code === 'ECONNABORTED' ? 'timeout' : null);
+      setErrorReason(reason);
+      if (err?.code === 'ECONNABORTED' || reason === 'timeout') {
+        setError('This is taking longer than expected — your site may be slow. Try again, or enter your details manually below.');
+      } else {
+        setError(err?.response?.data?.error || 'Analysis failed. Please check the URL and try again.');
+      }
     } finally {
+      clearInterval(progressTimer);
+      setProgress('');
       setLoading(false);
     }
+  }
+
+  function handleBlockedFallback() {
+    // Blocked sites are normal (bot protection): carry the URL into manual
+    // mode so nothing typed is lost.
+    if (url.trim()) setManualWebsite(url.trim());
+    setError('');
+    setErrorReason(null);
+    setDnaResult(null);
+    setMode('manual');
   }
 
   async function handleSaveFromURL() {
@@ -107,17 +139,17 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
               Set up your brand
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Google Pomelli-style: VIMO learns your brand DNA to create on-brand content.
+              VIMO learns your brand DNA once, then creates on-brand content everywhere.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => setMode('url')}
-              className="p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 transition-all text-left group"
+              className="p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-teal-400 dark:hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 transition-all text-left group"
             >
-              <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                <svg className="h-4 w-4 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="h-8 w-8 rounded-lg bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <svg className="h-4 w-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                 </svg>
               </div>
@@ -142,9 +174,9 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
             </button>
           </div>
 
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 p-3">
-            <p className="text-xs text-amber-700 dark:text-amber-400">
-              Pomelli-style: Your brand DNA powers all content VIMO creates. Set it up once, generate anywhere.
+          <div className="rounded-lg bg-teal-50 dark:bg-teal-900/10 border border-teal-200 dark:border-teal-800 p-3">
+            <p className="text-xs text-teal-700 dark:text-teal-400">
+              Your brand DNA powers everything VIMO creates. Set it up once, generate anywhere.
             </p>
           </div>
         </>
@@ -170,32 +202,47 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
             />
             <button
               onClick={handleAnalyzeURL}
-              disabled={loading || !url}
-              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              disabled={loading || !url.trim()}
+              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 transition-all active:scale-[0.98]"
             >
               {loading ? 'Analyzing...' : 'Analyze'}
             </button>
           </div>
 
           {loading && !dnaResult && (
-            <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
+            <div className="flex items-center gap-2 text-sm text-teal-700 dark:text-teal-300">
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              <span>Extracting brand DNA from website...</span>
+              <span>{progress || 'Extracting brand DNA from website...'}</span>
             </div>
           )}
 
-          {error && (
+          {error && errorReason === 'blocked' ? (
+            <div className="space-y-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 dark:border-amber-800 dark:bg-amber-950/30">
+              <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                This site blocks automated readers
+              </p>
+              <p className="text-xs leading-relaxed text-amber-700/90 dark:text-amber-400/90">
+                Very common — nothing is broken. Enter your brand details manually instead; it takes about a minute.
+              </p>
+              <button
+                onClick={handleBlockedFallback}
+                className="w-full rounded-lg bg-amber-600 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-all active:scale-[0.98]"
+              >
+                Enter details manually
+              </button>
+            </div>
+          ) : error ? (
             <p className="text-sm text-red-500">{error}</p>
-          )}
+          ) : null}
 
           {dnaResult && !loading && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
-              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-purple-50/50 dark:bg-purple-900/10 space-y-2">
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-teal-50/50 dark:bg-teal-900/10 space-y-2">
                 <h4 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <svg className="h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="h-4 w-4 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Brand DNA Extracted
@@ -224,7 +271,7 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
                       <p className="text-[10px] font-medium text-slate-500 uppercase mb-1">Values</p>
                       <div className="flex flex-wrap gap-1">
                         {dnaResult.dna.brandValues.map((v: string, i: number) => (
-                          <span key={i} className="inline-flex items-center rounded-full bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 text-[10px] font-medium text-purple-700 dark:text-purple-300">{v}</span>
+                          <span key={i} className="inline-flex items-center rounded-full bg-teal-50 dark:bg-teal-900/20 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:text-teal-300">{v}</span>
                         ))}
                       </div>
                     </div>
@@ -255,7 +302,7 @@ export default function OnboardingBrandSetup({ onComplete }: Props) {
               <button
                 onClick={handleSaveFromURL}
                 disabled={loading}
-                className="w-full rounded-lg bg-purple-600 py-2.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                className="w-full rounded-lg bg-teal-600 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
               >
                 {loading ? 'Saving...' : 'Save Brand & Continue'}
               </button>

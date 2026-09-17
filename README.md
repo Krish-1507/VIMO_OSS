@@ -446,7 +446,7 @@ code end-to-end on every CI run.
 # Run the full test suite (backend + frontend)
 npm test
 
-# Backend only — 259 tests across 35 files
+# Backend only — 266 tests across 36 files
 npm run test:backend
 
 # Frontend only — 9 tests across 3 files
@@ -482,6 +482,10 @@ What the suite covers:
   still ship, nothing schedules or publishes on its own.
 - `cmoCreative.test.ts` — playbook matching (exact → phrase → keywords, null
   otherwise) and brand-DNA visual briefs with safe no-brand passthrough.
+- `websiteCrawler.test.ts` — URL variant fallback, typed failure reasons
+  (blocked/not_found/timeout/unreachable/bad_url), full analysis shape.
+- `approvalService.test.ts` — platform boundary mocked (Meta-style fast
+  failure); execute-path tests carry a 20s budget for cold scheduler imports.
 - `connectionPackMarketplace.test.ts` — live `discoverPack` + `PackAdapter` round-trip
   for Shopify, GitHub, Stripe, SEO, … with real DB and credential store.
 - `connectionSocialAccounts.test.ts` — Instagram account verification + publish path

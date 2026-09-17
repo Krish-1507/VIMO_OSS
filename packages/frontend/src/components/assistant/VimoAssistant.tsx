@@ -453,7 +453,7 @@ export default function VimoAssistant() {
         <button
           onClick={toggleAssistant}
           title="VIMO Assistant (Ctrl+K)"
-          className={`fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-teal-400 to-indigo-500 text-white shadow-xl shadow-teal-500/25 transition-all hover:scale-105 active:scale-95 ${
+          className={`fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-xl shadow-teal-500/25 transition-all hover:scale-105 active:scale-95 ${
             hasUnreadAssistant ? 'animate-pulse' : ''
           }`}
         >
@@ -495,7 +495,7 @@ export default function VimoAssistant() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-teal-400 to-indigo-500">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-emerald-500">
                   <Sparkles className="h-3.5 w-3.5 text-white" />
                 </div>
                 <div>
@@ -532,7 +532,7 @@ export default function VimoAssistant() {
               {showWelcome && (
                 <div className="pt-6">
                   <div className="mb-3 flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-indigo-500">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500">
                       <Sparkles className="h-4.5 w-4.5 text-white" />
                     </div>
                     <div>
@@ -608,7 +608,7 @@ export default function VimoAssistant() {
                           {msg.navigationTarget && (
                             <button
                               onClick={() => navigate(msg.navigationTarget!)}
-                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold text-indigo-400 transition-colors hover:bg-indigo-500/10"
+                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold text-teal-400 transition-colors hover:bg-teal-500/10"
                             >
                               <ArrowUpRight className="h-3 w-3" />
                               Open {formatNavLabel(msg.navigationTarget)}

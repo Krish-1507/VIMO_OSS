@@ -13,6 +13,43 @@ import { eq } from 'drizzle-orm';
 
 vi.mock('../index', () => ({ io: { emit: vi.fn() } }));
 
+// Mock the platform boundary: publishes fail fast with a Meta-style invalid-
+// token error instead of hitting the real network (which made this file flake
+// under full-suite load). The execute paths assert graceful degradation, so
+// this preserves exactly the behavior under test — deterministically.
+const { http } = vi.hoisted(() => {
+  const metaError = () => {
+    const err: any = new Error('Invalid OAuth access token');
+    err.response = {
+      status: 400,
+      data: { error: { message: 'Invalid OAuth access token', code: 190 } },
+    };
+    return err;
+  };
+  const http = {
+    get: vi.fn(async () => {
+      throw metaError();
+    }),
+    post: vi.fn(async () => {
+      throw metaError();
+    }),
+    put: vi.fn(async () => {
+      throw metaError();
+    }),
+    delete: vi.fn(async () => {
+      throw metaError();
+    }),
+    request: vi.fn(async () => {
+      throw metaError();
+    }),
+    interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } },
+    create: vi.fn(),
+  };
+  http.create.mockReturnValue(http);
+  return { http };
+});
+vi.mock('axios', () => ({ default: http, ...http }));
+
 import {
   requestApproval,
   approveRequest,
@@ -159,7 +196,10 @@ describe('Approval Queue — queue operations', () => {
     expect(queue[0].humanReadableSummary).toMatch(/My big launch/);
   });
 
-  it('approveRequest marks approved and executes a publish (moves the post to pending)', async () => {
+  // NOTE: generous timeout — this path cold-imports the scheduler service
+  // (BullMQ graph) on first use, which exceeds the 5s default under
+  // full-suite parallel load. A genuine hang still fails, just at 20s.
+  it('approveRequest marks approved and executes a publish (moves the post to pending)', { timeout: 20000 }, async () => {
     const postId = 'post_exec_1';
     db.insert(scheduledPosts).values({
       id: postId,
@@ -356,7 +396,7 @@ describe('Approval Queue — decision-rule branch coverage', () => {
     expect(res.decision).toBe('pending');
   });
 
-  it('approving a publish_post executes and moves the linked post to pending', async () => {
+  it('approving a publish_post executes and moves the linked post to pending', { timeout: 20000 }, async () => {
     const postId = 'post_exec_branch';
     db.insert(scheduledPosts)
       .values({

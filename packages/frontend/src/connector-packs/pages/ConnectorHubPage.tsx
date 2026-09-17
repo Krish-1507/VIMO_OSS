@@ -242,7 +242,7 @@ export default function ConnectorHubPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Pack Marketplace</h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            Install capabilities for your marketing team. Each pack gives VIMO new superpowers.
+            Install capabilities for your marketing team. Each pack teaches VIMO something new about your business.
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-[var(--text-tertiary)]">

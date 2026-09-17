@@ -43,13 +43,74 @@ export interface WebsiteAnalysis {
   fetchedAt: string;
 }
 
+export type CrawlFailureReason = 'bad_url' | 'not_found' | 'blocked' | 'timeout' | 'unreachable';
+
+/** Typed crawl failure so routes can tell the user WHAT went wrong (and what to do next). */
+export class CrawlError extends Error {
+  reason: CrawlFailureReason;
+  status?: number;
+  constructor(reason: CrawlFailureReason, message: string, status?: number) {
+    super(message);
+    this.name = 'CrawlError';
+    this.reason = reason;
+    this.status = status;
+  }
+}
+
+/**
+ * Candidate URLs to try, in order. Non-technical users paste all kinds of
+ * things (`example.com`, `www.example.com`, `http://…`); a bare domain that
+ * fails on https often answers on http or www. Trying variants turns most
+ * "Analysis failed" dead-ends into successes. Exported for tests.
+ */
+export function candidateUrls(raw: string): string[] {
+  const trimmed = raw.trim();
+  const withProtocol = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(withProtocol);
+  } catch {
+    throw new CrawlError('bad_url', 'That doesn\u2019t look like a website address. Check it starts with a domain, e.g. example.com.');
+  }
+  if (!parsed.hostname.includes('.')) {
+    throw new CrawlError('bad_url', 'That doesn\u2019t look like a website address. Check it starts with a domain, e.g. example.com.');
+  }
+  const candidates = [parsed.href];
+  const flipped = new URL(parsed.href);
+  flipped.protocol = flipped.protocol === 'https:' ? 'http:' : 'https:';
+  candidates.push(flipped.href);
+  const host = parsed.hostname;
+  const wwwFlipped = new URL(parsed.href);
+  wwwFlipped.hostname = host.startsWith('www.') ? host.slice(4) : `www.${host}`;
+  candidates.push(wwwFlipped.href);
+  return [...new Set(candidates)].slice(0, 3);
+}
+
 export async function crawlWebsite(url: string): Promise<WebsiteAnalysis | null> {
   try {
-    const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
-    const baseUrl = new URL(normalizedUrl).origin;
+    const candidates = candidateUrls(url);
+    let homepageHtml: string | null = null;
+    let normalizedUrl = candidates[0];
+    let lastError: CrawlError | null = null;
 
-    const homepageHtml = await fetchWithTimeout(normalizedUrl, 12000);
-    if (!homepageHtml) return null;
+    for (const candidate of candidates) {
+      try {
+        const html = await fetchPage(candidate, 12000);
+        homepageHtml = html;
+        normalizedUrl = candidate;
+        lastError = null;
+        break;
+      } catch (err) {
+        lastError = err instanceof CrawlError ? err : new CrawlError('unreachable', (err as Error).message);
+        // A missing page won't appear on another variant — stop early.
+        if (lastError.reason === 'not_found') break;
+      }
+    }
+
+    if (!homepageHtml) {
+      throw lastError || new CrawlError('unreachable', 'Could not reach this website.');
+    }
+    const baseUrl = new URL(normalizedUrl).origin;
 
     // Fetch CSS files discovered on the page
     const { cssContents, cssVariables, colorsFromCss } = await fetchAndParseCSS(homepageHtml, baseUrl);
@@ -57,11 +118,15 @@ export async function crawlWebsite(url: string): Promise<WebsiteAnalysis | null>
     const homepage = extractPageData(homepageHtml, normalizedUrl);
     const internalLinks = discoverInternalLinks(homepageHtml, normalizedUrl, baseUrl);
 
-    // Crawl discovered pages (max 15)
+    // Crawl discovered pages (max 15). Sub-pages stay best-effort: one
+    // blocked page must never sink the whole analysis.
     const pagePromises = internalLinks.slice(0, 15).map(async (link) => {
-      const html = await fetchWithTimeout(link, 8000);
-      if (!html) return null;
-      return extractPageData(html, link);
+      try {
+        const html = await fetchPage(link, 8000);
+        return extractPageData(html, link);
+      } catch {
+        return null;
+      }
     });
 
     const pageResults = (await Promise.all(pagePromises)).filter(Boolean) as PageData[];
@@ -145,8 +210,11 @@ export async function crawlWebsite(url: string): Promise<WebsiteAnalysis | null>
       fetchedAt: new Date().toISOString(),
     };
   } catch (err) {
+    // Typed failures propagate so callers can explain them; anything else
+    // becomes an honest unreachable error instead of a silent null.
+    if (err instanceof CrawlError) throw err;
     console.warn('[Crawl] Failed:', (err as Error).message);
-    return null;
+    throw new CrawlError('unreachable', 'Could not analyze this website. Check the URL and try again.');
   }
 }
 
@@ -569,15 +637,63 @@ function stripNoiseHtml(html: string): string {
     .trim();
 }
 
+/**
+ * Fetch one page, throwing a typed CrawlError on any failure.
+ *
+ * Uses a real browser User-Agent: the old `VIMO-Marketing-Bot` token got
+ * blanket-blocked (403) by Cloudflare/Wordfence/Wix-style protections,
+ * which was the #1 cause of "Analysis failed" on perfectly good websites.
+ */
+async function fetchPage(url: string, timeoutMs: number): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+      redirect: 'follow',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+  } catch (err: any) {
+    if (err?.name === 'TimeoutError' || /timeout|aborted/i.test(err?.message || '')) {
+      throw new CrawlError('timeout', 'The site took too long to answer. It may be slow or down — try again in a minute.');
+    }
+    throw new CrawlError(
+      'unreachable',
+      'Could not reach this website. Check the address and your connection, then try again.',
+    );
+  }
+
+  if (res.status === 404 || res.status === 410) {
+    throw new CrawlError('not_found', 'Nothing lives at that address (the site answered 404). Check for typos.', res.status);
+  }
+  if (res.status === 401 || res.status === 403 || res.status === 429) {
+    throw new CrawlError(
+      'blocked',
+      'This site blocks automated readers (very common — nothing is broken). Add your brand details manually instead.',
+      res.status,
+    );
+  }
+  if (!res.ok) {
+    throw new CrawlError('unreachable', `The site answered with an error (HTTP ${res.status}). Try again in a minute.`, res.status);
+  }
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType && !/text\/html|application\/xhtml/i.test(contentType)) {
+    throw new CrawlError('not_found', 'That address is a file download, not a web page. Point VIMO at the homepage instead.');
+  }
+  return await res.text();
+}
+
+/** @deprecated Use fetchPage (typed errors) for new code. Kept for compat. */
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<string | null> {
   try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(timeoutMs),
-      headers: { 'User-Agent': 'VIMO-Marketing-Bot/1.0' },
-    });
-    if (!res.ok) return null;
-    return await res.text();
-  } catch { return null; }
+    return await fetchPage(url, timeoutMs);
+  } catch {
+    return null;
+  }
 }
 
 function stripTags(text: string): string {

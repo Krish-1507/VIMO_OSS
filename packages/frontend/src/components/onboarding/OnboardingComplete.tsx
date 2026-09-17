@@ -133,7 +133,7 @@ export default function OnboardingComplete({ onFinish }: Props) {
         </div>
       </div>
 
-      <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+      <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
         You&apos;re all set!
       </h2>
       <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400 max-w-sm">

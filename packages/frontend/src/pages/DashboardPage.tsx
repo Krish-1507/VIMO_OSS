@@ -389,7 +389,7 @@ export default function DashboardPage() {
               <Sparkles className="h-6 w-6 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-bold text-white">Don&apos;t click around — just tell VIMO.</h2>
+              <h2 className="text-base font-bold tracking-tight text-white">Don&apos;t click around — just tell VIMO.</h2>
               <p className="mt-0.5 text-sm text-teal-50/90">
                 Your marketing agent writes, schedules, launches and analyzes. Try &ldquo;Grow my Instagram&rdquo;, &ldquo;write this week&apos;s posts&rdquo;, &ldquo;why did engagement drop?&rdquo;
               </p>

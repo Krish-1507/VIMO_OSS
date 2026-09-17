@@ -46,7 +46,7 @@ export default function OnboardingWelcome({ onNext }: Props) {
         </div>
       </div>
 
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
         Welcome to VIMO
       </h1>
       <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400 max-w-md">

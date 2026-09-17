@@ -21,6 +21,8 @@ import {
   Sparkles,
   Dna,
   Globe,
+  Image,
+  Clapperboard,
   Loader2,
   Check,
   Search,
@@ -160,19 +162,53 @@ export default function SettingsPage() {
       saveTimers.current.set(key, t);
     }, []);
 
+   const [dnaErrorReason, setDnaErrorReason] = useState<string | null>(null);
+   const [dnaProgress, setDnaProgress] = useState('');
+
    async function handleAnalyzeDNA() {
      if (!dnaUrl) return;
      setDnaLoading(true);
      setDnaError('');
+     setDnaErrorReason(null);
      setDnaResult(null);
+     // Staged progress: analysis crawls + reasons, so it runs 20-60s. A
+     // static spinner that long reads as broken — narrate the stages.
+     const startedAt = Date.now();
+     setDnaProgress('Fetching your website…');
+     const progressTimer = setInterval(() => {
+       const elapsed = Date.now() - startedAt;
+       if (elapsed < 9000) setDnaProgress('Fetching your website…');
+       else if (elapsed < 25000) setDnaProgress('Reading pages, colors, and fonts…');
+       else setDnaProgress('Extracting your brand DNA… almost there.');
+     }, 1500);
      try {
-       const res = await api.post('/api/brand-profiles/analyze-dna', { url: dnaUrl });
+       // Far beyond the 10s default API timeout: crawl + LLM reasoning.
+       const res = await api.post('/api/brand-profiles/analyze-dna', { url: dnaUrl.trim() }, { timeout: 90000 });
        setDnaResult(res.data);
      } catch (err: any) {
-       setDnaError(err?.response?.data?.error || 'Analysis failed. Please check the URL and try again.');
+       const reason: string | null =
+         err?.response?.data?.reason || (err?.code === 'ECONNABORTED' ? 'timeout' : null);
+       setDnaErrorReason(reason);
+       if (err?.code === 'ECONNABORTED' || reason === 'timeout') {
+         setDnaError('This is taking longer than expected — your site may be slow. Try again, or add your brand details manually (takes a minute).');
+       } else {
+         setDnaError(err?.response?.data?.error || 'Analysis failed. Please check the URL and try again.');
+       }
      } finally {
+       clearInterval(progressTimer);
+       setDnaProgress('');
        setDnaLoading(false);
      }
+   }
+
+   function handleDnaManualFallback() {
+     // Blocked sites are normal (bot protection), not user error: carry the
+     // URL into manual mode so nothing typed is lost.
+     if (dnaUrl.trim()) setBrandFormWebsite(dnaUrl.trim());
+     setDnaError('');
+     setDnaErrorReason(null);
+     setDnaResult(null);
+     setDnaCreateMode('manual');
    }
 
    async function handleSaveDNAAsBrand() {
@@ -1218,16 +1254,17 @@ export default function SettingsPage() {
 
                   <div className="space-y-2">
                     {[
-                      { id: 'image_generation', label: 'Image Generation', desc: 'Post visuals, thumbnails, marketing images', icon: '🖼️' },
-                      { id: 'video_generation', label: 'Video Generation', desc: 'Short video clips, animations, reels', icon: '🎬' },
+                      { id: 'image_generation', label: 'Image Generation', desc: 'Post visuals, thumbnails, marketing images', icon: Image },
+                      { id: 'video_generation', label: 'Video Generation', desc: 'Short video clips, animations, reels', icon: Clapperboard },
                     ].map((task) => {
                       const assignedConnectorId = settings[`model_${task.id}`] || '';
                       const assignedConnector = mediaConnectors.find(c => c.id === assignedConnectorId);
                       return (
                         <div key={task.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-teal-200 dark:hover:border-teal-800 transition-colors">
                           <div className="flex-1 min-w-0 mr-4">
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                              {task.icon} {task.label}
+                            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
+                              <task.icon className="h-4 w-4 text-slate-400" />
+                              {task.label}
                             </span>
                             <p className="text-xs text-slate-400 mt-0.5">{task.desc}</p>
                             {assignedConnector && (
@@ -1723,7 +1760,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                          <Dna className="h-5 w-5 text-purple-500" />
+                          <Dna className="h-5 w-5 text-teal-500" />
                           Business DNA
                         </h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -1741,7 +1778,7 @@ export default function SettingsPage() {
                         </h3>
                         <button
                           onClick={() => setShowCreatePanel(!showCreatePanel)}
-                          className="inline-flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 transition-colors"
+                          className="inline-flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-teal-700 transition-all active:scale-[0.98]"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           {showCreatePanel ? 'Cancel' : 'Add Brand'}
@@ -1803,9 +1840,9 @@ export default function SettingsPage() {
                           <div className="grid grid-cols-2 gap-3">
                             <button
                               onClick={() => setDnaCreateMode('url')}
-                              className="p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 transition-all text-left group"
+                              className="p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 hover:border-teal-400 dark:hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 transition-all text-left group"
                             >
-                              <Globe className="h-6 w-6 text-purple-500 mb-2 group-hover:scale-110 transition-transform" />
+                              <Globe className="h-6 w-6 text-teal-500 mb-2 group-hover:scale-110 transition-transform" />
                               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Analyze Website</h3>
                               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                                 Enter your website URL and VIMO will automatically extract your brand's colors, fonts, tone, values, and more.
@@ -1844,13 +1881,13 @@ export default function SettingsPage() {
                                     onChange={(e) => setDnaUrl(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleAnalyzeDNA()}
                                     placeholder="https://example.com"
-                                    className="w-full rounded-lg border border-slate-300 bg-white pl-10 pr-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                    className="w-full rounded-lg border border-slate-300 bg-white pl-10 pr-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
                                   />
                                 </div>
                                 <button
                                   onClick={handleAnalyzeDNA}
-                                  disabled={dnaLoading || !dnaUrl}
-                                  className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                                  disabled={dnaLoading || !dnaUrl.trim()}
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 transition-all active:scale-[0.98]"
                                 >
                                   {dnaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                   {dnaLoading ? 'Analyzing...' : 'Analyze'}
@@ -1859,22 +1896,40 @@ export default function SettingsPage() {
 
                               {dnaLoading && (
                                 <div className="space-y-1.5">
-                                  <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
+                                  <div className="flex items-center gap-2 text-xs text-teal-700 dark:text-teal-300">
                                     <Loader2 className="h-3 w-3 animate-spin" />
-                                    <span>Crawling website and extracting brand identity...</span>
+                                    <span>{dnaProgress || 'Fetching your website…'}</span>
                                   </div>
                                   <div className="h-1 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                                    <div className="h-full rounded-full bg-purple-500 animate-pulse" style={{ width: '60%' }} />
+                                    <div className="h-full rounded-full bg-teal-500 animate-pulse" style={{ width: '60%' }} />
                                   </div>
                                 </div>
                               )}
 
-                              {dnaError && (
+                              {dnaError && dnaErrorReason === 'blocked' ? (
+                                <div className="space-y-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 dark:border-amber-800 dark:bg-amber-950/30">
+                                  <div className="flex items-start gap-2">
+                                    <Shield className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <div className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+                                      <p className="font-semibold">This site blocks automated readers</p>
+                                      <p className="mt-0.5 text-amber-700/90 dark:text-amber-400/90">
+                                        Very common (especially stores and portfolios) — nothing is broken on your end.
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={handleDnaManualFallback}
+                                    className="w-full rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-all active:scale-[0.98]"
+                                  >
+                                    Add my brand details manually instead (1 minute)
+                                  </button>
+                                </div>
+                              ) : dnaError ? (
                                 <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400">
                                   <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                                   <span>{dnaError}</span>
                                 </div>
-                              )}
+                              ) : null}
                             </div>
 
                             {/* DNA Results (editable before saving) */}

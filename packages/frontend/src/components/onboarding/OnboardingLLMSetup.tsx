@@ -118,7 +118,7 @@ export default function OnboardingLLMSetup({ onComplete }: Props) {
   return (
     <div className="space-y-5">
       <div className="text-center">
-        <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center shadow-lg mb-3">
+        <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center shadow-lg mb-3">
           <Sparkles className="h-6 w-6 text-white" />
         </div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Pick your AI brain.</h2>

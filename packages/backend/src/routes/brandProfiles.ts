@@ -612,8 +612,19 @@ export default async function brandProfileRoutes(app: FastifyInstance) {
 
     try {
       // Step 1: Crawl the website
-      const websiteData = await crawlWebsite(url);
-      if (!websiteData) return reply.status(400).send({ error: 'Could not analyze this website. Check the URL and try again.' });
+      let websiteData = null;
+      try {
+        websiteData = await crawlWebsite(url);
+      } catch (crawlErr: any) {
+        // Typed, user-explainable failures — the UI turns `reason` into the
+        // right next step (retry, fix the URL, or switch to manual entry).
+        if (crawlErr?.name === 'CrawlError' && crawlErr?.reason) {
+          const status = crawlErr.reason === 'timeout' ? 504 : 400;
+          return reply.status(status).send({ error: crawlErr.message, reason: crawlErr.reason });
+        }
+        throw crawlErr;
+      }
+      if (!websiteData) return reply.status(400).send({ error: 'Could not analyze this website. Check the URL and try again.', reason: 'unreachable' });
 
       // Step 2: Use LLM to extract brand DNA
       const modelRoute = await getModelForTask(TaskType.CONTENT_GENERATION);
