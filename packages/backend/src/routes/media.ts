@@ -178,6 +178,47 @@ export default async function mediaRoutes(app: FastifyInstance) {
     }
   });
 
+  // POST /api/media/enhance-prompt — turn a raw idea into a brand-directed
+  // brief (brand DNA + craft + anti-slop negatives + platform sizing).
+  // Side-effect free: studios call this before generating so free/keyless
+  // client-side generation gets the same direction as server-side paths.
+  app.post('/api/media/enhance-prompt', async (request, reply) => {
+    try {
+      const body = request.body as {
+        prompt?: string;
+        brandProfileId?: string;
+        platform?: string;
+        style?: 'authentic' | 'minimal' | 'bold';
+        kind?: 'image' | 'video';
+      };
+      const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
+      if (!prompt) {
+        return reply.status(400).send({ error: 'prompt is required.' });
+      }
+      if (prompt.length > 2000) {
+        return reply.status(400).send({ error: 'prompt is too long (max 2000 characters).' });
+      }
+      const { buildCreativePrompt } = await import('../services/creativeBriefService');
+      const brief = buildCreativePrompt({
+        brandProfileId: body.brandProfileId,
+        prompt,
+        platform: body.platform,
+        style: body.style,
+        kind: body.kind,
+      });
+      return {
+        prompt: brief.prompt,
+        width: brief.width,
+        height: brief.height,
+        style: brief.style,
+        kind: brief.kind,
+        brandApplied: !!body.brandProfileId,
+      };
+    } catch (err) {
+      return reply.status(500).send(formatError(err));
+    }
+  });
+
   // POST /api/media/generate-public-url — generate a public URL for a media item
   app.post('/api/media/generate-public-url', async (request, reply) => {
     try {

@@ -59,6 +59,21 @@ export default async function higgsfieldRoutes(app: FastifyInstance) {
       const localRowId = crypto.randomUUID();
       const now = new Date().toISOString();
 
+      // Brand-direct the video prompt (DNA + motion craft + negatives) so
+      // generations look like this brand, not generic AI footage.
+      let finalPrompt = body.prompt;
+      try {
+        const { buildCreativePrompt } = await import('../services/creativeBriefService');
+        finalPrompt = buildCreativePrompt({
+          brandProfileId,
+          prompt: body.prompt,
+          kind: 'video',
+          extraDirection: body.style ? `in a ${body.style} style` : undefined,
+        }).prompt;
+      } catch (err) {
+        console.warn('[higgsfield] brand enrichment failed, using raw prompt:', (err as Error).message);
+      }
+
       await db
         .insert(higgsfieldJobs)
         .values({
@@ -66,7 +81,7 @@ export default async function higgsfieldRoutes(app: FastifyInstance) {
           connectorId,
           brandProfileId,
           jobId: crypto.randomUUID(), // placeholder until we receive remote job id
-          prompt: body.prompt,
+          prompt: finalPrompt,
           aspectRatio: body.aspectRatio ?? '9:16',
           duration: body.duration ?? 6,
           style: body.style ?? 'cinematic',

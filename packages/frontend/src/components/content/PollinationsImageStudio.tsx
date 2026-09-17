@@ -1,13 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Loader2,
   Download,
   Sparkles,
   RefreshCw,
   Image as ImageIcon,
+  Check,
 } from 'lucide-react';
+import api from '../../lib/api';
+import { useBrandStore } from '../../stores/brandStore';
 
 const POLLINATIONS_IMAGE_URL = 'https://image.pollinations.ai/prompt';
+
+// Aspect ratio → platform so brand sizing matches where the visual will live.
+const RATIO_PLATFORM: Record<string, string> = {
+  '1:1': 'instagram',
+  '9:16': 'tiktok',
+  '16:9': 'youtube',
+  '4:3': 'facebook',
+  '3:2': 'pinterest',
+};
+
+const VISUAL_STYLES = [
+  { id: 'authentic', label: 'Authentic (real, candid)' },
+  { id: 'minimal', label: 'Minimal (clean design)' },
+  { id: 'bold', label: 'Bold (punchy ads)' },
+] as const;
 
 const ASPECT_RATIOS: { key: string; label: string; width: number; height: number }[] = [
   { key: '1:1', label: 'Square (1:1)', width: 1024, height: 1024 },
@@ -22,20 +40,54 @@ export default function PollinationsImageStudio() {
   const [aspectRatio, setAspectRatio] = useState('9:16');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [brandStyling, setBrandStyling] = useState(true);
+  const [visualStyle, setVisualStyle] = useState<'authentic' | 'minimal' | 'bold'>('authentic');
+  const [styledWith, setStyledWith] = useState<string | null>(null);
+  const profiles = useBrandStore((s) => s.profiles);
+  const selectedId = useBrandStore((s) => s.selectedId);
+  const activeBrand = profiles.find((p) => p.id === selectedId) || profiles[0] || null;
+
+  useEffect(() => {
+    useBrandStore.getState().fetchProfiles();
+  }, []);
+
+  // Resolve the final prompt: raw idea, or brand-directed via the backend
+  // (brand DNA + craft + anti-slop negatives). Always falls back to raw.
+  async function resolvePrompt(): Promise<{ text: string; styled: string | null }> {
+    const raw = prompt.trim();
+    if (!brandStyling || !activeBrand) return { text: raw, styled: null };
+    try {
+      const res = await api.post('/api/media/enhance-prompt', {
+        prompt: raw,
+        brandProfileId: activeBrand.id,
+        platform: RATIO_PLATFORM[aspectRatio] || 'instagram',
+        style: visualStyle,
+        kind: 'image',
+      });
+      if (res.data?.prompt) return { text: res.data.prompt, styled: activeBrand.name };
+    } catch (err) {
+      console.warn('[vimo] brand styling failed, using raw prompt:', err);
+    }
+    return { text: raw, styled: null };
+  }
 
   function getImageUrl(promptText: string, ratio: string): string {
     const ratioDef = ASPECT_RATIOS.find((r) => r.key === ratio) || ASPECT_RATIOS[0];
-    const encoded = encodeURIComponent(promptText.slice(0, 400));
+    const encoded = encodeURIComponent(promptText.slice(0, 1500));
     const seed = Math.floor(Math.random() * 100000);
     return `${POLLINATIONS_IMAGE_URL}/${encoded}?width=${ratioDef.width}&height=${ratioDef.height}&seed=${seed}&nologo=true`;
   }
 
-  function handleGenerate() {
-    if (!prompt.trim()) return;
+  async function handleGenerate() {
+    if (!prompt.trim() || isGenerating) return;
     setIsGenerating(true);
-    const url = getImageUrl(prompt.trim(), aspectRatio);
-    setImageUrl(url);
-    setIsGenerating(false);
+    try {
+      const { text, styled } = await resolvePrompt();
+      setImageUrl(getImageUrl(text, aspectRatio));
+      setStyledWith(styled);
+    } finally {
+      setIsGenerating(false);
+    }
   }
 
   function handleDownload() {
@@ -47,15 +99,16 @@ export default function PollinationsImageStudio() {
     a.click();
   }
 
-  function handleRegenerate() {
-    if (!prompt.trim()) return;
+  async function handleRegenerate() {
+    if (!prompt.trim() || isGenerating) return;
     setIsGenerating(true);
-    const seed = Math.floor(Math.random() * 100000);
-    const ratioDef = ASPECT_RATIOS.find((r) => r.key === aspectRatio) || ASPECT_RATIOS[0];
-    const encoded = encodeURIComponent(prompt.trim().slice(0, 400));
-    const url = `${POLLINATIONS_IMAGE_URL}/${encoded}?width=${ratioDef.width}&height=${ratioDef.height}&seed=${seed}&nologo=true`;
-    setImageUrl(url);
-    setIsGenerating(false);
+    try {
+      const { text, styled } = await resolvePrompt();
+      setImageUrl(getImageUrl(text, aspectRatio));
+      setStyledWith(styled);
+    } finally {
+      setIsGenerating(false);
+    }
   }
 
   return (
@@ -91,7 +144,33 @@ export default function PollinationsImageStudio() {
             ))}
           </select>
         </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Style</label>
+          <select
+            value={visualStyle}
+            onChange={(e) => setVisualStyle(e.target.value as 'authentic' | 'minimal' | 'bold')}
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          >
+            {VISUAL_STYLES.map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {activeBrand && (
+        <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2.5 dark:border-teal-900/40 dark:bg-teal-950/20">
+          <input
+            type="checkbox"
+            checked={brandStyling}
+            onChange={(e) => setBrandStyling(e.target.checked)}
+            className="h-4 w-4 rounded border-teal-300 text-teal-600 focus:ring-teal-500"
+          />
+          <span className="text-xs text-teal-800 dark:text-teal-300">
+            Style with my <strong>{activeBrand.name}</strong> brand DNA — colors, aesthetic, no AI-slop look
+          </span>
+        </label>
+      )}
 
       <button
         onClick={handleGenerate}
@@ -107,6 +186,13 @@ export default function PollinationsImageStudio() {
           </span>
         )}
       </button>
+
+      {styledWith && imageUrl && (
+        <p className="flex items-center gap-1.5 text-[11px] text-teal-700 dark:text-teal-400">
+          <Check className="h-3.5 w-3.5" />
+          Styled with your {styledWith} brand DNA
+        </p>
+      )}
 
       {imageUrl && (
         <div className="space-y-3">

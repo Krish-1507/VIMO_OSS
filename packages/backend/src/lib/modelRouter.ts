@@ -8,7 +8,7 @@
 
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
-import { appSettings, connectors } from '../db/schema';
+import { connectors } from '../db/schema';
 import { getActiveLLMProvider, findTaskConnectorId } from './llmProvider';
 
 /* ------------------------------------------------------------------ */
@@ -164,29 +164,10 @@ export function resolveModelId(provider: string, config?: Record<string, unknown
 }
 
 /* ------------------------------------------------------------------ */
-/*  ModelAssignment type                                               */
-/* ------------------------------------------------------------------ */
-
-export type ModelAssignment = Partial<Record<TaskType, string>>;
-
-/* ------------------------------------------------------------------ */
-/*  Get saved model assignments from DB                                */
-/* ------------------------------------------------------------------ */
-
-async function getSavedModelAssignments(): Promise<ModelAssignment | null> {
-  try {
-    const row = await db
-      .select()
-      .from(appSettings)
-      .where(eq(appSettings.key, 'modelAssignments'))
-      .get();
-    if (!row) return null;
-    return JSON.parse(row.value) as ModelAssignment;
-  } catch {
-    return null;
-  }
-}
-
+/*  NOTE: the legacy `modelAssignments` JSON blob is retired. Nothing in  */
+/*  the UI ever wrote it (Settings writes per-task `model_<task>` keys),  */
+/*  so routing reads UI picks first. The blob endpoints in settings.ts     */
+/*  remain for backward compatibility but no longer drive routing.         */
 /* ------------------------------------------------------------------ */
 /*  getModelForTask — main routing function                             */
 /* ------------------------------------------------------------------ */
@@ -232,9 +213,8 @@ function routeForConnector(conn: { id: string; provider: string; configJson: str
  * Route an LLM task to the best available model.
  *
  * Priority:
- * 1. Manual assignment in appSettings (user-configured, legacy blob)
- * 2. Settings → AI Models per-task picks (what the UI actually writes)
- * 3. Auto-assign based on capability requirements vs available connectors
+ * 1. Settings → AI Models per-task picks (what the UI actually writes)
+ * 2. Auto-assign based on capability requirements vs available connectors
  *
  * Never throws — falls back to getActiveLLMProvider or best available.
  */
@@ -243,20 +223,7 @@ export async function getModelForTask(
   brandProfileId?: string,
 ): Promise<ModelRouteResult> {
   try {
-    // Step 1: Check for saved model assignment (legacy blob)
-    const assignments = await getSavedModelAssignments();
-    if (assignments && assignments[taskType]) {
-      const assignedConnectorId = assignments[taskType]!;
-      const allConnectors = await db.select().from(connectors).all();
-      const assignedConnector = allConnectors.find(
-        (c) => c.id === assignedConnectorId && c.type === 'llm' && c.status === 'active',
-      );
-      if (assignedConnector) {
-        return routeForConnector(assignedConnector);
-      }
-    }
-
-    // Step 2: Honor the Settings → AI Models per-task picks. Previously every
+    // Step 1: Honor the Settings → AI Models per-task picks. Previously every
     // agent ignored these (they only read the legacy blob, which the UI never
     // writes), so model switching silently did nothing for campaigns,
     // autopilot, content, engagement, analytics, and brand DNA.
@@ -501,8 +468,19 @@ export function calculateCost(
  */
 export async function getCostSavingTip(brandProfileId?: string): Promise<string | null> {
   try {
-    const assignments = await getSavedModelAssignments();
-    if (!assignments) return null;
+    // Evaluate the live UI picks (one entry per router task), not the
+    // retired blob.
+    const picks: Array<{ task: TaskType; connectorId: string }> = [];
+    for (const task of Object.keys(TASKTYPE_UI_KEYS) as TaskType[]) {
+      for (const uiTask of TASKTYPE_UI_KEYS[task]) {
+        const connectorId = await findTaskConnectorId(uiTask);
+        if (connectorId) {
+          picks.push({ task, connectorId });
+          break;
+        }
+      }
+    }
+    if (picks.length === 0) return null;
 
     // Find the most expensive task that could use a cheaper model
     const levelScores: Record<ModelCapabilityLevel, number> = {
@@ -512,8 +490,7 @@ export async function getCostSavingTip(brandProfileId?: string): Promise<string 
       [ModelCapabilityLevel.LOCAL]: 1,
     };
 
-    for (const [taskStr, connectorId] of Object.entries(assignments)) {
-      const task = taskStr as TaskType;
+    for (const { task, connectorId } of picks) {
       const requiredLevel = TASK_CAPABILITY_REQUIREMENTS[task];
 
       // Get the assigned connector's model level

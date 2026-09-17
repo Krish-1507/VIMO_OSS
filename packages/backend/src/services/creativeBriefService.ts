@@ -12,6 +12,7 @@ import { db } from '../db';
 import { brandProfiles } from '../db/schema';
 
 export type CreativeStyle = 'authentic' | 'minimal' | 'bold';
+export type CreativeKind = 'image' | 'video';
 
 export interface CreativeBrief {
   prompt: string;
@@ -19,6 +20,7 @@ export interface CreativeBrief {
   height: number;
   style: CreativeStyle;
   platform: string;
+  kind: CreativeKind;
 }
 
 const PLATFORM_DIMS: Record<string, { width: number; height: number }> = {
@@ -51,6 +53,22 @@ const QUALITY_SUFFIX =
   'Avoid: garbled or gibberish text, watermarks, logos, extra fingers or limbs, ' +
   'plastic skin, oversaturated stock-photo look.';
 
+const VIDEO_DIRECTION: Record<CreativeStyle, string> = {
+  authentic:
+    'candid documentary footage, natural light, real people, handheld genuine feel, ' +
+    'smooth natural motion, no frozen poses',
+  minimal:
+    'clean minimal motion design, generous negative space, smooth understated movement, ' +
+    'premium studio pacing',
+  bold:
+    'high-energy commercial spot, dramatic cinematic lighting, dynamic camera movement, ' +
+    'vibrant grade, punchy cuts',
+};
+
+const VIDEO_NEGATIVES =
+  'Avoid: garbled text overlays, watermarks, logos, morphing faces, extra limbs, ' +
+  'plastic skin, slideshow-like static frames.';
+
 interface BrandDna {
   brandValues?: string[];
   brandAesthetic?: string;
@@ -66,8 +84,9 @@ function parseDna(raw: unknown): BrandDna {
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as BrandDna;
-  } catch {
-    // corrupted DNA — proceed without it rather than failing the visual
+  } catch (err) {
+    console.warn('[creative] corrupt brand DNA ignored:', (err as Error).message);
+    return {};
   }
   return {};
 }
@@ -82,14 +101,20 @@ export function buildCreativePrompt(params: {
   prompt: string;
   platform?: string;
   style?: CreativeStyle;
+  kind?: CreativeKind;
+  /** Extra direction in the caller's own words (e.g. a studio style name). */
+  extraDirection?: string;
   width?: number;
   height?: number;
 }): CreativeBrief {
   const platform = (params.platform || 'instagram').toLowerCase();
   const style: CreativeStyle =
     params.style === 'minimal' || params.style === 'bold' ? params.style : 'authentic';
+  const kind: CreativeKind = params.kind === 'video' ? 'video' : 'image';
   const dims = PLATFORM_DIMS[platform] || PLATFORM_DIMS.instagram;
   const base = params.prompt.trim();
+  const craft = kind === 'video' ? VIDEO_DIRECTION[style] : STYLE_DIRECTION[style];
+  const negatives = kind === 'video' ? VIDEO_NEGATIVES : QUALITY_SUFFIX;
 
   let brand: {
     name?: string | null;
@@ -113,17 +138,20 @@ export function buildCreativePrompt(params: {
         dna = parseDna(row.contentDNA);
       }
     }
-  } catch {
+  } catch (err) {
+    console.warn('[creative] failed to load brand DNA, using raw prompt:', (err as Error).message);
     brand = null;
   }
 
   if (!brand) {
+    const extras = params.extraDirection ? `, ${params.extraDirection.trim()}` : '';
     return {
-      prompt: `${base}, ${STYLE_DIRECTION[style]}, ${QUALITY_SUFFIX}`,
+      prompt: `${base}, ${craft}${extras}, ${negatives}`,
       width: params.width || dims.width,
       height: params.height || dims.height,
       style,
       platform,
+      kind,
     };
   }
 
@@ -137,8 +165,9 @@ export function buildCreativePrompt(params: {
     parts.push(`visual style: ${dna.visualStyleKeywords.slice(0, 4).join(', ')}`);
   }
   if (dna.toneOfVoice) parts.push(`mood matching a ${dna.toneOfVoice} brand voice`);
-  parts.push(STYLE_DIRECTION[style]);
-  parts.push(QUALITY_SUFFIX);
+  parts.push(craft);
+  if (params.extraDirection?.trim()) parts.push(params.extraDirection.trim());
+  parts.push(negatives);
 
   return {
     prompt: parts.join('. '),
@@ -146,5 +175,6 @@ export function buildCreativePrompt(params: {
     height: params.height || dims.height,
     style,
     platform,
+    kind,
   };
 }

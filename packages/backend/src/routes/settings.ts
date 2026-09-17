@@ -231,7 +231,9 @@ export default async function settingsRoutes(app: FastifyInstance) {
     }
   });
 
-  // Get model assignments
+  // Get model assignments — DEPRECATED. The UI writes per-task `model_<task>`
+  // keys (read by the router); this legacy blob is kept for backward
+  // compatibility only and no longer drives routing.
   app.get('/api/settings/model-assignments', async (request, reply) => {
     try {
       const row = await db.select().from(appSettings).where(eq(appSettings.key, 'modelAssignments')).get();
@@ -255,7 +257,7 @@ export default async function settingsRoutes(app: FastifyInstance) {
     }
   });
 
-  // Update model assignments
+  // Update model assignments — DEPRECATED (see above). Kept for compatibility.
   app.post('/api/settings/model-assignments', async (request, reply) => {
     try {
       const body = request.body as { assignments: Record<string, string> };

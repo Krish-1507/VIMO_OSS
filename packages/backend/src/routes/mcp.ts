@@ -133,22 +133,17 @@ export default async function mcpRoutes(app: FastifyInstance) {
         pendingApprovals = 0;
       }
 
-      // Model assignments count
-      const modelAssignmentsRow = await db
-        .select()
-        .from(appSettings)
-        .where(eq(appSettings.key, 'modelAssignments'))
-        .get();
+      // Model assignments count — counts the live per-task picks
+      // (`model_<task>` keys, what Settings actually writes), not the
+      // retired `modelAssignments` blob.
       let modelAssignmentsCount = 0;
-      if (modelAssignmentsRow) {
-        try {
-          const parsed = JSON.parse(modelAssignmentsRow.value);
-          if (typeof parsed === 'object' && parsed !== null) {
-            modelAssignmentsCount = Object.keys(parsed).length;
-          }
-        } catch {
-          modelAssignmentsCount = 0;
-        }
+      try {
+        const settingRows = await db.select().from(appSettings).all();
+        modelAssignmentsCount = settingRows.filter(
+          (r) => r.key.startsWith('model_') && r.value.trim().length > 0,
+        ).length;
+      } catch {
+        modelAssignmentsCount = 0;
       }
 
       // Scheduler mode

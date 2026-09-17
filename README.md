@@ -474,7 +474,8 @@ What the suite covers:
   `runMarketingDirector` writes the `running` row up front.
 - `llmBuiltinDisable.test.ts` — keyless mode never attempts the dead free tier.
 - `modelAssignmentUnification.test.ts` — Settings model picks drive every agent;
-  stale picks fall back honestly; background task names alias to UI picks.
+  stale picks fall back honestly; background task names alias to UI picks. The
+  retired `modelAssignments` blob no longer drives routing.
 - `skills.test.ts` — the shipped skill catalog parses; unknown skills resolve to
   null; lesson persistence matches the schema.
 - `marketingSprint.test.ts` — parallel fan-out degrades into warnings, drafts
