@@ -144,7 +144,13 @@ export default async function contentLibraryRoutes(app: FastifyInstance) {
           '3:2': { width: 1200, height: 800 },
         };
         const dims = aspectRatio ? ratioMap[aspectRatio] : { width: 1024, height: 1024 };
-        const result = await generateImage({ prompt, width: dims.width, height: dims.height });
+        const result = await generateImage({
+          prompt,
+          width: dims.width,
+          height: dims.height,
+          brandProfileId,
+          platform,
+        });
         generatedMediaUrl = result.url;
         metadata.aspectRatio = aspectRatio || '1:1';
         metadata.provider = result.provider;
@@ -171,7 +177,13 @@ export default async function contentLibraryRoutes(app: FastifyInstance) {
         // Optionally generate an image from the suggestion
         if (result.imageSuggestion) {
           try {
-            const imgResult = await generateImage({ prompt: result.imageSuggestion, width: 1024, height: 1024 });
+            const imgResult = await generateImage({
+              prompt: result.imageSuggestion,
+              width: 1024,
+              height: 1024,
+              brandProfileId,
+              platform: platform || 'instagram',
+            });
             generatedMediaUrl = imgResult.url;
           } catch (err) {
             // non-critical — image suggestion is optional
@@ -260,6 +272,8 @@ export default async function contentLibraryRoutes(app: FastifyInstance) {
         prompt: fullPrompt,
         width: dims.width,
         height: dims.height,
+        brandProfileId: item.brandProfileId,
+        platform: item.platform || undefined,
       });
 
       const now = new Date().toISOString();

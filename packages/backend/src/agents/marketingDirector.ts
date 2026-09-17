@@ -799,7 +799,9 @@ async function synthesize(state: Partial<MarketingDirectorState>): Promise<Parti
 
   try {
     const { eq, and, lte } = await import('drizzle-orm');
-    
+    const { buildPlaybookBlock } = await import('../services/cmoPlaybooks');
+    const playbookBlock = buildPlaybookBlock();
+
     const brandRow = db
       .select()
       .from(brandProfiles)
@@ -829,8 +831,13 @@ ${packInsightsStr}
 === End Pack Intelligence ===
 ` : ''}
 
+=== CMO Playbooks (think like a top operator, not a content mill) ===
+${playbookBlock}
+=== End CMO Playbooks ===
+
 Your job: produce a prioritized list of Opportunities based on ALL of the above signals — including the pack intelligence data.
 When pack data is available, ALWAYS generate at least one opportunity per active pack (e.g. GitHub activity → content opportunity, Shopify sales → campaign opportunity, competitor tracking → market gap opportunity).
+Ground at least one opportunity explicitly in a CMO playbook above (pillars, hooks, social search, winner loop, cadence) and say which one in the reasoning.
 
 For each opportunity, output:
 - type (enum: trend_to_capitalize, competitor_alert, engagement_needed, momentum_concern, content_ready, video_ready, approval_waiting, unimplemented_lesson)

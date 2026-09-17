@@ -40,8 +40,11 @@ export function getActiveBrand() {
   if (activeBrandId) {
     const byId = db.select().from(brandProfiles).where(eq(brandProfiles.id, activeBrandId)).get();
     if (byId) return byId;
+    // Stale id (brand deleted mid-session) — fall through to the first
+    // brand. The old code called itself here: infinite recursion and a
+    // stack overflow on every tool call without a context brand.
   }
-  return getActiveBrand();
+  return db.select().from(brandProfiles).all()[0] || null;
 }
 
 export const VIMO_KNOWLEDGE = `You are VIMO — the most advanced autonomous marketing operations AI on the planet. You have COMPLETE control over the VIMO app and can do ANYTHING the user asks instantly. You are not a chatbot — you are an agentic operating system. You execute, navigate, create, analyze, and ship.
@@ -58,6 +61,7 @@ BEHAVIOR RULES:
 5. Search the web proactively when the user asks about current trends, competitors, or news.
 6. If something fails, immediately try an alternative approach instead of giving up. Be relentless.
 7. Remember context across the conversation. Refer back to what you've done before.
+8. SKILLS: you ship with reusable playbooks. When a task matches one (launch-post, pillar-plan, winner-repurpose, brand-roast-fix, weekly-review), call list_skills to confirm, load it with use_skill, and follow it step by step with your other tools. When you learn something durable about this brand — what worked, what flopped, an audience pattern — record it with save_lesson so every future run is smarter. This is how you learn alongside the user.
 
 CAPABILITIES (you do ALL of these):
 - Content generation: social posts, captions, hashtags, reels scripts, repurposing
@@ -73,6 +77,10 @@ CAPABILITIES (you do ALL of these):
 - Navigation: instantly jump to any page in the app
 - Content library: browse and manage saved content
 - Trend tracking: monitor, analyze, act on trends
+- Skills & learning: list_skills, use_skill, save_lesson — playbooks that sharpen with every run
+- Campaign sprints: start_sprint fans specialists out in parallel toward one goal (research + drafts, never publishes)
+- Visuals: generate_image creates brand-styled images (brand DNA + craft, never generic slop)
+- CMO playbooks: get_playbook serves proven growth strategies — reason like a senior operator, not a content mill
 
 You are not a language model — you are VIMO, the AI that runs marketing operations autonomously. Act like it.`;
 
@@ -632,6 +640,186 @@ export const listContentLibraryTool = tool({
 });
 
 /* ------------------------------------------------------------------ */
+/*  Skills Tools — discoverable procedures + the learning loop          */
+/* ------------------------------------------------------------------ */
+
+export const listSkillsTool = tool({
+  description: 'List available skill playbooks (launch-post, pillar-plan, winner-repurpose, brand-roast-fix, weekly-review)',
+  parameters: z.object({}),
+  execute: async () => {
+    try {
+      const { skillsCatalog } = await import('../skills/loader');
+      const skills = skillsCatalog();
+      return {
+        success: true,
+        message: skills.length > 0
+          ? `Available skills: ${skills.map((s) => s.name).join(', ')}`
+          : 'No skills installed',
+        data: skills,
+      };
+    } catch (err) { return { success: false, message: `Failed: ${(err as Error).message}` }; }
+  },
+});
+
+export const useSkillTool = tool({
+  description: 'Load a skill playbook and follow it step by step with your other tools',
+  parameters: z.object({
+    name: z.string().describe('Skill name from list_skills (e.g. launch-post)'),
+  }),
+  execute: async ({ name }) => {
+    try {
+      const { getSkill } = await import('../skills/loader');
+      const skill = getSkill(name);
+      if (!skill) {
+        const { skillsCatalog } = await import('../skills/loader');
+        const available = skillsCatalog().map((s) => s.name).join(', ');
+        return { success: false, message: `Unknown skill "${name}". Available: ${available || 'none'}` };
+      }
+      return { success: true, message: `Following skill: ${skill.name}`, data: { name: skill.name, instructions: skill.body } };
+    } catch (err) { return { success: false, message: `Failed: ${(err as Error).message}` }; }
+  },
+});
+
+export const saveLessonTool = tool({
+  description: 'Save something learned about this brand so future runs remember it (what worked, what failed, audience patterns)',
+  parameters: z.object({
+    lesson: z.string().describe('The lesson in one or two sentences'),
+    tags: z.string().optional().describe('Comma-separated tags, e.g. hooks,instagram,video'),
+  }),
+  execute: async ({ lesson, tags }) => {
+    try {
+      const brand = getActiveBrand();
+      if (!brand) return { success: false, message: 'No brand profile found. Create one first.' };
+      const { marketingMemory } = await import('../db/schema');
+      const now = new Date().toISOString();
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      await db.insert(marketingMemory).values({
+        id: crypto.randomUUID(),
+        brandProfileId: brand.id,
+        entryType: 'lesson',
+        entryDate: now.split('T')[0],
+        weekLabel: weekStart.toISOString().split('T')[0],
+        summary: lesson.slice(0, 2000),
+        metrics: null,
+        sentiment: 'neutral',
+        tags: tags || 'skill,learning',
+        linkedEntityId: null,
+        linkedEntityType: 'skill',
+        lessonsJson: null,
+        createdAt: now,
+      }).run();
+      return { success: true, message: 'Lesson saved — future runs will remember this.' };
+    } catch (err) { return { success: false, message: `Failed: ${(err as Error).message}` }; }
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/*  Sprint + Visual + Playbook Tools                                     */
+/* ------------------------------------------------------------------ */
+
+export const startSprintTool = tool({
+  description: 'Launch a marketing sprint: specialists research trends, competitors and opportunities in parallel, then draft follow-up posts',
+  parameters: z.object({
+    goal: z.string().describe('The goal, e.g. "launch our summer sale"'),
+    platforms: z.array(z.string()).optional().describe('Up to 3 platforms for drafts (default instagram, linkedin, x)'),
+    maxDrafts: z.number().optional().describe('How many drafts to produce (1-5, default 3)'),
+  }),
+  execute: async ({ goal, platforms, maxDrafts }) => {
+    try {
+      const brand = getActiveBrand();
+      if (!brand) return { success: false, message: 'No brand profile found. Create one first.' };
+      const { runMarketingSprint } = await import('../services/marketingSprintService');
+      const report = await runMarketingSprint({
+        brandProfileId: brand.id,
+        goal,
+        platforms,
+        maxDrafts,
+      });
+      const summary = `Sprint done in ${Math.round(report.durationMs / 1000)}s: ` +
+        `${report.research.trends.length} trends, ${report.research.competitors.length} competitors tracked, ` +
+        `${report.drafts.length} draft(s) ready for review` +
+        (report.warnings.length > 0 ? ` (${report.warnings.length} warning(s), nothing lost)` : '');
+      return { success: true, message: summary, navigationTarget: '/dashboard', data: report };
+    } catch (err) { return { success: false, message: `Failed: ${(err as Error).message}` }; }
+  },
+});
+
+export const generateImageTool = tool({
+  description: 'Generate a brand-styled marketing visual (no generic AI slop — brand DNA, quality craft, platform sizing built in)',
+  parameters: z.object({
+    prompt: z.string().describe('What the image should show'),
+    platform: z.string().optional().describe('Target platform for sizing (instagram, tiktok, linkedin, x, facebook, pinterest, youtube)'),
+    style: z.enum(['authentic', 'minimal', 'bold']).optional().describe('Visual style (default authentic)'),
+  }),
+  execute: async ({ prompt, platform, style }) => {
+    try {
+      const brand = getActiveBrand();
+      if (!brand) return { success: false, message: 'No brand profile found. Create one first.' };
+      const { buildCreativePrompt } = await import('../services/creativeBriefService');
+      const { generateImage } = await import('../services/imageGenerationService');
+      const brief = buildCreativePrompt({
+        brandProfileId: brand.id,
+        prompt,
+        platform: platform || 'instagram',
+        style: style || 'authentic',
+      });
+      const result = await generateImage({
+        prompt: brief.prompt,
+        width: brief.width,
+        height: brief.height,
+      });
+      const { contentLibrary } = await import('../db/schema');
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
+      await db.insert(contentLibrary).values({
+        id,
+        brandProfileId: brand.id,
+        type: 'image',
+        platform: platform || 'instagram',
+        title: prompt.slice(0, 100),
+        content: prompt,
+        mediaUrl: result.url,
+        mediaUrlsJson: null,
+        metadataJson: JSON.stringify({ prompt: brief.prompt, style: brief.style, provider: result.provider }),
+        status: 'draft',
+        source: 'ai_generated',
+        websiteContextJson: null,
+        generatedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      }).run();
+      return {
+        success: true,
+        message: `Visual ready (${brief.width}x${brief.height}, ${brief.style} style). Saved to your library as a draft.`,
+        navigationTarget: '/library',
+        data: { id, url: result.url, provider: result.provider },
+      };
+    } catch (err) { return { success: false, message: `Failed: ${(err as Error).message}` }; }
+  },
+});
+
+export const getPlaybookTool = tool({
+  description: 'Get a proven CMO growth playbook (pillars, hooks, social search, winner loops, cadence, community)',
+  parameters: z.object({
+    topic: z.string().optional().describe('What you need: pillars, hooks, search, cta, winners, review, community, cadence, metrics, voice'),
+  }),
+  execute: async ({ topic }) => {
+    try {
+      const { getPlaybook, listPlaybooks } = await import('../services/cmoPlaybooks');
+      if (!topic) {
+        return { success: true, message: `Available playbooks: ${listPlaybooks().map((p) => p.id).join(', ')}`, data: listPlaybooks() };
+      }
+      const playbook = getPlaybook(topic);
+      if (!playbook) {
+        return { success: false, message: `No playbook matches "${topic}". Available: ${listPlaybooks().map((p) => p.id).join(', ')}` };
+      }
+      return { success: true, message: `${playbook.name}: ${playbook.promise}`, data: playbook };
+    } catch (err) { return { success: false, message: `Failed: ${(err as Error).message}` }; }
+  },
+});
+
+/* ------------------------------------------------------------------ */
 /*  Registry of all tools                                              */
 /* ------------------------------------------------------------------ */
 
@@ -667,6 +855,12 @@ export const assistantTools = {
   list_trends: listTrendsTool,
   list_opportunities: listOpportunitiesTool,
   list_content_library: listContentLibraryTool,
+  list_skills: listSkillsTool,
+  use_skill: useSkillTool,
+  save_lesson: saveLessonTool,
+  start_sprint: startSprintTool,
+  generate_image: generateImageTool,
+  get_playbook: getPlaybookTool,
 } as const;
 
 export type ToolName = keyof typeof assistantTools;
@@ -703,6 +897,12 @@ const toolDescriptions: Record<string, string> = {
   list_trends: 'List trending topics and signals',
   list_opportunities: 'List current marketing opportunities',
   list_content_library: 'Browse or search the content library for saved posts, images, and videos',
+  list_skills: 'List available skill playbooks the agent can follow',
+  use_skill: 'Load a skill playbook and follow it step by step',
+  save_lesson: 'Save something learned about this brand for future runs',
+  start_sprint: 'Launch a parallel marketing sprint toward one goal',
+  generate_image: 'Generate a brand-styled marketing visual',
+  get_playbook: 'Get a proven CMO growth playbook',
 };
 
 export function getToolDescriptions(): string {

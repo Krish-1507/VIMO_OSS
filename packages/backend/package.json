@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
-    "build": "tsc",
+    "build": "tsc && node ./scripts/copy-skills.mjs",
     "start": "node dist/backend/src/index.js",
     "lint": "tsc --noEmit",
     "test": "vitest run",

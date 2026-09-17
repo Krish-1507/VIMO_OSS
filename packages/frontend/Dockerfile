@@ -3,6 +3,8 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY packages/frontend/package.json ./packages/frontend/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/cli/package.json ./packages/cli/
 
 RUN npm install
 

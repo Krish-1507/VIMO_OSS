@@ -25,6 +25,10 @@ export interface ImageGenerationParams {
   seed?: number;
   connectorId?: string;
   apiKey?: string;
+  /** When set, the prompt is enriched with brand DNA + craft direction first. */
+  brandProfileId?: string;
+  style?: 'authentic' | 'minimal' | 'bold';
+  platform?: string;
 }
 
 async function callProvider(provider: string, apiKey: string, config: Record<string, unknown>, prompt: string, width: number, height: number): Promise<string> {
@@ -89,7 +93,30 @@ async function callProvider(provider: string, apiKey: string, config: Record<str
 }
 
 export async function generateImage(params: ImageGenerationParams): Promise<ImageGenerationResult> {
-  const { prompt, width = 1024, height = 1024, model = 'flux', seed, connectorId } = params;
+  const { model = 'flux', seed, connectorId } = params;
+  let { prompt, width = 1024, height = 1024 } = params;
+
+  // Brand-aware enrichment: raw ideas become directed briefs (brand DNA,
+  // craft direction, anti-slop negatives, platform sizing). Explicit caller
+  // dimensions always win; failures fall back to the raw prompt silently.
+  if (params.brandProfileId) {
+    try {
+      const { buildCreativePrompt } = await import('./creativeBriefService');
+      const brief = buildCreativePrompt({
+        brandProfileId: params.brandProfileId,
+        prompt,
+        platform: params.platform,
+        style: params.style,
+        width: params.width,
+        height: params.height,
+      });
+      prompt = brief.prompt;
+      width = brief.width;
+      height = brief.height;
+    } catch (err) {
+      console.warn('[ImageGen] brand enrichment failed, using raw prompt:', (err as Error).message);
+    }
+  }
 
   if (connectorId) {
     try {

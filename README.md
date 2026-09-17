@@ -7,46 +7,45 @@
 [![CI](https://github.com/Krish-1507/VIMO_OSS/actions/workflows/ci.yml/badge.svg)](https://github.com/Krish-1507/VIMO_OSS/actions/workflows/ci.yml)
 [![Nightly cross-platform smoke](https://github.com/Krish-1507/VIMO_OSS/actions/workflows/nightly.yml/badge.svg)](https://github.com/Krish-1507/VIMO_OSS/actions/workflows/nightly.yml)
 
-**The open-source autonomous marketing OS for people who have a brand to grow, not a DevOps team to manage.**
-
-You describe what you want. VIMO researches trends, writes the content, posts it, replies to
-comments, learns from every result, and tells you _why_ — in plain English. No agency. No
-$4,000/month SaaS stack. No copy-pasting API keys into developer portals.
+**Your AI marketing team in a chat box.** Tell VIMO what you want in plain words —
+it researches, writes, designs, schedules, posts, replies, and learns what works
+for *your* brand. Free, open-source, and running on your own machine.
 
 > Type one sentence. VIMO handles the rest.
 
-## 📚 Resources
+## 📚 Start here
 
-- **[Get Started — Zero Keys Needed](GET_STARTED.md)** — the non-technical, plain-language quick start (try the Demo, connect with one click).
-- **[Connector & Marketplace Verification](docs/CONNECTORS_VERIFICATION.md)** — manual smoke-tests + automated suite that prove install/uninstall/connect/disconnect are bulletproof.
-- **[Extending VIMO](docs/EXTENDING_VIMO.md)** — write your own connector or Pack in ~50 lines.
+- **[Get Started — no keys needed](GET_STARTED.md)** — see it working in 2 minutes (try the Demo first, connect later).
+- **[Deploy it anywhere](DEPLOY.md)** — your laptop, a $5 VPS with HTTPS, or Docker. Backups and updates included.
+- **[Connector & Marketplace Verification](docs/CONNECTORS_VERIFICATION.md)** — the proof that install/uninstall/connect/disconnect actually work (manual + automated).
+- **[Extending VIMO](docs/EXTENDING_VIMO.md)** — add your own connector or Pack in ~50 lines.
 - **[Contributing](CONTRIBUTING.md)** · **[Security](SECURITY.md)** · **[Roadmap](ROADMAP.md)** · **[Code of Conduct](CODE_OF_CONDUCT.md)**
-- **[GitHub Discussions](https://github.com/Krish-1507/VIMO_OSS/discussions)** — questions, ideas, and roadmap input.
-- **[Releases](https://github.com/Krish-1507/VIMO_OSS/releases)** — automated versioning & changelog via Changesets.
-
-> Tip: pin these to the repo's GitHub **About** section so newcomers find them instantly.
+- **[GitHub Discussions](https://github.com/Krish-1507/VIMO_OSS/discussions)** — questions, ideas, roadmap input.
+- **[Releases](https://github.com/Krish-1507/VIMO_OSS/releases)** — what changed, automatically documented.
 
 ---
 
-## Why VIMO exists (for the non-technical creator)
+## Why VIMO exists
 
-Most "AI marketing" tools were built for people who already speak fluent API. You're asked to
-create a developer app, generate a client secret, paste an access token, configure a webhook, and
-pray the rate limits don't kill your launch.
+Most "AI marketing" tools assume you speak fluent API: create a developer app,
+generate a secret, paste a token, configure a webhook, pray nothing breaks.
 
-VIMO is built for the other 95%:
+VIMO is built for everyone else:
 
-- **You don't need to be technical.** GitHub, Notion, Canva, LinkedIn, and X connect with a single click — VIMO
-  runs the OAuth handshake for you. Everything else connects with a key you can copy in two clicks
-  from the platform's own settings (and VIMO tells you exactly where to find it).
-- **You stay in control.** Nothing goes live without your say-so unless you choose Autonomous Mode.
-  Every action waits in an approval queue you can skim in seconds.
-- **It explains itself.** Every recommendation comes with the data points that justify it and a
-  confidence score. No black boxes.
-- **It learns your brand.** Not generic AI slop — VIMO builds a "Content DNA" from what actually
-  works for _your_ audience, and gets smarter with every post.
+- **Talk, don't configure.** Open the assistant (`Cmd/Ctrl + K`) and type what
+  you want: *"grow my Instagram"*, *"write this week's posts"*. VIMO does the
+  clicking, writing, and scheduling across 30+ tools — and shows its work.
+- **Connect without the homework.** GitHub connects in one click; everything
+  else is a guided, step-by-step setup in plain words. No developer portals
+  unless a platform forces it (and then VIMO walks you through it).
+- **You stay in control.** Nothing goes live without your approval unless you
+  switch on Autonomous Mode. One approval queue, skimmable in seconds.
+- **It explains itself.** Every suggestion shows its data and confidence.
+- **It learns your brand.** Your colors, voice, audience, and every lesson
+  from every post become your brand's memory — so output stops looking like
+  generic AI slop and starts looking like *you*.
 
-If you can write a tweet, you can run a complete autonomous marketing operation.
+If you can write a tweet, you can run your own marketing team.
 
 ---
 
@@ -103,10 +102,19 @@ copy-paste manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/C
   delivery history, and a **retry queue with exponential backoff**.
 - **Brand Brain & Content DNA** — permanent memory of every post, campaign, lesson, and audience
   insight. VIMO evolves its voice automatically.
-- **VIMO Assistant** — a conversational system controller and the app's front door
-  (dashboard hero, sidebar entry, `Cmd/Ctrl + K`, auto-opens after onboarding). "Grow my
-  Instagram," "Why did engagement drop last month?" — and it operates the whole platform
-  for you, always on your active brand.
+- **VIMO Assistant** — your conversational marketing operator and the app's front
+  door (dashboard hero, sidebar button, `Cmd/Ctrl + K`). It runs 30+ tools, follows
+  reusable **skill playbooks** (launch a post, plan pillars, repurpose winners…),
+  can fan out a **parallel sprint** of specialists toward one goal, and **saves
+  what it learns** about your brand so every run gets smarter. Always acts on
+  your active brand.
+- **CMO playbooks built in** — proven operator strategies (content pillars with
+  ratios, hook-first video, social-search captions, winner-repurpose loops,
+  sustainable cadence) guide both the assistant and the Director's
+  recommendations — senior-operator thinking, on demand.
+- **Brand-styled visuals** — generated images carry your colors, aesthetic, and
+  craft direction with anti-slop guardrails, sized per platform. Saved to your
+  library as drafts, never auto-posted.
 - **Brand Roast** — a brutally honest 0–100 score with specific fixes. Designed to be shared.
 - **Marketing Time Machine** — root-cause analysis over 12 weeks of your own data.
 - **Content Intelligence** — Reels scripts, three-tier hashtag rotation, growth-optimized posting
@@ -136,53 +144,46 @@ copy-paste manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/C
 
 ---
 
-## 🚀 2-Minute Quickstart
+## 🚀 Up and running in 5 minutes
 
 You don't need a single API key to see VIMO work.
 
-### Easiest: one command
+### 1. Start it (pick one)
 
 ```bash
 npm i -g vimo-oss
 vimo
 ```
 
-That's it — no git, no Docker, no API keys. The launcher downloads VIMO,
-installs it, builds it, starts it on a free port, and opens your browser.
-On Windows you can type `VIMO` or `vimo` in cmd or PowerShell; on macOS and
-Linux both spellings work after install. Onboarding auto-detects a local
-Ollama install and offers **"Use free local AI"** with one click — no account,
-no key, nothing leaves your machine. Press `Ctrl+C` to stop. First run takes a
-few minutes (it's building the app for you); later starts are fast.
+That's it — no git, no Docker. It downloads VIMO, sets it up, and opens your
+browser (Windows: `vimo` in cmd/PowerShell; macOS/Linux: same). First run takes
+a few minutes; later starts are fast. `Ctrl+C` stops everything.
 
-Useful launcher commands: `vimo doctor` (check your machine is ready),
-`vimo --update` (updates the launcher itself, then the app — keeps your data),
-`vimo --reset` (reinstall from scratch). Stuck on an old version?
-`npm i -g vimo-oss@latest`, then `vimo --update`. Confirm what you're running
-in Settings → About (app) and `vimo --version` (launcher).
+### 2. Look around instantly
 
-### Option A — Try the Demo (zero setup)
+On the login screen choose **"Try the Demo"** — a fully-working sample brand
+with posts, analytics, and a plan. Clearly labeled, never confused with real data.
 
-1. Launch VIMO (see **Run it** below).
-2. On the login screen, choose **"Try the Demo."** You land in a fully-working, clearly-badged
-   **Demo** brand — sample posts, analytics, and a content plan. Nothing here is ever mistaken for
-   a real account.
+### 3. Make it yours (guided, ~3 minutes)
 
-### Option B — Connect and go live
+1. **Set a PIN** (4–8 digits — it's your private, single-user app).
+2. **Pick your AI brain** — paste one key (OpenAI, Groq, …), use free local AI
+   if offered, or skip and add it later in Settings.
+3. **Describe your brand** — paste your website and VIMO extracts your identity,
+   or fill in three quick fields.
+4. **Connect an account** — click a platform, approve in your browser, done.
+5. **Meet your agent** — tell it what you want (*"grow my Instagram"*) and
+   approve what it proposes.
 
-1. **Launch VIMO** (see **Run it** below). Your browser opens to
-   `http://localhost:5173` and the system check runs automatically.
-2. **Set a 4–8 digit PIN** to log in (it's a local, single-user app).
-3. **Connect one AI provider** (OpenAI, Anthropic, or any OpenAI-compatible endpoint like Groq or
-   Ollama). This is the _only_ key required to generate content.
-4. **Connect a social account** — click **Connect** on Instagram, LinkedIn, X, etc. One-click
-   providers (GitHub, Notion, Canva) need zero keys.
-5. **Run the Marketing Director.** You get a morning briefing with a top recommendation. Click
-   **Approve**, and VIMO publishes, schedules, and learns.
+That's the whole journey: one key, one brand, one account — then VIMO runs
+your marketing while you approve.
 
-That's it. One key and you're running a complete autonomous marketing operation.
+Handy extras: `vimo doctor` (is my machine ready?), `vimo --update` (updates
+everything, keeps your data), `vimo --reset` (fresh start). Version unsure?
+Settings → About (app) and `vimo --version` (launcher). Want it online 24/7?
+See **[DEPLOY.md](DEPLOY.md)** for the VPS path.
 
-### Run it
+### Run it (developers)
 
 ```bash
 # 1. Clone
@@ -445,7 +446,7 @@ code end-to-end on every CI run.
 # Run the full test suite (backend + frontend)
 npm test
 
-# Backend only — 245 tests across 32 files
+# Backend only — 259 tests across 35 files
 npm run test:backend
 
 # Frontend only — 9 tests across 3 files
@@ -472,6 +473,14 @@ What the suite covers:
 - `marketingDirector.test.ts` — the full pipeline persists a `completed` session;
   `runMarketingDirector` writes the `running` row up front.
 - `llmBuiltinDisable.test.ts` — keyless mode never attempts the dead free tier.
+- `modelAssignmentUnification.test.ts` — Settings model picks drive every agent;
+  stale picks fall back honestly; background task names alias to UI picks.
+- `skills.test.ts` — the shipped skill catalog parses; unknown skills resolve to
+  null; lesson persistence matches the schema.
+- `marketingSprint.test.ts` — parallel fan-out degrades into warnings, drafts
+  still ship, nothing schedules or publishes on its own.
+- `cmoCreative.test.ts` — playbook matching (exact → phrase → keywords, null
+  otherwise) and brand-DNA visual briefs with safe no-brand passthrough.
 - `connectionPackMarketplace.test.ts` — live `discoverPack` + `PackAdapter` round-trip
   for Shopify, GitHub, Stripe, SEO, … with real DB and credential store.
 - `connectionSocialAccounts.test.ts` — Instagram account verification + publish path

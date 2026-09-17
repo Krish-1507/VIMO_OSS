@@ -6,10 +6,13 @@ RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/frontend/package.json ./packages/frontend/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/cli/package.json ./packages/cli/
 
 RUN npm install
 
 COPY packages/backend ./packages/backend
+COPY packages/shared ./packages/shared
 
 RUN npm run build --workspace=packages/backend
 

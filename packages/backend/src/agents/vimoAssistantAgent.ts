@@ -72,6 +72,12 @@ function generateQuickReplies(lastToolName?: string, success?: boolean): string[
     list_competitors: ['Add competitor', 'Track trends', 'Run brand audit'],
     list_trends: ['Create content about this', 'Analyze performance', 'Add competitor'],
     list_opportunities: ['Act on opportunity', 'Start autopilot', 'Show dashboard'],
+    list_skills: ['Write a post', 'Plan my content', 'Weekly review'],
+    use_skill: ['Save this lesson', 'Show trends', 'Start autopilot'],
+    save_lesson: ['Weekly review', 'Show dashboard', 'Create content'],
+    start_sprint: ['Review the drafts', 'Schedule the best one', 'Show trends'],
+    generate_image: ['Make another variation', 'Write a post for this', 'Show library'],
+    get_playbook: ['Plan my pillars', 'Fix my hooks', 'Start autopilot'],
   };
   return map[lastToolName] || ['Start autopilot', 'Roast my brand', 'Show trends', 'Create a campaign'];
 }
@@ -115,6 +121,9 @@ export async function processMessage(params: {
   sessionId: string;
 }): Promise<AssistantResponse> {
   const { userMessage, brandProfileId, sessionId } = params;
+  // Same context the streaming path sets — without this every tool call
+  // below falls back to first-row instead of the requested brand.
+  setAssistantBrandContext(brandProfileId);
   const allMessages = db
     .select()
     .from(assistantMessages)
