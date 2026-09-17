@@ -54,6 +54,7 @@ export default async function settingsRoutes(app: FastifyInstance) {
         smtpUser: config.smtpUser,
         smtpPass: config.smtpPass ? '********' : '',
         smtpFrom: config.smtpFrom,
+        smtpAllowSelfSigned: config.smtpAllowSelfSigned,
       };
     } catch (err) {
       return reply.status(500).send(formatError(err));
@@ -70,6 +71,7 @@ export default async function settingsRoutes(app: FastifyInstance) {
         smtpUser?: string;
         smtpPass?: string;
         smtpFrom?: string;
+        smtpAllowSelfSigned?: boolean;
       };
       const { getEmailConfig, setEmailConfig } = await import('../services/emailService');
       const current = getEmailConfig();
@@ -83,6 +85,7 @@ export default async function settingsRoutes(app: FastifyInstance) {
         smtpUser: body.smtpUser,
         smtpPass: body.smtpPass,
         smtpFrom: body.smtpFrom,
+        smtpAllowSelfSigned: body.smtpAllowSelfSigned,
       });
       return { success: true };
     } catch (err) {

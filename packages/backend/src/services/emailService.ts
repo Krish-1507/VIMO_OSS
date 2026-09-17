@@ -6,6 +6,12 @@
  *   - email_notifications_enabled ("1"/"0")
  *   - email_recipient        (who gets emails; falls back to the user profile email)
  *   - smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from
+ *   - smtp_allow_self_signed ("1" = skip TLS cert verification; default off)
+ *
+ * TLS certificates are ALWAYS verified unless the user explicitly opts out
+ * for a private mail server with a self-signed cert. Skipping verification
+ * invites MITM attacks, so the toggle is off by default and labeled honestly
+ * in Settings.
  *
  * If SMTP is not configured, sending is a quiet no-op: nothing crashes and
  * in-app notifications still work exactly as before.
@@ -24,6 +30,8 @@ export interface EmailConfig {
   smtpUser: string;
   smtpPass: string;
   smtpFrom: string;
+  /** Explicit opt-out of TLS cert verification (self-signed servers). Default false. */
+  smtpAllowSelfSigned: boolean;
 }
 
 const CONFIG_KEYS = {
@@ -34,6 +42,7 @@ const CONFIG_KEYS = {
   smtpUser: 'smtp_user',
   smtpPass: 'smtp_pass',
   smtpFrom: 'smtp_from',
+  smtpAllowSelfSigned: 'smtp_allow_self_signed',
 } as const;
 
 function getSetting(key: string): string | null {
@@ -64,6 +73,7 @@ export function getEmailConfig(): EmailConfig {
     smtpUser: getSetting(CONFIG_KEYS.smtpUser) || '',
     smtpPass: getSetting(CONFIG_KEYS.smtpPass) || '',
     smtpFrom: getSetting(CONFIG_KEYS.smtpFrom) || 'VIMO <no-reply@vimo.app>',
+    smtpAllowSelfSigned: getSetting(CONFIG_KEYS.smtpAllowSelfSigned) === '1',
   };
 }
 
@@ -75,6 +85,30 @@ export function setEmailConfig(partial: Partial<Omit<EmailConfig, 'enabled'>> & 
   if (partial.smtpUser !== undefined) setSetting(CONFIG_KEYS.smtpUser, partial.smtpUser.trim());
   if (partial.smtpPass !== undefined) setSetting(CONFIG_KEYS.smtpPass, partial.smtpPass.trim());
   if (partial.smtpFrom !== undefined) setSetting(CONFIG_KEYS.smtpFrom, partial.smtpFrom.trim());
+  if (partial.smtpAllowSelfSigned !== undefined) {
+    setSetting(CONFIG_KEYS.smtpAllowSelfSigned, partial.smtpAllowSelfSigned ? '1' : '0');
+  }
+}
+
+/**
+ * TLS options for an SMTP connection. Certificates are verified unless the
+ * user explicitly allowed self-signed certs (private mail servers only).
+ * Pure helper — unit-tested, no sockets involved.
+ */
+export function smtpTlsOptions(config: Pick<EmailConfig, 'smtpAllowSelfSigned'>): { rejectUnauthorized: boolean } {
+  return { rejectUnauthorized: !config.smtpAllowSelfSigned };
+}
+
+/**
+ * Translate raw socket/TLS errors into plain language. A rejected cert names
+ * the escape hatch instead of leaving the user guessing.
+ */
+export function explainSmtpError(err: Error, allowSelfSigned: boolean): string {
+  const raw = err.message || 'connection failed';
+  if (/self-signed|unable to verify|certificate/i.test(raw) && !allowSelfSigned) {
+    return `${raw}. The mail server's certificate could not be verified — only proceed if this is your own private server (Settings → Email → allow self-signed certificates).`;
+  }
+  return raw;
 }
 
 /* ------------------------------------------------------------------ */
@@ -125,7 +159,7 @@ export async function sendEmail(
 
   return new Promise((resolve) => {
     let socket: net.Socket = useImplicitTls
-      ? tls.connect({ host: config.smtpHost, port, rejectUnauthorized: false })
+      ? tls.connect({ host: config.smtpHost, port, ...smtpTlsOptions(config) })
       : net.connect({ host: config.smtpHost, port });
 
     type Phase =
@@ -142,7 +176,9 @@ export async function sendEmail(
 
     socket.setTimeout(20000);
     socket.on('timeout', () => done(false, 'SMTP connection timed out'));
-    socket.on('error', (err) => done(false, `SMTP connection error: ${err.message}`));
+            socket.on('error', (err) =>
+              done(false, `SMTP connection error: ${explainSmtpError(err, config.smtpAllowSelfSigned)}`),
+            );
 
     const handle = (code: number, message: string) => {
       switch (phase) {
@@ -180,10 +216,12 @@ export async function sendEmail(
 
         case 'starttls':
           if (code === 220) {
-            socket = tls.connect({ socket, rejectUnauthorized: false });
+            socket = tls.connect({ socket, ...smtpTlsOptions(config) });
             socket.setTimeout(20000);
             socket.on('timeout', () => done(false, 'SMTP connection timed out'));
-            socket.on('error', (err) => done(false, `SMTP connection error: ${err.message}`));
+    socket.on('error', (err) =>
+      done(false, `SMTP connection error: ${explainSmtpError(err, config.smtpAllowSelfSigned)}`),
+    );
             socket.on('data', (chunk) => onData(chunk));
             phase = 'ehlo';
             send(`EHLO ${osHostname()}`);

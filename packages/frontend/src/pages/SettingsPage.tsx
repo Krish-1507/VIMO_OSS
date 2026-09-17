@@ -289,10 +289,11 @@ export default function SettingsPage() {
      recipient: string;
      smtpHost: string;
      smtpPort: number;
-     smtpUser: string;
-     smtpPass: string;
-     smtpFrom: string;
-   }>({ enabled: false, recipient: '', smtpHost: '', smtpPort: 587, smtpUser: '', smtpPass: '', smtpFrom: '' });
+      smtpUser: string;
+      smtpPass: string;
+      smtpFrom: string;
+      smtpAllowSelfSigned: boolean;
+    }>({ enabled: false, recipient: '', smtpHost: '', smtpPort: 587, smtpUser: '', smtpPass: '', smtpFrom: '', smtpAllowSelfSigned: false });
    const [emailTestStatus, setEmailTestStatus] = useState<{ ok: boolean; message: string } | null>(null);
    const [emailSaving, setEmailSaving] = useState(false);
    const [emailTesting, setEmailTesting] = useState(false);
@@ -316,9 +317,10 @@ export default function SettingsPage() {
          smtpHost: emailConfig.smtpHost,
          smtpPort: Number(emailConfig.smtpPort) || 587,
          smtpUser: emailConfig.smtpUser,
-         smtpPass: emailConfig.smtpPass,
-         smtpFrom: emailConfig.smtpFrom,
-       });
+          smtpPass: emailConfig.smtpPass,
+          smtpFrom: emailConfig.smtpFrom,
+          smtpAllowSelfSigned: emailConfig.smtpAllowSelfSigned,
+        });
        setEmailTestStatus({ ok: true, message: 'Email settings saved.' });
      } catch (err) {
        setEmailTestStatus({ ok: false, message: 'Failed to save email settings.' });
@@ -1483,6 +1485,18 @@ export default function SettingsPage() {
                         />
                       </div>
                     </div>
+                    <label className="flex cursor-pointer items-start gap-2 pt-1 text-xs text-slate-600 dark:text-slate-400">
+                      <input
+                        type="checkbox"
+                        checked={emailConfig.smtpAllowSelfSigned}
+                        onChange={(e) => setEmailConfig((prev) => ({ ...prev, smtpAllowSelfSigned: e.target.checked }))}
+                        className="mt-0.5 accent-teal-600"
+                      />
+                      <span>
+                        Allow self-signed certificates (less secure — only for your own private mail server).
+                        Leave this off and VIMO verifies the mail server like your browser does.
+                      </span>
+                    </label>
                     <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
                       <button
                         onClick={handleSaveEmailConfig}

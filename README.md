@@ -145,7 +145,8 @@ copy-paste manual smoke tests live in **[docs/CONNECTORS_VERIFICATION.md](docs/C
   and scheduling, plus "Run next week now."
 - **Analytics CSV export** — download post performance for any date range and brand.
 - **Email notifications** — dependency-free SMTP client (plain/STARTTLS/implicit TLS) with a
-  settings UI and test send.
+  settings UI and test send. TLS certificates are verified by default; private
+  mail servers with self-signed certs get an explicit, honestly-labeled opt-out.
 
 - **Plugin API** — register third-party connectors with actions and install them as real
   connectors.
@@ -494,6 +495,8 @@ What the suite covers:
   (blocked/not_found/timeout/unreachable/bad_url), full analysis shape.
 - `approvalService.test.ts` — platform boundary mocked (Meta-style fast
   failure); execute-path tests carry a 20s budget for cold scheduler imports.
+- `emailTls.test.ts` — SMTP verifies TLS certs by default; the self-signed
+  opt-out round-trips through settings and cert errors name the toggle.
 - `browserSession.test.ts` — persistent sessions against a fake Chromium
   backend: launch/read/close keeps the profile on disk, cookie-based login
   status, writes create an approval request and execute only after approval.
