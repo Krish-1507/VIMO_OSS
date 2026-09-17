@@ -164,6 +164,11 @@ We keep labels small and meaningful so newcomers can self-select work:
   ever 404s again, add the secret and re-run the failed job — no code change.
 - Users update with `vimo --update` (launcher self-updates first, then the
   app) or `npm i -g vimo-oss@latest`.
+- The root `vimo` version is the user-facing app version shown in Settings →
+  About (read live from the repo root, never hardcoded). Bump it by hand on
+  notable releases — changesets deliberately does not manage it. When the app
+  itself changes meaningfully but the launcher doesn't, still ship a `vimo-oss`
+  patch changeset: the version bump is the update signal existing installs see.
 
 ## Code Style
 

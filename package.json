@@ -1,6 +1,6 @@
 {
   "name": "vimo",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "VIMO — VIbe Marketing Operations. A professional open-source AI vibe marketing platform.",
   "private": true,
   "workspaces": [
