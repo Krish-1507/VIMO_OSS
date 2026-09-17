@@ -1,3 +1,5 @@
+import animate from 'tailwindcss-animate';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
@@ -75,5 +77,8 @@ export default {
       },
     },
   },
-  plugins: [],
+  // tailwindcss-animate powers the `animate-in` / `fade-in` / `slide-in-*` /
+  // `zoom-in` entrance utilities used across ~30 components. Without it every
+  // page load is dead static despite the classes.
+  plugins: [animate],
 };

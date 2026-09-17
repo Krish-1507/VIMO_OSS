@@ -85,7 +85,7 @@ export default function GuidedSetupView({
   const [error, setError] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  const meta = PROVIDER_META[provider] || { icon: Shield, color: 'from-indigo-500 to-purple-500', label: provider };
+  const meta = PROVIDER_META[provider] || { icon: Shield, color: 'from-teal-500 to-emerald-500', label: provider };
   const IconComponent = meta.icon;
 
   const steps = setupGuide.steps;

@@ -449,7 +449,7 @@ npm test
 # Backend only — 266 tests across 36 files
 npm run test:backend
 
-# Frontend only — 9 tests across 3 files
+# Frontend only — 143 tests across 4 files
 npm run test:frontend
 
 # End-to-end Playwright smoke (boots the app, runs the Director,
@@ -486,6 +486,9 @@ What the suite covers:
   (blocked/not_found/timeout/unreachable/bad_url), full analysis shape.
 - `approvalService.test.ts` — platform boundary mocked (Meta-style fast
   failure); execute-path tests carry a 20s budget for cold scheduler imports.
+- `packs.test.ts` (frontend, **134 tests**) — every marketplace pack satisfies
+  the setup contract: completable steps with valid payloads, resolving help
+  links, rules matching real fields, resolvable icons, in-app routes.
 - `connectionPackMarketplace.test.ts` — live `discoverPack` + `PackAdapter` round-trip
   for Shopify, GitHub, Stripe, SEO, … with real DB and credential store.
 - `connectionSocialAccounts.test.ts` — Instagram account verification + publish path

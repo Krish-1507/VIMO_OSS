@@ -334,7 +334,7 @@ export default function ApprovalQueuePage() {
                       {campaignId !== 'ungrouped' && (
                         <button
                           onClick={() => handleApproveCampaign(campaignId)}
-                          className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 transition-colors"
+                          className="flex items-center gap-1.5 rounded-md bg-teal-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-teal-700 transition-colors"
                         >
                           <Check className="h-3 w-3" />
                           Approve campaign

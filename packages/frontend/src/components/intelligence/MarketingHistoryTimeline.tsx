@@ -255,13 +255,13 @@ export default function MarketingHistoryTimeline({ selectedBrandId }: { selected
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
                     placeholder="e.g. What happened to my engagement recently?"
-                    className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                    className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
                     onKeyDown={(e) => e.key === 'Enter' && handleAsk()}
                   />
                   <button
                     onClick={handleAsk}
                     disabled={isAsking || !question.trim()}
-                    className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
+                    className="rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
                   >
                     {isAsking ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Ask'}
                   </button>

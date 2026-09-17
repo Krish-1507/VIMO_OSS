@@ -1397,7 +1397,7 @@ export default function SettingsPage() {
               <section className="space-y-6">
                 <div className="space-y-4">
                   <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Bell className="h-5 w-5 text-indigo-500" />
+                    <Bell className="h-5 w-5 text-teal-500" />
                     Email Notifications
                   </h2>
                   <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">

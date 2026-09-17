@@ -258,13 +258,25 @@ export default function SetupAssistant({ pack, isOpen, onClose, onComplete }: Se
         return;
       }
 
-      let graceScheduled = false;
-      const finalizeSuccess = () => {
+      // Snapshot existing connector ids: the callback creates the REAL row
+      // under a fresh id, so completion = a new active row for this provider.
+      let knownIds = new Set<string>();
+      try {
+        const before = await api.get('/api/connectors');
+        knownIds = new Set(((before.data as any[]) || []).map((c) => c.id));
+      } catch (err) {
+        console.warn('[vimo] failed to snapshot connectors:', err);
+      }
+
+      const clearAll = () => {
         const tt = oauthTimersRef.current;
         if (tt.poll) clearInterval(tt.poll);
         if (tt.check) clearInterval(tt.check);
         if (tt.grace) clearTimeout(tt.grace);
         if (tt.expiry) clearTimeout(tt.expiry);
+      };
+      const finalizeSuccess = () => {
+        clearAll();
         setOAuthState({ isConnecting: false, isConnected: true });
         setTimeout(() => {
           if (!isLastStep) {
@@ -274,34 +286,50 @@ export default function SetupAssistant({ pack, isOpen, onClose, onComplete }: Se
           }
         }, 500);
       };
-      const finalizeCancel = () => {
-        const tt = oauthTimersRef.current;
-        if (tt.poll) clearInterval(tt.poll);
-        if (tt.check) clearInterval(tt.check);
-        if (tt.grace) clearTimeout(tt.grace);
-        if (tt.expiry) clearTimeout(tt.expiry);
-        setOAuthState({ isConnecting: false, isConnected: false, error: 'Authorization was not completed. Please try again.' });
+      const finalizeCancel = (message?: string) => {
+        clearAll();
+        setOAuthState({
+          isConnecting: false,
+          isConnected: false,
+          error: message || 'Authorization was not completed. Please try again.',
+        });
       };
 
-      // Poll backend for actual OAuth completion (not just popup closed)
-      oauthTimersRef.current.poll = setInterval(async () => {
-        try {
-          // For pack OAuth the status may be on connectorId; reuse generic check if available
-          // Fallback to just waiting for popup close + grace.
-        } catch (err) {
-          console.warn('[vimo] pack connection poll warning:', err);
+      // Verify REAL completion: after the popup closes, poll for a new
+      // active connector row for this provider (up to ~25s). Closing the
+      // popup without finishing now reports honestly instead of pretending.
+      const verifyCompletion = async (): Promise<boolean> => {
+        const deadline = Date.now() + 25000;
+        while (Date.now() < deadline) {
+          try {
+            const res = await api.get('/api/connectors');
+            const fresh = ((res.data as any[]) || []).some(
+              (c) => c.provider === pack.provider && c.status === 'active' && !knownIds.has(c.id),
+            );
+            if (fresh) return true;
+          } catch (err) {
+            console.warn('[vimo] pack connection poll warning:', err);
+          }
+          await new Promise((r) => setTimeout(r, 1500));
         }
-      }, 1500);
+        return false;
+      };
 
+      let graceScheduled = false;
       oauthTimersRef.current.check = setInterval(() => {
         if (popup.closed && !graceScheduled) {
           graceScheduled = true;
           if (oauthTimersRef.current.check) clearInterval(oauthTimersRef.current.check);
-          oauthTimersRef.current.grace = setTimeout(() => {
-            // We can't verify pack OAuth via api easily here, so treat popup close as success
-            // but leave a small grace to allow backend callback to finish
-            finalizeSuccess();
-          }, 1200);
+          oauthTimersRef.current.grace = setTimeout(async () => {
+            const done = await verifyCompletion();
+            if (done) {
+              finalizeSuccess();
+            } else {
+              finalizeCancel(
+                `No new ${pack.name} connection was detected. If you finished in the popup, wait a moment and try again — otherwise complete the approval and retry.`,
+              );
+            }
+          }, 1500);
         }
       }, 700);
 
@@ -822,7 +850,7 @@ function OAuthConnectContent({
   return (
     <div className="text-center space-y-4">
       <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 space-y-4">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500">
           <ExternalLink className="h-7 w-7 text-white" />
         </div>
         <div>

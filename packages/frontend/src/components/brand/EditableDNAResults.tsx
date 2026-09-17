@@ -56,10 +56,10 @@ export default function EditableDNAResults({ dna, website, onSave, saving }: Pro
       {/* DNA Grid */}
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Brand Values */}
-        <DNACard icon={Tag} label="Brand Values" color="text-purple-500">
+        <DNACard icon={Tag} label="Brand Values" color="text-teal-500">
           <div className="flex flex-wrap gap-1.5">
             {brandValues.length > 0 ? brandValues.map((v: string, i: number) => (
-              <span key={i} className="inline-flex items-center rounded-full bg-purple-50 dark:bg-purple-900/20 px-2.5 py-1 text-xs font-medium text-purple-700 dark:text-purple-300">
+              <span key={i} className="inline-flex items-center rounded-full bg-teal-50 dark:bg-teal-900/20 px-2.5 py-1 text-xs font-medium text-teal-700 dark:text-teal-300">
                 {v}
               </span>
             )) : (
@@ -69,7 +69,7 @@ export default function EditableDNAResults({ dna, website, onSave, saving }: Pro
         </DNACard>
 
         {/* Color Palette */}
-        <DNACard icon={Palette} label="Color Palette" color="text-purple-500">
+        <DNACard icon={Palette} label="Color Palette" color="text-teal-500">
           <div className="flex gap-2 flex-wrap">
             {['primary', 'secondary', 'accent'].filter(c => dna.colors?.[c as keyof typeof dna.colors]).length > 0 ? (
               ['primary', 'secondary', 'accent'].filter(c => dna.colors?.[c as keyof typeof dna.colors]).map((c) => (
@@ -86,7 +86,7 @@ export default function EditableDNAResults({ dna, website, onSave, saving }: Pro
         </DNACard>
 
         {/* Typography */}
-        <DNACard icon={Type} label="Typography" color="text-purple-500">
+        <DNACard icon={Type} label="Typography" color="text-teal-500">
           <div className="space-y-1">
             {dna.fonts?.headings ? (
               <div className="flex items-center gap-2">
@@ -107,32 +107,32 @@ export default function EditableDNAResults({ dna, website, onSave, saving }: Pro
         </DNACard>
 
         {/* Tone of Voice */}
-        <DNACard icon={MessageSquareText} label="Tone of Voice" color="text-purple-500">
+        <DNACard icon={MessageSquareText} label="Tone of Voice" color="text-teal-500">
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             {dna.toneOfVoice || 'Not detected'}
           </p>
         </DNACard>
 
         {/* Brand Aesthetic */}
-        <DNACard icon={Wand2} label="Brand Aesthetic" color="text-purple-500">
+        <DNACard icon={Wand2} label="Brand Aesthetic" color="text-teal-500">
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             {dna.brandAesthetic || 'Not detected'}
           </p>
         </DNACard>
 
         {/* Target Audience */}
-        <DNACard icon={Eye} label="Target Audience" color="text-purple-500">
+        <DNACard icon={Eye} label="Target Audience" color="text-teal-500">
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             {dna.targetAudience || 'Not detected'}
           </p>
         </DNACard>
 
         {/* Unique Selling Points */}
-        <DNACard icon={Sparkles} label="Unique Selling Points" color="text-purple-500" className="sm:col-span-2">
+        <DNACard icon={Sparkles} label="Unique Selling Points" color="text-teal-500" className="sm:col-span-2">
           <ul className="space-y-1">
             {uniqueSellingPoints.length > 0 ? uniqueSellingPoints.map((usp: string, i: number) => (
               <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-                <ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-purple-500" />
+                <ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-teal-500" />
                 {usp}
               </li>
             )) : (
@@ -146,12 +146,12 @@ export default function EditableDNAResults({ dna, website, onSave, saving }: Pro
       {visualStyleKeywords.length > 0 && (
         <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 space-y-2">
           <div className="flex items-center gap-2 text-xs font-medium text-slate-900 dark:text-white">
-            <Tag className="h-3.5 w-3.5 text-purple-500" />
+            <Tag className="h-3.5 w-3.5 text-teal-500" />
             Visual Style
           </div>
           <div className="flex flex-wrap gap-1.5">
             {visualStyleKeywords.map((kw: string, i: number) => (
-              <span key={i} className="inline-flex items-center rounded-full bg-indigo-50 dark:bg-indigo-900/20 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:text-indigo-300">
+              <span key={i} className="inline-flex items-center rounded-full bg-teal-50 dark:bg-teal-900/20 px-2.5 py-1 text-xs font-medium text-teal-700 dark:text-teal-300">
                 {kw}
               </span>
             ))}
@@ -163,7 +163,7 @@ export default function EditableDNAResults({ dna, website, onSave, saving }: Pro
       <button
         onClick={onSave}
         disabled={saving}
-        className="w-full rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 transition-colors"
+          className="w-full rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
       >
         {saving ? (
           <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>

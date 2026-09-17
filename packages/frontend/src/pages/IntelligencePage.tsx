@@ -269,7 +269,7 @@ export default function IntelligencePage() {
             signals.map((signal) => (
               <div
                 key={signal.id}
-                className="group rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:border-indigo-200/50 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700/50 animate-in slide-in-from-right-2 duration-300"
+                className="group rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:border-teal-200/50 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-teal-700/50 animate-in slide-in-from-right-2 duration-300"
               >
                 <div className="flex items-start gap-4">
                   {/* Relevance Score */}
@@ -306,7 +306,7 @@ export default function IntelligencePage() {
                       <button
                         onClick={() => handleCreateContent(signal.id)}
                         disabled={processingIds.has(signal.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {processingIds.has(signal.id) ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -330,7 +330,7 @@ export default function IntelligencePage() {
           {!showAddForm ? (
             <button
               onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all w-full dark:border-slate-700 dark:hover:border-indigo-600"
+              className="flex items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-500 hover:border-teal-300 hover:text-teal-600 transition-all w-full dark:border-slate-700 dark:hover:border-teal-600"
             >
               <Plus className="h-4 w-4" />
               Add competitor
@@ -341,7 +341,7 @@ export default function IntelligencePage() {
                 <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider dark:text-indigo-400">New Competitor</span>
                 <button
                   onClick={() => setShowAddForm(false)}
-                  className="text-indigo-500 hover:text-indigo-600"
+                  className="text-teal-500 hover:text-teal-600"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -352,19 +352,19 @@ export default function IntelligencePage() {
                   placeholder="Competitor name"
                   value={newCompetitor.competitorName}
                   onChange={(e) => setNewCompetitor((prev) => ({ ...prev, competitorName: e.target.value }))}
-                  className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm dark:border-indigo-700 dark:bg-slate-800 dark:text-slate-200"
+                  className="rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm dark:border-teal-700 dark:bg-slate-800 dark:text-slate-200"
                 />
                 <input
                   type="text"
                   placeholder="Instagram handle (without @)"
                   value={newCompetitor.platformHandle}
                   onChange={(e) => setNewCompetitor((prev) => ({ ...prev, platformHandle: e.target.value }))}
-                  className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm dark:border-indigo-700 dark:bg-slate-800 dark:text-slate-200"
+                  className="rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm dark:border-teal-700 dark:bg-slate-800 dark:text-slate-200"
                 />
                 <button
                   onClick={handleAddCompetitor}
                   disabled={!newCompetitor.competitorName || !newCompetitor.platformHandle}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 transition-all disabled:opacity-50"
+                  className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-bold text-white hover:bg-teal-700 transition-all disabled:opacity-50"
                 >
                   Start Tracking
                 </button>
@@ -390,7 +390,7 @@ export default function IntelligencePage() {
             competitors.map((competitor) => (
               <div
                 key={competitor.id}
-                className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm hover:border-indigo-200/50 hover:shadow-md transition-all dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700/50"
+                className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm hover:border-teal-200/50 hover:shadow-md transition-all dark:border-slate-800 dark:bg-slate-900 dark:hover:border-teal-700/50"
               >
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
@@ -485,7 +485,7 @@ export default function IntelligencePage() {
               return (
                 <div
                   key={signal.id}
-                  className="group rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:border-indigo-200/50 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700/50 animate-in slide-in-from-right-2 duration-300"
+                  className="group rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:border-teal-200/50 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-teal-700/50 animate-in slide-in-from-right-2 duration-300"
                 >
                   <div className="flex items-start gap-4">
                     {/* Relevance Score */}
@@ -518,7 +518,7 @@ export default function IntelligencePage() {
                         <button
                           onClick={() => handleCreateContent(signal.id)}
                           disabled={processingIds.has(signal.id)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {processingIds.has(signal.id) ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
