@@ -455,7 +455,7 @@ code end-to-end on every CI run.
 # Run the full test suite (backend + frontend)
 npm test
 
-# Backend only — 280 tests across 38 files
+# Backend only — 284 tests across 39 files
 npm run test:backend
 
 # Frontend only — 143 tests across 4 files

@@ -71,7 +71,7 @@ After setup, you don't need to learn the app. Click **Ask VIMO** (sidebar, dashb
 
 ## Want to verify before trusting it?
 
-- **Automated tests** — `npm test` runs the full suite (**280 backend tests** across 38 files, 143
+- **Automated tests** — `npm test` runs the full suite (**284 backend tests** across 39 files, 143
   frontend tests). The Pack Marketplace + Social Accounts flows are covered by
   `connectorsMarketplaceRoutes.test.ts` on a real Fastify app with a real session
   token + CSRF token. A Playwright smoke boots the real app, runs the Marketing
