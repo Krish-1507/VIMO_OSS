@@ -87,6 +87,7 @@ jobs:
       #      environment shadows OIDC and produces a misleading registry 404,
       #      which is exactly what a bare `npm publish` tripped over.
       - name: Publish to npm with provenance
+        if: steps.check.outputs.published == 'false'
         run: |
           USERCONFIG="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
           if [ -n "${NPM_TOKEN:-}" ]; then
