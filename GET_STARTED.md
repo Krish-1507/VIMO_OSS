@@ -15,6 +15,26 @@ When you're ready for real use, VIMO connects your accounts **on your behalf**:
 
 You stay in control the whole time. VIMO only does what you approve.
 
+## Stay logged in to social accounts (persistent browser)
+
+Some platforms (X, Instagram, TikTok) don't play nicely with one-click
+connections. For those, VIMO keeps a real browser profile that **stays logged
+in**, just like your normal browser:
+
+1. Create a session (one per account, e.g. `x-main`) and launch it **visibly**.
+2. Log in yourself, once, in the window that opens.
+3. Close it. From then on the agent reuses that login in the background to
+   read your feeds and drafts.
+
+Reads are automatic. Anything that **clicks or types** (posting, replying,
+following) always asks you first in the Approvals queue — the agent creates
+the request, you approve, it executes. Deleting a session wipes the profile
+and forgets the login completely.
+
+No logins needed for public research: ask VIMO to check a subreddit, read a
+YouTube transcript, scan GitHub repos, follow an RSS feed, or read a single X
+post, and it reads them directly.
+
 ## Quick start
 
 ### One-command start (no technical knowledge needed)

@@ -73,6 +73,8 @@ CAPABILITIES (you do ALL of these):
 - Autopilot: start, stop, status, monitor
 - Viral video: create from long-form content, extract viral clips
 - Web intelligence: search, summarize, deep research, competitor analysis
+- Logged-in browsing: browser_read opens any URL inside a persistent session that stays logged in (user logs in once, you reuse it); browser_act clicks/types but ALWAYS needs the human's approval first — your first call creates the request, you retry after they approve
+- Channel research: research_channel reads subreddits, YouTube transcripts, GitHub repos, RSS feeds, single X posts — no logins needed
 - Settings: get, update, configure
 - Navigation: instantly jump to any page in the app
 - Content library: browse and manage saved content
@@ -362,6 +364,125 @@ export const fetchUrlTool = tool({
   execute: async ({ url }) => {
     const content = await fetchUrl(url);
     return { success: true, message: `Fetched ${url}`, data: { url, content } };
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/*  Logged-in Browser + Research Channels                               */
+/*  (VIMO's internal AgentReach: read like a logged-in human)           */
+/* ------------------------------------------------------------------ */
+
+export const browserReadTool = tool({
+  description: 'Read a page through a persistent logged-in browser session (stays logged in across runs). Use for login-walled feeds like X, Instagram, TikTok.',
+  parameters: z.object({
+    sessionKey: z.string().describe('Browser session key, e.g. x-main, instagram-brand'),
+    url: z.string().describe('URL to open in the session'),
+  }),
+  execute: async ({ sessionKey, url }) => {
+    try {
+      const { readPage } = await import('../services/browserSessionService');
+      const snapshot = await readPage(sessionKey, url);
+      const looksWalled = /log in|sign in|join now/i.test(snapshot.text.slice(0, 300)) && snapshot.text.length < 600;
+      return {
+        success: true,
+        message: looksWalled
+          ? `Opened ${url} but it looks login-walled. Ask the user to log in once via a headed session launch, then retry.`
+          : `Read ${snapshot.title || url}`,
+        navigationTarget: '/connectors',
+        data: { ...snapshot, loginWalled: looksWalled },
+      };
+    } catch (err) { return { success: false, message: `Browser read failed: ${(err as Error).message}` }; }
+  },
+});
+
+export const browserActTool = tool({
+  description: 'Click or type inside a logged-in browser session. First call creates a human approval request; retry with the approvalRequestId after the user approves.',
+  parameters: z.object({
+    sessionKey: z.string().describe('Browser session key, e.g. x-main'),
+    kind: z.enum(['click', 'type', 'keypress']).describe('Action kind'),
+    selector: z.string().describe('CSS selector to act on'),
+    text: z.string().optional().describe('Text for type actions'),
+    key: z.string().optional().describe('Key for keypress actions (default Enter)'),
+    url: z.string().optional().describe('URL to open first'),
+    approvalRequestId: z.string().optional().describe('Approved approval request id (from the first call)'),
+  }),
+  execute: async ({ sessionKey, kind, selector, text, key, url, approvalRequestId }) => {
+    try {
+      const { writeAction } = await import('../services/browserSessionService');
+      const brand = getActiveBrand();
+      const result = await writeAction(
+        sessionKey,
+        { kind, selector, text, key, url },
+        { approvalRequestId, requestedBy: 'assistant', brandProfileId: brand?.id || '' },
+      );
+      if (result.decision === 'executed') {
+        return { success: true, message: 'Browser action executed', data: result.snapshot };
+      }
+      if (result.decision === 'pending') {
+        return {
+          success: false,
+          message: `${result.message} Approval id: ${result.approvalRequestId}`,
+          navigationTarget: '/approvals',
+          data: { approvalRequestId: result.approvalRequestId },
+        };
+      }
+      return { success: false, message: result.message };
+    } catch (err) { return { success: false, message: `Browser action failed: ${(err as Error).message}` }; }
+  },
+});
+
+export const researchChannelTool = tool({
+  description: 'Deep-read a public channel without logins: subreddit search/threads, YouTube transcripts, GitHub repos/readmes, RSS feeds, single X posts. VIMO\'s internal AgentReach.',
+  parameters: z.object({
+    channel: z.enum(['reddit_search', 'reddit_thread', 'youtube', 'github_search', 'github_readme', 'rss', 'x_post']).describe('Which channel to read'),
+    query: z.string().optional().describe('Search query (reddit_search, github_search)'),
+    url: z.string().optional().describe('Thread/post/video/feed URL (reddit_thread, youtube, rss, x_post)'),
+    repo: z.string().optional().describe('owner/name for github_readme'),
+    subreddit: z.string().optional().describe('Limit reddit_search to one subreddit'),
+    limit: z.number().optional().describe('Max results (default 5)'),
+  }),
+  execute: async ({ channel, query, url, repo, subreddit, limit }) => {
+    try {
+      const channels = await import('../services/researchChannels');
+      const n = limit || 5;
+      switch (channel) {
+        case 'reddit_search': {
+          if (!query) return { success: false, message: 'query is required for reddit_search' };
+          const data = await channels.searchReddit(query, subreddit, n);
+          return { success: true, message: `Found ${data.length} Reddit posts`, data };
+        }
+        case 'reddit_thread': {
+          if (!url) return { success: false, message: 'url is required for reddit_thread' };
+          const data = await channels.readRedditThread(url);
+          return { success: true, message: `Read thread: ${data.title}`, data };
+        }
+        case 'youtube': {
+          if (!url) return { success: false, message: 'url is required for youtube' };
+          const data = await channels.readYouTubeTranscript(url);
+          return { success: true, message: `Read transcript: ${data.title}`, data };
+        }
+        case 'github_search': {
+          if (!query) return { success: false, message: 'query is required for github_search' };
+          const data = await channels.searchGitHubRepos(query, n);
+          return { success: true, message: `Found ${data.length} repos`, data };
+        }
+        case 'github_readme': {
+          if (!repo) return { success: false, message: 'repo (owner/name) is required for github_readme' };
+          const data = await channels.readGitHubReadme(repo);
+          return { success: true, message: `Read readme for ${data.fullName}`, data };
+        }
+        case 'rss': {
+          if (!url) return { success: false, message: 'url is required for rss' };
+          const data = await channels.readRssFeed(url, n);
+          return { success: true, message: `Read ${data.length} feed items`, data };
+        }
+        case 'x_post': {
+          if (!url) return { success: false, message: 'url is required for x_post' };
+          const data = await channels.readXPost(url);
+          return { success: true, message: `Read post by ${data.author}`, data };
+        }
+      }
+    } catch (err) { return { success: false, message: `Research failed: ${(err as Error).message}` }; }
   },
 });
 
@@ -839,6 +960,9 @@ export const assistantTools = {
   get_autopilot_status: getAutopilotStatusTool,
   search_web: searchWebTool,
   fetch_url: fetchUrlTool,
+  browser_read: browserReadTool,
+  browser_act: browserActTool,
+  research_channel: researchChannelTool,
   get_brand_profile: getBrandProfileTool,
   update_brand_profile: updateBrandProfileTool,
   run_brand_audit: runBrandAuditTool,
@@ -881,6 +1005,9 @@ const toolDescriptions: Record<string, string> = {
   get_autopilot_status: 'Check if autopilot is running',
   search_web: 'Search the web for current information and trends',
   fetch_url: 'Fetch and summarize content from any URL',
+  browser_read: 'Read a page through a persistent logged-in browser session',
+  browser_act: 'Click or type in a logged-in browser session (needs human approval first)',
+  research_channel: 'Deep-read Reddit, YouTube transcripts, GitHub, RSS, X posts without logins',
   get_brand_profile: 'Get the current brand profile details',
   update_brand_profile: 'Update brand name, industry, audience, or voice',
   run_brand_audit: 'Run a full brand audit/roast analysis',

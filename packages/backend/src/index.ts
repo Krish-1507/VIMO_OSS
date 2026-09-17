@@ -64,6 +64,7 @@ import statusRoutes from './routes/status';
 import activityRoutes from './routes/activity';
 import connectionsRoutes from './routes/connections';
 import packConnectionsRoutes from './routes/packConnections';
+import browserSessionRoutes from './routes/browserSessions';
 import cron from 'node-cron';
 
 /**
@@ -314,6 +315,7 @@ await app.register(webhookRoutes);
   await app.register(activityRoutes);
   await app.register(connectionsRoutes);
   await app.register(packConnectionsRoutes);
+  await app.register(browserSessionRoutes);
   await app.register(pluginRoutes);
 
   app.setErrorHandler((error, request, reply) => {

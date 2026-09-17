@@ -41,6 +41,7 @@
     "keyv": "^5.2.1",
     "node-cron": "^4.2.1",
     "openai": "^4.82.0",
+    "playwright-core": "^1.63.0",
     "socket.io": "^4.8.0",
     "tsconfig-paths": "^4.2.0",
     "vectordb": "^0.21.2",
