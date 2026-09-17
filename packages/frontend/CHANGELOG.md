@@ -1,5 +1,21 @@
 # @vimo/frontend
 
+## 1.2.3
+
+### Patch Changes
+
+- 3a19663: Agent skills + learning, parallel campaign sprints, CMO playbooks, and brand-styled visuals.
+
+  - **Backend**: five shipped skill playbooks with a zero-dependency loader (bundled into dist) plus `list_skills` / `use_skill` / `save_lesson` agent tools so VIMO learns with you; `start_sprint` fans trend/competitor/opportunity specialists out in parallel and returns drafts (never publishes); eleven 2026-grounded CMO playbooks guide the Director and answer via `get_playbook`; image generation enriches prompts with brand DNA, craft direction, anti-slop negatives, and platform sizing; assistant legacy path sets brand context (plus a fixed infinite-recursion fallback).
+  - **Docs**: README rewritten in plain language with a 5-minute quick start.
+
+- 8c81cbd: Fix the guided OAuth setup trapping users on step 1: the footer showed a disabled "Save & Connect" on every step (instead of "Next Step") because the visibility check looked at all steps instead of the current one. Save now exists only on the final step, credential placeholders are never shown as copyable values, PKCE providers no longer ask for a secret they don't need, and pasted values are trimmed before saving.
+- 1edf2fc: Unify model switching so Settings picks actually drive the agents, remove Team + Desktop Notifications, and make VPS hosting OpenClaw-simple.
+
+  - **Backend**: `getModelForTask` now honors the Settings per-task picks (legacy blob → UI `model_<task>` keys → capability auto-assign) instead of silently ignoring them; background task names alias to UI picks in the provider chain; attention alerts route social logins to Social Accounts; `CORS_ORIGINS` allowlists public domains; Team endpoints removed.
+  - **Frontend**: local Ollama models are selectable in Add AI Provider (no more hardcoded `llama3` assumption); profile saves are debounced with save feedback plus an email sanity hint; Team tab and Desktop Notifications removed; audit table scrolls with an empty state; toasts fit small phones; brand switcher in the sidebar.
+  - **Ship**: `DEPLOY.md` (launcher + systemd + Caddy, Docker Compose, backups, troubleshooting), hardened compose (required key, parameterized URLs), nightly Docker build smoke, `vimo --host` flag, documented `.env` additions.
+
 ## 1.2.2
 
 ### Patch Changes
